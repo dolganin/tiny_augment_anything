@@ -33,7 +33,7 @@ class ISICDataset(Dataset):
     def __getitem__(self, idx):
 
         img = cv2.imread(self.paths[idx])
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # type: ignore
 
         if self.transforms:
             img = self.transforms(image=img)["image"]

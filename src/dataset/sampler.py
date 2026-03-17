@@ -18,7 +18,7 @@ def make_balanced_sampler(targets):
         Sampler that can be passed to a DataLoader to perform balanced sampling,
         giving equal probability to each class regardless of its frequency.
     """
-    
+
     class_counts = torch.bincount(torch.tensor(targets))
 
     class_weights = 1.0 / class_counts.float()
@@ -26,7 +26,7 @@ def make_balanced_sampler(targets):
     sample_weights = class_weights[targets]
 
     sampler = WeightedRandomSampler(
-        weights=sample_weights,
+        weights=sample_weights,  # type: ignore
         num_samples=len(sample_weights),
         replacement=True,
     )
@@ -48,11 +48,11 @@ def make_weighted_sampler(df):
     torch.utils.data.WeightedRandomSampler
         Sampler that can be used in a DataLoader to sample rows according to the given weights.
     """
-    
+
     weights = torch.tensor(df["weight"].values).float()
 
     sampler = WeightedRandomSampler(
-        weights=weights,
+        weights=weights,  # type: ignore
         num_samples=len(weights),
         replacement=True,
     )

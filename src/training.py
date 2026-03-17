@@ -3,7 +3,8 @@ import torch
 
 import numpy as np
 
-from sklearn.metrics import roc_auc_score, f1_score
+
+from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_score
 
 
 mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
@@ -25,15 +26,9 @@ def run_epoch(model, loader, optimizer=None):
     Returns
     -------
     dict
-        Dictionary with metrics for the epoch:
-        - "loss" : float
-            Mean binary cross-entropy loss over the epoch.
-        - "auc" : float
-            Area Under the ROC Curve (AUROC) for predictions.
-        - "f1" : float
-            F1 score computed using threshold 0.5.
+        Dictionary with metrics for the epoch.
     """
-    
+
     train = optimizer is not None
     model.train() if train else model.eval()
 
@@ -42,16 +37,12 @@ def run_epoch(model, loader, optimizer=None):
     targets = []
 
     for images, target in loader:
-
         images = images.cuda()
         target = target.float().cuda()
 
         with torch.set_grad_enabled(train):
-
             logits = model(images).squeeze()
-            loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                logits, target
-            )
+            loss = torch.nn.functional.cross_entropy(logits, target)
 
             if train:
                 optimizer.zero_grad()
@@ -60,21 +51,30 @@ def run_epoch(model, loader, optimizer=None):
 
         losses.append(loss.item())
 
-        preds.append(torch.sigmoid(logits).detach().cpu().numpy())
+        probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
+        preds.append(probs)
         targets.append(target.cpu().numpy())
 
     preds = np.concatenate(preds)
     targets = np.concatenate(targets)
 
-    auc = roc_auc_score(targets, preds)
+    pred_labels = np.argmax(preds, axis=1)
 
-    pred_labels = (preds > 0.5).astype(int)
-    f1 = f1_score(targets, pred_labels)
+    precision_maccro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+        targets, pred_labels, average="macro"
+    )
+    f1_micro = f1_score(targets, pred_labels, average="micro", zero_division=0)
+    f1_per_class = f1_score(targets, pred_labels, average=None, zero_division=0)
+    accuracy = accuracy_score(targets, pred_labels)
 
     return {
-        "loss": np.mean(losses),
-        "auc": auc,
-        "f1": f1,
+        "mean_loss": np.mean(losses),
+        "precision_maccro": precision_maccro,
+        "recall_macro": recall_macro,
+        "f1_macro": f1_macro,
+        "f1_micro": f1_micro,
+        "f1_per_class": f1_per_class,
+        "accuracy": accuracy,
     }
 
 
@@ -102,21 +102,20 @@ def train_model(model, train_loader, valid_loader, optimizer, epochs):
     - Threshold for F1 computation is fixed at 0.5.
     - Model runs on GPU if available.
     """
-    
+
     with mlflow.start_run():
-
         for epoch in range(epochs):
-
             train_metrics = run_epoch(model, train_loader, optimizer)
             val_metrics = run_epoch(model, valid_loader)
 
-            mlflow.log_metrics({
-                "train_loss": train_metrics["loss"],
-                "train_auc": train_metrics["auc"],
-                "train_f1": train_metrics["f1"],
-                "val_loss": val_metrics["loss"],
-                "val_auc": val_metrics["auc"],
-                "val_f1": val_metrics["f1"],
-            }, step=epoch)
+            metrics_to_log = {}
+
+            for metric_name, value in train_metrics.items():
+                metrics_to_log[f"train_{metric_name}"] = value
+
+            for metric_name, value in val_metrics.items():
+                metrics_to_log[f"val_{metric_name}"] = value
+
+            mlflow.log_metrics(metrics_to_log, step=epoch)
 
             print(epoch, val_metrics)
