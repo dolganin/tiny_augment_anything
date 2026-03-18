@@ -1,0 +1,9 @@
+mlflow:
+  experiment_name: "ISIC_classification"
+  run_name:        null
+  description:     "Pretraining on ISIC dataset"
+  nested:          false
+  tags:
+    stage:         pretrain
+    dataset:       ISIC
+    backbone:      ${model.object.backbone}

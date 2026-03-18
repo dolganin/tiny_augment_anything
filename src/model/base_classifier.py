@@ -2,6 +2,7 @@ import timm
 import torch
 
 from torch import nn
+from pathlib import Path
 
 
 class ISICClassifier(nn.Module):
@@ -35,6 +36,8 @@ class ISICClassifier(nn.Module):
     ) -> None:
         super().__init__()
 
+        self.backbone = backbone
+
         self.model = timm.create_model(
             backbone,
             pretrained=pretrained,
@@ -58,4 +61,22 @@ class ISICClassifier(nn.Module):
         torch.Tensor
             Raw logits of shape (B, num_classes).
         """
+
         return self.model(x)
+
+    def load_checkpoint(self, checkpoint_path: str | Path) -> None:
+        """
+        Load model weights from checkpoint.
+
+        Parameters
+        ----------
+        checkpoint_path : str | Path
+            Path where weights stored.
+        """
+
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device("cuda"))
+
+        if (state_dict := checkpoint.get("model_state_dict", None)) is None:
+            raise RuntimeError("No checkpoint.")
+
+        self.model.load_state_dict(state_dict, strict=False)

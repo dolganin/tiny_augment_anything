@@ -1,9 +1,15 @@
 defaults:
   - _self_
-  - model:      EdgeNeXt
-  - dataloader: pretrain
-  - optimizer:  Adam
-  - scheduler:  CosineAnnealingLR
+  - model:        EdgeNeXt_pretrain
+  - dataloader:   pretrain
+  - optimizer:    Adam
+  - scheduler:    CosineAnnealingLR
+  - logger:       mlflow_pretrain
+
+hydra:
+  run:
+    dir:          ../outputs/pretrain/${now:%H-%M-%S}
 
 train:
-  epochs: 500
+  epochs:         500
+  checkpoint_dir: ${hydra:runtime.output_dir}/checkpoints/{model.object.backbone}

@@ -11,3 +11,10 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "timm>=1.0.25",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[project.scripts]
+do-pretrain = "scripts.pretrain:pretrain"
+do-finetune = "scripts.fine_tune:fine_tune"

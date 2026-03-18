@@ -1,5 +1,5 @@
 dataloaders:
-  _target_:     dataset.build_loaders
+  _target_:     src.dataset.build_loaders
 
   train_root:   ../data/fine_tune/train
   val_root:     ../data/fine_tune/val
