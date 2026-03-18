@@ -10,7 +10,7 @@ from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_
 mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
 
 
-def run_epoch(model, loader, optimizer=None):
+def run_epoch(model, loader, optimizer=None, scheduler=None) -> dict:
     """
     Runs a single training or validation epoch.
 
@@ -20,9 +20,10 @@ def run_epoch(model, loader, optimizer=None):
         The PyTorch model to train or evaluate.
     loader : torch.utils.data.DataLoader
         DataLoader providing batches of (images, targets).
-    optimizer : torch.optim.Optimizer, optional
+    optimizer : torch.optim.Optimizer, default=None
         Optimizer for training. If None, the function runs in evaluation mode.
-
+    scheduler :
+        Scheduler for training. If None, no lr-scheduling strategy used.
     Returns
     -------
     dict
@@ -48,6 +49,9 @@ def run_epoch(model, loader, optimizer=None):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
+                if scheduler is not None:
+                    scheduler.step()
 
         losses.append(loss.item())
 
@@ -78,7 +82,7 @@ def run_epoch(model, loader, optimizer=None):
     }
 
 
-def train_model(model, train_loader, valid_loader, optimizer, epochs):
+def train_model(model, train_loader, valid_loader, optimizer, scheduler, epochs):
     """
     Trains a model for a given number of epochs and evaluates on validation set.
 
@@ -92,20 +96,20 @@ def train_model(model, train_loader, valid_loader, optimizer, epochs):
         DataLoader for validation data.
     optimizer : torch.optim.Optimizer
         Optimizer used for training.
+    scheduler : torch.optim.lr_scheduler.LRScheduler
+        Scheduler used for training.
     epochs : int
         Number of epochs to train the model.
 
     Notes
     -----
     - Uses MLflow to log metrics at each epoch.
-    - Logs loss, AUROC, and F1 for both training and validation.
-    - Threshold for F1 computation is fixed at 0.5.
     - Model runs on GPU if available.
     """
 
     with mlflow.start_run():
         for epoch in range(epochs):
-            train_metrics = run_epoch(model, train_loader, optimizer)
+            train_metrics = run_epoch(model, train_loader, optimizer, scheduler)
             val_metrics = run_epoch(model, valid_loader)
 
             metrics_to_log = {}

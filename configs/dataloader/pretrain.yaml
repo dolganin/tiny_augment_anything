@@ -1,0 +1,11 @@
+dataloaders:
+  _target_:     dataset.build_loaders
+
+  train_root:   ../data/pretrain/train
+  val_root:     ../data/pretrain/val
+
+  transforms:
+    _target_:   augmentations.get_augmentations
+    img_size:   ${model.pretrain_img_size}
+
+  sampler_type: balanced

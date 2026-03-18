@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - model:      EdgeNeXt
-  - dataloader: pretrain
+  - dataloader: fine_tune
   - optimizer:  Adam
   - scheduler:  CosineAnnealingLR
 

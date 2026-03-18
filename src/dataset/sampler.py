@@ -1,16 +1,18 @@
 import torch
 
-from torch.utils.data import WeightedRandomSampler
+from torch.utils.data import Dataset, WeightedRandomSampler
+
+from .weighted_dataset import WeightedDataset
 
 
-def make_balanced_sampler(targets):
+def make_balanced_sampler(dataset: Dataset) -> WeightedRandomSampler:
     """
     Creates a WeightedRandomSampler to balance classes in a dataset.
 
     Parameters
     ----------
-    targets : list or torch.Tensor
-        List or tensor of integer class labels for each sample in the dataset.
+    dataset : torch.utils.data.Dataset
+        Dataset where images are stored with labels.
 
     Returns
     -------
@@ -18,15 +20,14 @@ def make_balanced_sampler(targets):
         Sampler that can be passed to a DataLoader to perform balanced sampling,
         giving equal probability to each class regardless of its frequency.
     """
+    labels = torch.tensor([label for _, label in dataset], dtype=torch.long)
 
-    class_counts = torch.bincount(torch.tensor(targets))
-
+    class_counts = torch.bincount(labels)
     class_weights = 1.0 / class_counts.float()
-
-    sample_weights = class_weights[targets]
+    sample_weights = class_weights[labels].tolist()
 
     sampler = WeightedRandomSampler(
-        weights=sample_weights,  # type: ignore
+        weights=sample_weights,
         num_samples=len(sample_weights),
         replacement=True,
     )
@@ -34,14 +35,14 @@ def make_balanced_sampler(targets):
     return sampler
 
 
-def make_weighted_sampler(df):
+def make_weighted_sampler(dataset: WeightedDataset) -> WeightedRandomSampler:
     """
     Creates a WeightedRandomSampler based on sample-specific weights.
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        DataFrame containing a "weight" column specifying the sampling weight for each row.
+    dataset : WeightedDataset
+        The same as torch.utils.data.Dataset, but also stores weights of each sample.
 
     Returns
     -------
@@ -49,11 +50,9 @@ def make_weighted_sampler(df):
         Sampler that can be used in a DataLoader to sample rows according to the given weights.
     """
 
-    weights = torch.tensor(df["weight"].values).float()
-
     sampler = WeightedRandomSampler(
-        weights=weights,  # type: ignore
-        num_samples=len(weights),
+        weights=dataset.get_weights(),
+        num_samples=len(dataset),
         replacement=True,
     )
 

@@ -1,14 +1,12 @@
-from dataset import build_dataloaders
-from models import build_model
-from augmentations import get_augmentations
+import hydra
+
+from omegaconf import DictConfig
 
 
-def pretrain() -> None:
-
-    transforms = get_augmentations()
-    build_dataloaders(transforms=transforms)
-    build_model()
+@hydra.main(config_path="../configs", config_name="fine_tune")
+def fine_tune(cfg: DictConfig) -> None:
+    pass
 
 
 if __name__ == "__main__":
-    pretrain()
+    fine_tune()

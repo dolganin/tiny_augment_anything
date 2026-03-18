@@ -5,7 +5,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 
-def get_augmentations(config: dict) -> dict[str, A.Compose]:
+def get_augmentations(img_size: int) -> dict[str, A.Compose]:
     """
     Create training and validation augmentation pipelines for ISIC skin lesion images.
 
@@ -15,11 +15,8 @@ def get_augmentations(config: dict) -> dict[str, A.Compose]:
 
     Parameters
     ----------
-    config : dict
-        Configuration dictionary. Must contain:
-
-        img_size : int
-            Target image size used for resizing.
+    img_size : int
+        Target image size used for resizing.
 
     Returns
     -------
@@ -145,8 +142,6 @@ def get_augmentations(config: dict) -> dict[str, A.Compose]:
     ToTensorV2
         Converts image from NumPy array to PyTorch tensor.
     """
-
-    img_size = config["img_size"]
 
     train_transforms = A.Compose(
         [
