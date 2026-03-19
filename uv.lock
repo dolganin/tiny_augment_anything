@@ -3032,7 +3032,7 @@ wheels = [
 ]
 
 [[package]]
-name = "tiny"
+name = "tiny-augment"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
