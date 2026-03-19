@@ -7,7 +7,7 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
-from typing import Generator
+from typing import Iterator
 from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_score
 
 
@@ -106,7 +106,7 @@ def train_model(
     optimizer: Optimizer,
     scheduler: LRScheduler,
     epochs: int,
-) -> Generator[tuple[int, dict[str, float], dict[str, float]]]:
+) -> Iterator[tuple[int, dict[str, float], dict[str, float]]]:
     """
     Trains a model for a given number of epochs and evaluates on validation set.
 
@@ -124,6 +124,15 @@ def train_model(
         Scheduler used for training.
     epochs : int
         Number of epochs to train the model.
+
+    Yields
+    ------
+    epoch : int
+        The current epoch index.
+    train_metrics : dict[str, float]
+        Dictionary containing training metrics (e.g., loss, accuracy) for the epoch.
+    val_metrics : dict[str, float]
+        Dictionary containing validation metrics for the epoch.
     """
 
     with mlflow.start_run():
