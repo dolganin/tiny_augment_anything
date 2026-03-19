@@ -1,0 +1,12 @@
+object:
+  _target_:           tiny_augment.models.build_model
+  backbone:           edgenext_base.in21k_ft_in1k
+  num_classes:        2
+  pretrained:         true
+  finetune_mode:      partial
+  trainable_prefixes: 
+                      - head
+                      - stages.3
+                      - stages.2
+
+pretrain_img_size:    256

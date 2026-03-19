@@ -1,7 +1,0 @@
-object:
-  _target_:        src.models.build_model
-  backbone:        edgenext_base.in21k_ft_in1k
-  num_classes:     2
-  pretrained:      true
-
-pretrain_img_size: 256

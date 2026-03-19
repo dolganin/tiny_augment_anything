@@ -12,6 +12,7 @@ from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_
 
 
 mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def run_epoch(
@@ -48,8 +49,8 @@ def run_epoch(
     targets = []
 
     for images, target in loader:
-        images = images.cuda()
-        target = target.cuda()
+        images = images.to(device)
+        target = target.to(device)
 
         with torch.set_grad_enabled(train):
             if train:

@@ -13,3 +13,5 @@ hydra:
 train:
   epochs:         500
   checkpoint_dir: ${hydra:runtime.output_dir}/checkpoints/{model.object.backbone}
+
+project_root:     ${hydra:runtime.cwd}

@@ -1,16 +1,20 @@
 import hydra
 import mlflow
 
-from mlflow import artifacts
 from tqdm import tqdm
 from omegaconf import DictConfig
 
-from src.train import train_model
-from src.utils import log_config, log_metrics, save_checkpoint, extract_logger_kwargs
+from tiny_augment.train import train_model
+from tiny_augment.utils import (
+    log_config,
+    log_metrics,
+    save_checkpoint,
+    extract_logger_kwargs,
+)
 
 
-@hydra.main(config_path="../configs", config_name="fine_tune")
-def fine_tune(cfg: DictConfig) -> None:
+@hydra.main(config_path="../configs", config_name="pretrain")
+def pretrain(cfg: DictConfig) -> None:
     train_loader, val_loader = hydra.utils.call(cfg.dataloader)
     model = hydra.utils.call(cfg.model.object)
 
@@ -20,15 +24,9 @@ def fine_tune(cfg: DictConfig) -> None:
     scheduler_init = hydra.utils.instantiate(cfg.scheduler)
     scheduler = scheduler_init(optimizer)
 
-    checkpoint_path = artifacts.download_artifacts(
-        run_id=cfg.model.checkpoint.mlflow_run_id,
-        artifact_path=cfg.model.checkpoint.artifact_path,
-    )
-    model.load_checkpoint(checkpoint_path)
+    best_val_loss = float("inf")
 
     logger_kwargs = extract_logger_kwargs(cfg)
-
-    best_val_loss = float("inf")
 
     with mlflow.start_run(**logger_kwargs):
         log_config(cfg)
@@ -65,4 +63,4 @@ def fine_tune(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    fine_tune()
+    pretrain()

@@ -1,16 +1,22 @@
+import torch
+
 from torch import nn
+from typing import Literal
 
 from .base_classifier import ISICClassifier
+
+
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def build_model(
     backbone: str,
     num_classes: int = 1,
-    device: str = "cuda",
     pretrained: bool = True,
     drop_rate: float = 0.0,
     drop_path_rate: float = 0.0,
-    checkpoint_path: str | None = None,
+    finetune_mode: Literal["all", "partial", "head"] = "head",
+    trainable_prefixes: list[str] | None = None,
 ) -> nn.Module:
     """
     Factory function for creating an ISIC classification model.
@@ -21,16 +27,16 @@ def build_model(
         Name of the timm architecture.
     num_classes : int, default=1
         Number of output classes.
-    device : str, default="cuda"
-        Device to move the model to.
     pretrained : bool, default=True
         Load pretrained ImageNet weights.
     drop_rate : float
         Dropout probability.
     drop_path_rate : float
         Stochastic depth probability.
-    checkpoint_path : str | None
-        Optional path to custom checkpoint.
+    finetune_mode: {"all", "partial", "head"}, default=head
+        Strategy for fine-tuning.
+    trainable_prefixes : list[str] | None, default=None
+        Prefixes of parameter names to keep trainable when finetune_mode is "partial".
 
     Returns
     -------
@@ -44,7 +50,8 @@ def build_model(
         pretrained=pretrained,
         drop_rate=drop_rate,
         drop_path_rate=drop_path_rate,
-        checkpoint_path=checkpoint_path,
+        finetune_mode=finetune_mode,
+        trainable_prefixes=trainable_prefixes,
     )
 
     return model.to(device)

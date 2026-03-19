@@ -3,6 +3,7 @@ import torch
 
 from torch import nn
 from pathlib import Path
+from typing import Literal
 
 
 class ISICClassifier(nn.Module):
@@ -21,8 +22,10 @@ class ISICClassifier(nn.Module):
         Dropout rate.
     drop_path_rate : float, default=0.0
         Stochastic depth rate.
-    checkpoint_path : str | None
-        Optional path to model weights.
+    finetune_mode: {"all", "partial", "head"}, default=head
+        Strategy for fine-tuning.
+    trainable_prefixes : list[str] | None, default=None
+        Prefixes of parameter names to keep trainable when finetune_mode is "partial".
     """
 
     def __init__(
@@ -32,11 +35,13 @@ class ISICClassifier(nn.Module):
         pretrained: bool = True,
         drop_rate: float = 0.0,
         drop_path_rate: float = 0.0,
-        checkpoint_path: str | None = None,
+        finetune_mode: Literal["all", "partial", "head"] = "head",
+        trainable_prefixes: list[str] | None = None,
     ) -> None:
         super().__init__()
 
         self.backbone = backbone
+        self.finetune_mode = finetune_mode
 
         self.model = timm.create_model(
             backbone,
@@ -44,8 +49,9 @@ class ISICClassifier(nn.Module):
             drop_rate=drop_rate,
             num_classes=num_classes,
             drop_path_rate=drop_path_rate,
-            checkpoint_path=checkpoint_path,
         )
+
+        self._apply_finetune_strategy(trainable_prefixes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -80,3 +86,33 @@ class ISICClassifier(nn.Module):
             raise RuntimeError("No checkpoint.")
 
         self.model.load_state_dict(state_dict, strict=False)
+
+    def _apply_finetune_strategy(self, trainable_prefixes: list[str] | None) -> None:
+        """
+        Freezes model parameters based on the selected fine-tuning mode.
+
+        ----------
+
+        trainable_prefixes : list[str] | None
+            Prefixes of parameter names to keep trainable when finetune_mode is "partial".
+        """
+        if self.finetune_mode == "all":
+            return
+
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        if self.finetune_mode == "head":
+            classifier = self.model.get_classifier()  # type: ignore
+            for param in classifier.parameters():
+                param.requires_grad = True
+
+        elif self.finetune_mode == "partial":
+            if trainable_prefixes is None or not trainable_prefixes:
+                raise ValueError("Partial finetune mode requires layer names.")
+
+            for name, param in self.model.named_parameters():
+                if any(prefix in name for prefix in trainable_prefixes):
+                    param.requires_grad = True
+        else:
+            assert False, f"Unrecognized finetune strategy: {self.finetune_mode}"

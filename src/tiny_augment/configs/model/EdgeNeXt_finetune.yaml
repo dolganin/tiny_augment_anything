@@ -1,0 +1,15 @@
+object:
+  _target_:           tiny_augment.models.build_model
+  backbone:           edgenext_base.in21k_ft_in1k
+  num_classes:        2
+  pretrained:         false
+  finetune_mode:      partial
+  trainable_prefixes: 
+                      - head
+                      - stages.3
+
+checkpoint:
+  mlflow_run_id:     null
+  artifact_path:     null
+
+pretrain_img_size:   256

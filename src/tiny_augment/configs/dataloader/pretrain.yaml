@@ -1,0 +1,11 @@
+dataloaders:
+  _target_:     tiny_augment.dataset.build_dataloaders
+
+  train_root:   ${project_root}/data/pretrain/train
+  val_root:     ${project_root}/data/pretrain/val
+
+  transforms:
+    _target_:   tiny_augment.augmentations.get_augmentations
+    img_size:   ${model.pretrain_img_size}
+
+  sampler_type: balanced
