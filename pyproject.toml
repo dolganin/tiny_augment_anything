@@ -1,5 +1,5 @@
 [project]
-name = "tiny"
+name = "tiny_augment"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -11,6 +11,9 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "timm>=1.0.25",
 ]
+
+[tool.uv]
+package = true
 
 [build-system]
 requires = ["hatchling"]

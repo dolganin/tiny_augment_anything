@@ -1,4 +1,4 @@
-# ISIC Classification
+# CV-Pipeline
 
 Fine-tuning and pre-training models on ISIC-like datasets.
 
@@ -13,7 +13,7 @@ cd <repository-name>
 uv sync
 ```
 
-Create the following directory structure in the project root:
+Create the following directory structure in the project root (similarly for finetune):
 
 
 ```
@@ -40,9 +40,33 @@ Example `weights.csv`:
 2,0.8
 ```
 
+**Note:** ImageFolder works under the hood, it means you can change dataset storage strcture, but the dataset is expected to follow a standard layout:
+
+    train_root/
+        class_0/
+        class_1/
+        ...
+    val_root/
+        class_0/
+        class_1/
+        ...
+
+In our example `train_root=data/pretrain/train` and `val_root=data/pretrain/val`.
+
+
 ## Configuration & Training
 
 All parameters are controlled via Hydra configuration files.
 
 See the `configs/` directory for available options.
+
+When everything is ready:
+```bash
+uv run do-pretrain
+```
+or
+```bash
+uv run do-finetune
+```
+
 

@@ -1,12 +1,15 @@
-dataloaders:
-  _target_:     tiny_augment.dataset.build_dataloaders
+_target_:         tiny_augment.dataset.build_dataloaders
 
-  train_root:   ${project_root}/data/fine_tune/train
-  val_root:     ${project_root}/data/fine_tune/val
+train_root:       ${project_root}/data/fine_tune/train
+val_root:         ${project_root}/data/fine_tune/val
+    
+transforms:    
+  _target_:       tiny_augment.augmentations.get_augmentations
+  img_size:       ${model.pretrain_img_size}
 
-  transforms:
-    _target_:   tiny_augment.augmentations.get_augmentations
-    img_size:   ${model.pretrain_img_size}
+train_batch_size: 32
+val_batch_szie:   64
 
-  sampler_type: weighted
-  weights_root: ${project_root}/data/fine_tune/weights.csv
+sampler_type:     weighted
+num_workers:      8
+weights_root:     ${project_root}/data/fine_tune/weights.csv

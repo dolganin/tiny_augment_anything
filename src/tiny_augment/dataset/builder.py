@@ -23,7 +23,7 @@ def build_dataloaders(
     val_root: str | Path,
     transforms: Mapping[str, Callable],
     train_batch_size: int = 32,
-    valid_batch_size: int = 32,
+    valid_batch_size: int = 64,
     sampler_type: Literal["balanced", "weighted"] | None = None,
     num_workers: int = 8,
     weights_root: str | Path | None = None,
@@ -61,7 +61,7 @@ def build_dataloaders(
     train_batch_size : int, default=32
         Batch size for the training dataloader.
 
-    valid_batch_size : int, default=32
+    valid_batch_size : int, default=64
         Batch size for the validation dataloader.
 
     sampler_type : {"balanced", "weighted"} | None, default=None
