@@ -1,0 +1,46 @@
+.training-log {
+  display: grid;
+  gap: 16px;
+  min-height: 420px;
+  padding: 22px;
+  border: 1px solid rgba(114, 183, 224, 0.16);
+  border-radius: 26px;
+  background: rgba(7, 10, 13, 0.34);
+}
+
+.training-log__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.training-log__title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.training-log__content {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  max-height: 480px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.training-log__line,
+.training-log__empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  line-height: 1.6;
+}
+
+.training-log__line {
+  background: rgba(240, 240, 240, 0.06);
+}
+
+.training-log__empty {
+  color: rgba(240, 240, 240, 0.6);
+  background: rgba(240, 240, 240, 0.04);
+}
