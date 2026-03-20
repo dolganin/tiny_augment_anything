@@ -86,7 +86,7 @@ def build_dataloaders(
     """
 
     train_dataset = ISICDataset(train_root, transforms["train"])
-    valid_dataset = ISICDataset(val_root, transforms["valid"])
+    valid_dataset = ISICDataset(val_root, transforms["val"])
 
     sampler = None
     if sampler_type == "balanced":
