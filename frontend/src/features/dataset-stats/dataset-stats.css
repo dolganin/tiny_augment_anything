@@ -1,0 +1,107 @@
+.class-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  align-items: end;
+  gap: 16px;
+  min-height: 420px;
+  padding: 24px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(240, 240, 240, 0.04), rgba(7, 10, 13, 0.22));
+  border: 1px solid rgba(114, 183, 224, 0.14);
+}
+
+.class-chart__row {
+  display: grid;
+  justify-items: center;
+  align-content: end;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.class-chart__bar-wrap {
+  display: grid;
+  justify-items: center;
+  align-content: end;
+  gap: 12px;
+  width: 100%;
+  min-height: 300px;
+}
+
+.class-chart__bar {
+  width: 100%;
+  min-height: 12%;
+  border-radius: 24px 24px 10px 10px;
+  background: linear-gradient(180deg, #72b7e0 0%, #3062bb 100%);
+  box-shadow: 0 20px 50px rgba(48, 98, 187, 0.28);
+}
+
+.class-chart__value {
+  color: rgba(240, 240, 240, 0.74);
+  font-size: 13px;
+}
+
+.class-chart__label {
+  max-width: 100%;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.class-selection {
+  display: grid;
+  gap: 14px;
+}
+
+.class-selection__header {
+  margin: 0;
+  color: rgba(240, 240, 240, 0.74);
+  line-height: 1.6;
+}
+
+.class-selection__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.class-selection__tag {
+  padding: 12px 16px;
+  border: 1px solid rgba(114, 183, 224, 0.44);
+  border-radius: 18px;
+  background: rgba(240, 240, 240, 0.08);
+  transition:
+    transform var(--transition-base),
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.class-selection__tag:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-accent);
+  background: rgba(114, 183, 224, 0.16);
+}
+
+.class-selection__tag--active {
+  background: rgba(48, 98, 187, 0.42);
+  border-color: var(--color-accent);
+}
+
+.class-selection__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.class-selection__meta {
+  color: rgba(240, 240, 240, 0.74);
+}
+
+@media (max-width: 780px) {
+  .class-chart {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .class-selection__footer {
+    flex-direction: column;
+  }
+}
