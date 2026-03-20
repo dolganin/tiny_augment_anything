@@ -63,3 +63,5 @@ export const adaptMetrics = (response: MetricsResponse): WorkflowMetrics => ({
     value: item.value,
   })),
 })
+
+export const adaptDownload = (downloadPath: string) => toFileUrl(downloadPath)

@@ -19,8 +19,10 @@ export function AppRouter() {
   const mode = useSessionStore((state) => state.currentMode)
   const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const approvedItems = useSessionStore((state) => state.approvedItems)
+  const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const metrics = useSessionStore((state) => state.metrics)
   const downloadUrl = useSessionStore((state) => state.downloadUrl)
+  const workflowStage = useSessionStore((state) => state.workflowStage)
 
   const hasDataset = Boolean(datasetId)
   const hasSelectedClasses = selectedClasses.length > 0
@@ -28,9 +30,10 @@ export function AppRouter() {
   const canGenerate = canOpenMode && mode === 'generate'
   const canModify = canOpenMode && mode === 'modify'
   const canReview = canGenerate || canModify
-  const canTrainClassifier = approvedItems.length > 0
-  const canShowMetrics = Boolean(metrics)
-  const canDownload = Boolean(downloadUrl)
+  const canTrainClassifier =
+    approvedItems.length > 0 || Boolean(classifierJobId) || workflowStage === 'classifier-train'
+  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics'
+  const canDownload = Boolean(downloadUrl) || workflowStage === 'download'
 
   return (
     <Routes>
