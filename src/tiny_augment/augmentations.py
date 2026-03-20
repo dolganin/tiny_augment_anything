@@ -1,5 +1,3 @@
-import cv2
-
 import albumentations as A
 
 from albumentations.pytorch import ToTensorV2
@@ -181,7 +179,7 @@ def get_augmentations(img_size: int) -> dict[str, A.Compose]:
                 shift_limit=0.1,
                 scale_limit=0.1,
                 rotate_limit=15,
-                border_mode=cv2.BORDER_CONSTANT,
+                border_mode=0,
                 p=0.85,
             ),
             A.Resize(img_size, img_size),
