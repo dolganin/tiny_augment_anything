@@ -8,7 +8,7 @@ transforms:
   img_size:       ${model.pretrain_img_size}
 
 train_batch_size: 32
-val_batch_szie:   64
+val_batch_size:   64
 
 sampler_type:     balanced
 num_workers:      8
