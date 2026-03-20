@@ -47,7 +47,7 @@ export function FineTunePage() {
         }
       }
 
-      if (event.type === 'task.completed') {
+      if (event.type === 'task.completed' && fineTuneJobId && event.jobId === fineTuneJobId) {
         setSession({
           fineTuneResolved: true,
           workflowStage: 'mode-select',
@@ -55,7 +55,11 @@ export function FineTunePage() {
         navigate('/mode')
       }
 
-      if (event.type === 'task.failed') {
+      if (event.type === 'task.failed' && fineTuneJobId && event.jobId === fineTuneJobId) {
+        setSession({
+          fineTuneEnabled: false,
+          fineTuneResolved: false,
+        })
         setErrorMessage(event.payload.message ?? 'Бэкенд вернул ошибку во время дообучения.')
       }
     },
