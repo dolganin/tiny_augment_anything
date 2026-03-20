@@ -1,4 +1,3 @@
-import mlflow
 import torch
 
 import numpy as np
@@ -11,7 +10,6 @@ from typing import Iterator
 from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_score
 
 
-mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
