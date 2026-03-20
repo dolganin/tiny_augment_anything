@@ -1,7 +1,9 @@
 from torch.utils.data import Dataset
 from torchvision.datasets import ImageFolder
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Any
+
+from tiny_augment.augmentations import AlbumentationsWrapper
 
 
 class ISICDataset(Dataset):
@@ -15,12 +17,19 @@ class ISICDataset(Dataset):
     root : str | Path
         Path where data is stored.
 
-    transforms : Callable, default=None
+    transforms : Callable[..., dict[str, Any]], default=None
         Albumentations transform pipeline.
     """
 
-    def __init__(self, root: str | Path, transform: Callable | None = None) -> None:
-        self.dataset = ImageFolder(root=root, transform=transform)
+    def __init__(
+        self, root: str | Path, transform: Callable[..., dict[str, Any]] | None = None
+    ) -> None:
+
+        tfms = None
+        if transform is not None:
+            tfms = AlbumentationsWrapper(transform)
+
+        self.dataset = ImageFolder(root=root, transform=tfms)
 
     def __getitem__(self, idx: int) -> tuple:
         img, label = self.dataset[idx]
