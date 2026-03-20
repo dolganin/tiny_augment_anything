@@ -1,0 +1,22 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    'JetBrains Mono',
+    'JetBrains Sans',
+    'Segoe UI',
+    sans-serif;
+  --color-bg: #070a0d;
+  --color-surface: #1d2967;
+  --color-surface-strong: #3062bb;
+  --color-accent: #72b7e0;
+  --color-text: #f0f0f0;
+  --color-error: #e06971;
+  --color-success: #6ac67f;
+  --color-border: rgba(114, 183, 224, 0.28);
+  --color-shadow: rgba(7, 10, 13, 0.4);
+  --page-max-width: 1200px;
+  --radius-card: 28px;
+  --radius-control: 18px;
+  --blur-layer: blur(22px);
+  --transition-base: 180ms ease;
+}
