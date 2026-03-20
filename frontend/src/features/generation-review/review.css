@@ -1,0 +1,30 @@
+.review-card,
+.metrics-grid,
+.download-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 26px;
+  background: rgba(240, 240, 240, 0.04);
+  border: 1px solid rgba(114, 183, 224, 0.16);
+}
+
+.review-card__image {
+  width: 100%;
+  max-height: 620px;
+  object-fit: cover;
+  border-radius: 24px;
+}
+
+.review-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: rgba(240, 240, 240, 0.74);
+}
+
+.review-card__empty {
+  margin: 0;
+  color: rgba(240, 240, 240, 0.68);
+  line-height: 1.7;
+}
