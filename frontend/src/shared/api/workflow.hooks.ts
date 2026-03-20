@@ -33,6 +33,14 @@ export function useGenerationConfigQuery(sessionId: string | null) {
   })
 }
 
+export function useModificationSourceQuery(sessionId: string | null) {
+  return useQuery({
+    queryKey: sessionId ? ['workflow', 'modification-source', sessionId] : ['workflow', 'modification-source', 'empty'],
+    queryFn: () => workflowApi.getModificationSource(sessionId!),
+    enabled: Boolean(sessionId),
+  })
+}
+
 export function useGenerationResultsQuery(sessionId: string | null) {
   return useQuery({
     queryKey: sessionId ? workflowKeys.generationResults(sessionId) : ['workflow', 'generation-results', 'empty'],

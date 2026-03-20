@@ -66,6 +66,14 @@
   gap: 8px;
 }
 
+.modify-preview {
+  width: 100%;
+  max-height: 520px;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid rgba(114, 183, 224, 0.24);
+}
+
 @media (max-width: 900px) {
   .mode-grid {
     grid-template-columns: 1fr;

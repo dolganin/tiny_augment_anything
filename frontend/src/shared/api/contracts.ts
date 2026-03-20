@@ -119,6 +119,7 @@ export const workflowSocketEventSchema = z.object({
     'session.updated',
     'fine_tune.progress',
     'generation.progress',
+    'modification.progress',
     'classifier.progress',
     'task.completed',
     'task.failed',
