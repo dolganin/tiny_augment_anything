@@ -102,14 +102,14 @@ def save_checkpoint(
     mlflow.log_artifact(str(path), artifact_path="model_checkpoints")
 
 
-def extract_logger_kwargs(cfg: DictConfig) -> dict:
+def extract_mlflow_kwargs(logger: DictConfig) -> dict:
     """
     Extracts logger arguments from a Hydra configuration.
 
     Parameters
     ----------
-    cfg : DictConfig
-        Hydra configuration object containing a 'logger' section with
+    logger : DictConfig
+        Hydra configuration object containing a 'mlflow' section with
         parameters (experiment_name, run_name, description, nested, tags).
 
     Returns
@@ -119,12 +119,15 @@ def extract_logger_kwargs(cfg: DictConfig) -> dict:
         `mlflow.start_run()`. Keys with None values are omitted.
     """
 
+    mlflow.set_experiment(logger.mlflow.experiment_name)
+
     kwargs = {
-        "experiment_name": cfg.logger.experiment_name,
-        "run_name": cfg.logger.run_name if cfg.logger.run_name is not None else None,
-        "description": cfg.logger.description,
-        "nested": cfg.logger.nested,
-        "tags": OmegaConf.to_container(cfg.logger.tags, resolve=True),
+        "run_name": logger.mlflow.run_name
+        if logger.mlflow.run_name is not None
+        else None,
+        "description": logger.mlflow.description,
+        "nested": logger.mlflow.nested,
+        "tags": OmegaConf.to_container(logger.mlflow.tags, resolve=True),
     }
 
     kwargs = {k: v for k, v in kwargs.items() if v is not None}

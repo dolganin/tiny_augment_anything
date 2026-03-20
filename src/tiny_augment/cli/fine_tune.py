@@ -10,7 +10,7 @@ from tiny_augment.utils import (
     log_config,
     log_metrics,
     save_checkpoint,
-    extract_logger_kwargs,
+    extract_mlflow_kwargs,
 )
 
 
@@ -31,7 +31,7 @@ def fine_tune(cfg: DictConfig) -> None:
     )
     model.load_checkpoint(checkpoint_path)
 
-    logger_kwargs = extract_logger_kwargs(cfg)
+    logger_kwargs = extract_mlflow_kwargs(cfg.logger)
 
     best_val_loss = float("inf")
 

@@ -41,3 +41,7 @@ class ISICDataset(Dataset):
     @property
     def samples(self) -> list[tuple[str, int]]:
         return self.dataset.samples
+
+    @property
+    def labels(self) -> list[int]:
+        return self.dataset.targets

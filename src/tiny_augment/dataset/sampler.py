@@ -1,17 +1,18 @@
 import torch
 
-from torch.utils.data import Dataset, WeightedRandomSampler
+from torch.utils.data import WeightedRandomSampler
 
 from .weighted_dataset import WeightedDataset
+from .base_dataset import ISICDataset
 
 
-def make_balanced_sampler(dataset: Dataset) -> WeightedRandomSampler:
+def make_balanced_sampler(dataset: ISICDataset) -> WeightedRandomSampler:
     """
     Creates a WeightedRandomSampler to balance classes in a dataset.
 
     Parameters
     ----------
-    dataset : torch.utils.data.Dataset
+    dataset : ISICDataset
         Dataset where images are stored with labels.
 
     Returns
@@ -20,7 +21,7 @@ def make_balanced_sampler(dataset: Dataset) -> WeightedRandomSampler:
         Sampler that can be passed to a DataLoader to perform balanced sampling,
         giving equal probability to each class regardless of its frequency.
     """
-    labels = torch.tensor([label for _, label in dataset], dtype=torch.long)
+    labels = torch.tensor(dataset.labels, dtype=torch.long)
 
     class_counts = torch.bincount(labels)
     class_weights = 1.0 / class_counts.float()

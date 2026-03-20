@@ -9,7 +9,7 @@ from tiny_augment.utils import (
     log_config,
     log_metrics,
     save_checkpoint,
-    extract_logger_kwargs,
+    extract_mlflow_kwargs,
 )
 
 
@@ -26,7 +26,7 @@ def pretrain(cfg: DictConfig) -> None:
 
     best_val_loss = float("inf")
 
-    logger_kwargs = extract_logger_kwargs(cfg)
+    logger_kwargs = extract_mlflow_kwargs(cfg.logger)
 
     with mlflow.start_run(**logger_kwargs):
         log_config(cfg)
