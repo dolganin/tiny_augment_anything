@@ -135,9 +135,8 @@ def train_model(
         Dictionary containing validation metrics for the epoch.
     """
 
-    with mlflow.start_run():
-        for epoch in range(epochs):
-            train_metrics = run_epoch(model, train_loader, optimizer, scheduler)
-            val_metrics = run_epoch(model, valid_loader)
+    for epoch in range(epochs):
+        train_metrics = run_epoch(model, train_loader, optimizer, scheduler)
+        val_metrics = run_epoch(model, valid_loader)
 
-            yield epoch, train_metrics, val_metrics
+        yield epoch, train_metrics, val_metrics
