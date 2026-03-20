@@ -1,5 +1,5 @@
 object:
-  _target_:           tiny_augment.models.build_model
+  _target_:           tiny_augment.model.build_model
   backbone:           eva02_small_patch14_336.mim_in22k_ft_in1k
   num_classes:        2
   pretrained:         true
