@@ -252,7 +252,7 @@ class Trainer:
 
         metrics = {
             "mean_loss": np.mean(losses),
-            "precision_macco": precision_macro,
+            "precision_macro": precision_macro,
             "recall_macro": recall_macro,
             "f1_macro": f1_macro,
             "f1_micro": f1_micro,
