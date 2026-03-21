@@ -7,7 +7,7 @@
 .spinner__ring {
   width: 92px;
   height: 92px;
-  border: 3px solid rgba(114, 183, 224, 0.16);
+  border: 3px solid rgba(48, 98, 187, 0.12);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spinner-rotate 1.1s linear infinite;
@@ -17,7 +17,7 @@
   width: 54px;
   height: 54px;
   margin-top: -70px;
-  border-top-color: #f0f0f0;
+  border-top-color: var(--color-accent-soft);
   animation-duration: 0.72s;
 }
 
@@ -29,7 +29,7 @@
 
 .spinner__label {
   margin: 0;
-  color: rgba(240, 240, 240, 0.82);
+  color: var(--color-text-muted);
   text-align: center;
 }
 

@@ -136,8 +136,7 @@ function UploadIcon() {
     <svg aria-hidden="true" className="upload-stage__icon" viewBox="0 0 120 120">
       <path
         d="M60 12C33.49 12 12 33.49 12 60s21.49 48 48 48 48-21.49 48-48S86.51 12 60 12Z"
-        fill="url(#upload-gradient)"
-        opacity="0.16"
+        fill="#eef5ff"
       />
       <path
         d="M60 28v38m0-38 16 16M60 28 44 44M36 76h48"
@@ -147,12 +146,6 @@ function UploadIcon() {
         strokeLinejoin="round"
         strokeWidth="8"
       />
-      <defs>
-        <linearGradient id="upload-gradient" x1="12" x2="108" y1="12" y2="108">
-          <stop offset="0%" stopColor="#72b7e0" />
-          <stop offset="100%" stopColor="#3062bb" />
-        </linearGradient>
-      </defs>
     </svg>
   )
 }
