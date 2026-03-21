@@ -27,6 +27,15 @@
   gap: 12px;
 }
 
+.shell__logo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  object-fit: cover;
+  box-shadow: 0 16px 36px rgba(48, 98, 187, 0.18);
+}
+
 .shell__eyebrow,
 .page-frame__eyebrow {
   margin: 0;
