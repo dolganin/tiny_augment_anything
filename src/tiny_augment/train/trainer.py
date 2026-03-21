@@ -77,7 +77,7 @@ class Trainer:
         """
 
         checkpoint = {
-            "epoch": self.current_epoch,
+            "epoch": self.current_epoch + 1,
             "model_state_dict": self.model.state_dict(),  # type: ignore
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
@@ -148,7 +148,7 @@ class Trainer:
         if self.compile_mode is not None:
             self.model = torch.compile(self.model, mode=self.compile_mode)
 
-        for epoch in range(max_epochs):
+        for epoch in range(self.current_epoch, max_epochs):
             self.current_epoch = epoch
 
             train_metrics = self._run_epoch(self.train_loader, is_train=True)
@@ -178,7 +178,7 @@ class Trainer:
         """
 
         print(
-            f"Epoch {self.current_epoch} | "
+            f"Epoch {self.current_epoch + 1} | "
             f"Val Loss: {val_metrics['mean_loss']:.4f} | "
             f"Val F1 Macro: {val_metrics['f1_macro']:.4f}"
         )
@@ -243,7 +243,7 @@ class Trainer:
 
         pred_targets = np.argmax(preds, axis=1)
 
-        precision_maccro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+        precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
             targets, pred_targets, average="macro"
         )
         f1_micro = f1_score(targets, pred_targets, average="micro", zero_division=0)
@@ -252,7 +252,7 @@ class Trainer:
 
         metrics = {
             "mean_loss": np.mean(losses),
-            "precision_maccro": precision_maccro,
+            "precision_macco": precision_macro,
             "recall_macro": recall_macro,
             "f1_macro": f1_macro,
             "f1_micro": f1_micro,
