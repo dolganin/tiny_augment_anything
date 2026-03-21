@@ -12,7 +12,6 @@ import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { useSessionStore } from '@/store/session/session.store'
 import { ClassDistributionChart } from '@/features/dataset-stats/ClassDistributionChart'
-import { ClassSelectionPanel } from '@/features/class-selection/ClassSelectionPanel'
 import '@/features/dataset-stats/dataset-stats.css'
 
 export function DatasetStatsPage() {
@@ -98,21 +97,19 @@ export function DatasetStatsPage() {
             <section className="info-card dataset-stats__chart-card">
               <div className="dataset-stats__section-head">
                 <h3 className="dataset-stats__section-title">Распределение по классам</h3>
-                <p className="dataset-stats__section-copy">Первые 10 классов после сортировки по редкости.</p>
+                <p className="dataset-stats__section-copy">
+                  Нажми на строку графика, чтобы включить или исключить класс из аугментации.
+                </p>
               </div>
-              <ClassDistributionChart items={visibleStats} />
-            </section>
-
-            <section className="info-card dataset-stats__selection-card">
-              <div className="dataset-stats__section-head">
-                <h3 className="dataset-stats__section-title">Выбор классов</h3>
-                <p className="dataset-stats__section-copy">Отметь классы, для которых нужно увеличить датасет.</p>
-              </div>
-              <ClassSelectionPanel
+              <ClassDistributionChart
                 items={visibleStats}
                 onToggle={toggleClass}
                 selectedClasses={selectedClasses}
               />
+              <div className="class-selection__footer">
+                <span className="class-selection__meta">Выбрано классов: {selectedClasses.length}</span>
+                <span className="class-selection__meta">Видимых классов: {visibleStats.length}</span>
+              </div>
             </section>
           </div>
         ) : null}
