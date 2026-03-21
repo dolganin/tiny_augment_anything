@@ -107,9 +107,11 @@ class Trainer:
         if checkpoint_path is None:
             return
 
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(
+            checkpoint_path, map_location=self.device, weights_only=False
+        )
 
-        self.model.load_state_dict(checkpoint["model_state_dict"])  # type: ignore
+        self.model.load_state_dict(checkpoint["model_state_dict"], strict=False)  # type: ignore
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         self.current_epoch = checkpoint["epoch"] + 1
@@ -132,9 +134,11 @@ class Trainer:
         if checkpoint_path is None:
             return
 
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(
+            checkpoint_path, map_location=self.device, weights_only=False
+        )
 
-        self.model.load_state_dict(checkpoint["model_state_dict"])  # type: ignore
+        self.model.load_state_dict(checkpoint["model_state_dict"], strict=False)  # type: ignore
 
     def train(self, max_epochs: int) -> None:
         """
