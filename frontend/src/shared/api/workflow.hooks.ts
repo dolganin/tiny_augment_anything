@@ -1,6 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { workflowApi } from '@/shared/api/workflow.api'
 
+type UploadDatasetPayload = {
+  file: File
+  onProgress?: (progress: number) => void
+}
+
 const workflowKeys = {
   datasetsCatalog: ['workflow', 'datasets-catalog'] as const,
   jobs: ['workflow', 'jobs'] as const,
@@ -15,7 +20,8 @@ export function useDatasetsCatalogQuery() {
   return useQuery({
     queryKey: workflowKeys.datasetsCatalog,
     queryFn: () => workflowApi.getDatasetsCatalog(),
-    refetchInterval: 5000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -23,7 +29,27 @@ export function useJobsQuery() {
   return useQuery({
     queryKey: workflowKeys.jobs,
     queryFn: () => workflowApi.getJobs(),
-    refetchInterval: 3000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useTaskStatusQuery(sessionId: string | null, taskId: string | null) {
+  return useQuery({
+    queryKey:
+      sessionId && taskId
+        ? ['workflow', 'task-status', sessionId, taskId]
+        : ['workflow', 'task-status', 'empty'],
+    queryFn: () => workflowApi.getTaskStatus(sessionId!, taskId!),
+    enabled: Boolean(sessionId && taskId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      if (!status) {
+        return 2000
+      }
+      return status === 'pending' || status === 'running' ? 2000 : false
+    },
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -83,7 +109,8 @@ export function useDownloadMutation(sessionId: string) {
 
 export function useUploadDatasetMutation() {
   return useMutation({
-    mutationFn: (file: File) => workflowApi.uploadDataset(file),
+    mutationFn: ({ file, onProgress }: UploadDatasetPayload) =>
+      workflowApi.uploadDataset(file, onProgress),
   })
 }
 

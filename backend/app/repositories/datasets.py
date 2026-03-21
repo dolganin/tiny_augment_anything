@@ -15,6 +15,8 @@ async def create_dataset(
     session_id: UUID,
     name: str,
     source_archive_path: str,
+    *,
+    status: str = "ready",
 ) -> None:
     now = datetime.now(timezone.utc)
     await connection.execute(
@@ -22,7 +24,7 @@ async def create_dataset(
         INSERT INTO datasets (id, session_id, name, source_archive_path, status, created_at, updated_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (dataset_id, session_id, name, source_archive_path, "ready", now, now),
+        (dataset_id, session_id, name, source_archive_path, status, now, now),
     )
 
 
@@ -103,3 +105,16 @@ async def get_dataset_stats(connection, dataset_id: UUID, version_id: UUID) -> l
         )
         rows = await cursor.fetchall()
     return rows
+
+
+async def update_dataset_status(connection, dataset_id: UUID, status: str) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE datasets
+        SET status = %s,
+            updated_at = %s
+        WHERE id = %s
+        """,
+        (status, now, dataset_id),
+    )

@@ -36,8 +36,15 @@ export const datasetUploadResponseSchema = z.object({
   sessionId: z.string(),
   datasetId: z.string(),
   datasetName: z.string().nullable().optional(),
+  jobId: z.string(),
   status: apiTaskStatusSchema,
   error: apiErrorSchema.nullable().optional(),
+})
+
+export const uploadInitResponseSchema = z.object({
+  uploadId: z.string(),
+  chunkSize: z.number().int().positive(),
+  totalParts: z.number().int().positive(),
 })
 
 export const sessionSnapshotResponseSchema = z.object({
@@ -128,6 +135,15 @@ export const taskStartedResponseSchema = z.object({
   status: apiTaskStatusSchema,
 })
 
+export const taskStatusResponseSchema = z.object({
+  jobId: z.string(),
+  status: apiTaskStatusSchema,
+  progress: z.number().min(0).max(1).nullable(),
+  message: z.string().nullable(),
+  error: z.object({ message: z.string().optional() }).nullable().optional(),
+  taskType: z.string(),
+})
+
 export const syncStateResponseSchema = z.object({
   status: z.literal('success'),
 })
@@ -202,4 +218,6 @@ export type GenerationConfigResponse = z.infer<typeof generationConfigResponseSc
 export type GenerationResultsResponse = z.infer<typeof generationResultsResponseSchema>
 export type JobsResponse = z.infer<typeof jobsResponseSchema>
 export type MetricsResponse = z.infer<typeof metricsResponseSchema>
+export type TaskStatusResponse = z.infer<typeof taskStatusResponseSchema>
+export type UploadInitResponse = z.infer<typeof uploadInitResponseSchema>
 export type WorkflowSocketEvent = z.infer<typeof workflowSocketEventSchema>

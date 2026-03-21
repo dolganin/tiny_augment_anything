@@ -14,6 +14,8 @@ import {
   sessionSnapshotResponseSchema,
   syncStateResponseSchema,
   taskStartedResponseSchema,
+  taskStatusResponseSchema,
+  uploadInitResponseSchema,
 } from '@/shared/api/contracts'
 import { endpoints } from '@/shared/api/endpoints'
 import { http } from '@/shared/api/http'
@@ -35,10 +37,37 @@ export const workflowApi = {
     const response = await http.post(endpoints.cancelJob(jobId))
     return taskStartedResponseSchema.parse(response.data)
   },
-  async uploadDataset(file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
-    const response = await http.post(endpoints.uploadDataset, formData)
+  async getTaskStatus(sessionId: string, taskId: string) {
+    const response = await http.get(endpoints.taskStatus(sessionId, taskId))
+    return taskStatusResponseSchema.parse(response.data)
+  },
+  async uploadDataset(file: File, onProgress?: (progress: number) => void) {
+    const initResponse = await http.post(endpoints.initUpload, { fileName: file.name, fileSize: file.size }, { timeout: 30_000 })
+    const upload = uploadInitResponseSchema.parse(initResponse.data)
+    const totalParts = upload.totalParts
+
+    for (let partNumber = 0; partNumber < totalParts; partNumber += 1) {
+      const start = partNumber * upload.chunkSize
+      const end = Math.min(file.size, start + upload.chunkSize)
+      const chunk = file.slice(start, end)
+      const uploadedBefore = start
+      await http.put(endpoints.uploadChunk(upload.uploadId, partNumber, totalParts), chunk, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+        timeout: 0,
+        onUploadProgress: (event) => {
+          const loaded = event.loaded ?? chunk.size
+          const progress = Math.min(100, Math.round(((uploadedBefore + loaded) / file.size) * 100))
+          onProgress?.(progress)
+        },
+      })
+      onProgress?.(Math.min(100, Math.round((end / file.size) * 100)))
+    }
+
+    const response = await http.post(endpoints.completeUpload(upload.uploadId), null, {
+      timeout: 0,
+    })
     return datasetUploadResponseSchema.parse(response.data)
   },
   async restoreSession(sessionId: string) {

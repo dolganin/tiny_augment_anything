@@ -38,6 +38,53 @@ async def create_session(
     )
 
 
+async def create_pending_session(
+    connection,
+    session_id: UUID,
+    dataset_id: UUID,
+) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        INSERT INTO sessions (
+            id,
+            workflow_stage,
+            dataset_id,
+            current_dataset_version_id,
+            selected_classes,
+            fine_tune_enabled,
+            fine_tune_resolved,
+            revision,
+            created_at,
+            updated_at,
+            last_seen_at
+        )
+        VALUES (%s, %s, %s, NULL, '[]'::jsonb, false, false, 1, %s, %s, %s)
+        """,
+        (session_id, WorkflowStage.UPLOAD.value, dataset_id, now, now, now),
+    )
+
+
+async def finalize_import_session(
+    connection,
+    session_id: UUID,
+    dataset_version_id: UUID,
+) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE sessions
+        SET current_dataset_version_id = %s,
+            workflow_stage = %s,
+            revision = revision + 1,
+            updated_at = %s,
+            last_seen_at = %s
+        WHERE id = %s
+        """,
+        (dataset_version_id, WorkflowStage.DATASET_STATS.value, now, now, session_id),
+    )
+
+
 async def get_snapshot(connection, session_id: UUID) -> dict[str, Any] | None:
     async with connection.cursor() as cursor:
         await cursor.execute(

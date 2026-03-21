@@ -33,6 +33,10 @@ def session_upload_dir(paths: RuntimePaths, session_id: UUID) -> Path:
     return paths.uploads / str(session_id)
 
 
+def staged_upload_dir(paths: RuntimePaths, upload_id: UUID) -> Path:
+    return paths.temp / "uploads" / str(upload_id)
+
+
 def dataset_root_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
     return paths.datasets / str(dataset_id)
 
