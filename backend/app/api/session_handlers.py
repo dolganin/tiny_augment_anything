@@ -12,7 +12,7 @@ from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.queue import enqueue_task
 from backend.app.services.sessions import build_snapshot, parse_session_id
-from backend.app.services.uploads import append_chunk, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
+from backend.app.services.uploads import append_chunk, discard_chunk_upload, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
 
 
 async def upload_dataset(request: Request, params: dict[str, str], state: object):
@@ -138,6 +138,16 @@ async def complete_dataset_upload(request: Request, params: dict[str, str], stat
             "error": None,
         },
     )
+
+
+async def cancel_dataset_upload(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    try:
+        upload_id = UUID(params["upload_id"])
+    except ValueError as error:
+        raise AppError(400, "Некорректный uploadId.") from error
+    discard_chunk_upload(runtime_state.runtime_paths, upload_id)
+    return json_response(200, {"status": "success"})
 
 
 async def get_session(request: Request, params: dict[str, str], state: object):

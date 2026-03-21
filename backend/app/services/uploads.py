@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from pathlib import Path, PurePosixPath
-from zipfile import BadZipFile, ZipFile
+from pathlib import Path
 import json
+import shutil
 from uuid import UUID, uuid4
+from zipfile import ZipFile
 
+from backend.app.services.archive_layout import collect_dataset_archive_images
 from backend.app.repositories.datasets import create_assets, create_dataset, create_initial_version, get_dataset_stats, update_dataset_status
 from backend.app.repositories.sessions import create_pending_session, finalize_import_session
 from backend.app.runtime.errors import AppError
@@ -18,10 +20,6 @@ from backend.app.services.filesystem import (
     session_upload_dir,
     staged_upload_dir,
 )
-
-
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
-
 
 @dataclass(frozen=True, slots=True)
 class UploadResult:
@@ -91,6 +89,13 @@ def append_chunk(runtime_paths: RuntimePaths, upload_id: UUID, part_number: int,
     meta["uploaded_bytes"] = int(meta["uploaded_bytes"]) + len(payload)
     _write_upload_meta(meta_path, meta)
     return min(1.0, int(meta["uploaded_bytes"]) / int(meta["file_size"]))
+
+
+def discard_chunk_upload(runtime_paths: RuntimePaths, upload_id: UUID) -> None:
+    upload_dir = staged_upload_dir(runtime_paths, upload_id)
+    if not upload_dir.exists():
+        return
+    shutil.rmtree(upload_dir, ignore_errors=True)
 
 
 async def prepare_dataset_upload_from_staged_archive(
@@ -275,45 +280,28 @@ def _extract_assets(runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID,
     originals_dir = dataset_originals_dir(runtime_paths, dataset_id)
     originals_dir.mkdir(parents=True, exist_ok=True)
     assets: list[dict] = []
-    try:
-        with ZipFile(archive_path, "r") as archive:
-            for member in archive.infolist():
-                if member.is_dir():
-                    continue
-                class_name = _resolve_class_name(member.filename)
-                if not class_name:
-                    continue
-                suffix = PurePosixPath(member.filename).suffix.lower()
-                if suffix not in IMAGE_SUFFIXES:
-                    continue
-                asset_id = uuid4()
-                class_dir = originals_dir / class_name
-                class_dir.mkdir(parents=True, exist_ok=True)
-                target_path = class_dir / f"{asset_id}{suffix}"
-                with archive.open(member, "r") as source_file:
-                    data = source_file.read()
-                target_path.write_bytes(data)
-                relative_path = make_relative_path(runtime_root, target_path)
-                assets.append(
-                    {
-                        "id": asset_id,
-                        "dataset_id": dataset_id,
-                        "class_name": class_name,
-                        "storage_path": relative_path,
-                        "preview_path": relative_path,
-                        "checksum": sha256(data).hexdigest(),
-                    }
-                )
-    except BadZipFile as error:
-        raise AppError(422, "Архив повреждён или не распознаётся как zip.") from error
+    archive_entries = collect_dataset_archive_images(archive_path)
+    with ZipFile(archive_path, "r") as archive:
+        for entry in archive_entries:
+            asset_id = uuid4()
+            class_dir = originals_dir / entry.class_name
+            class_dir.mkdir(parents=True, exist_ok=True)
+            target_path = class_dir / f"{asset_id}{entry.suffix}"
+            with archive.open(entry.member_name, "r") as source_file:
+                data = source_file.read()
+            target_path.write_bytes(data)
+            relative_path = make_relative_path(runtime_root, target_path)
+            assets.append(
+                {
+                    "id": asset_id,
+                    "dataset_id": dataset_id,
+                    "class_name": entry.class_name,
+                    "storage_path": relative_path,
+                    "preview_path": relative_path,
+                    "checksum": sha256(data).hexdigest(),
+                }
+            )
     return assets
-
-
-def _resolve_class_name(member_name: str) -> str | None:
-    parts = [part for part in PurePosixPath(member_name).parts if part not in {"", ".", "__MACOSX"}]
-    if len(parts) < 2:
-        return None
-    return parts[-2]
 
 
 def _class_stats(assets: list[dict]) -> list[dict[str, int | str]]:

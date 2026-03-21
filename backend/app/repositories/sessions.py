@@ -168,3 +168,17 @@ async def save_selected_classes(
         ),
     )
     return {"jobId": str(task_id), "status": TaskStatus.SUCCESS.value}
+
+
+async def delete_sessions_for_dataset(connection, dataset_id: UUID) -> int:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            DELETE FROM sessions
+            WHERE dataset_id = %s
+            RETURNING id
+            """,
+            (dataset_id,),
+        )
+        rows = await cursor.fetchall()
+    return len(rows)

@@ -118,3 +118,20 @@ async def update_dataset_status(connection, dataset_id: UUID, status: str) -> No
         """,
         (status, now, dataset_id),
     )
+
+
+async def rename_dataset(connection, dataset_id: UUID, name: str) -> bool:
+    now = datetime.now(timezone.utc)
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            UPDATE datasets
+            SET name = %s,
+                updated_at = %s
+            WHERE id = %s
+            RETURNING id
+            """,
+            (name, now, dataset_id),
+        )
+        row = await cursor.fetchone()
+    return row is not None

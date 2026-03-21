@@ -11,6 +11,7 @@ async def list_datasets(connection) -> list[dict[str, Any]]:
             SELECT
                 d.id AS dataset_id,
                 d.name AS dataset_name,
+                d.status AS dataset_status,
                 d.updated_at,
                 s.id AS session_id,
                 s.workflow_stage,
@@ -57,3 +58,30 @@ async def get_latest_session_for_dataset(connection, dataset_id: UUID) -> dict[s
             (dataset_id,),
         )
         return await cursor.fetchone()
+
+
+async def get_dataset_details(connection, dataset_id: UUID) -> dict[str, Any] | None:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT id, session_id, source_archive_path
+            FROM datasets
+            WHERE id = %s
+            """,
+            (dataset_id,),
+        )
+        return await cursor.fetchone()
+
+
+async def list_session_ids_for_dataset(connection, dataset_id: UUID) -> list[UUID]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT id
+            FROM sessions
+            WHERE dataset_id = %s
+            """,
+            (dataset_id,),
+        )
+        rows = await cursor.fetchall()
+    return [row["id"] for row in rows]

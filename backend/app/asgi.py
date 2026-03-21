@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from backend.app.api.assets_handlers import asset_by_path
-from backend.app.api.catalog_handlers import activate_dataset, datasets_catalog
+from backend.app.api.catalog_handlers import activate_dataset, datasets_catalog, delete_dataset, rename_dataset
 from backend.app.api.dataset_handlers import dataset_stats
 from backend.app.api.download_handlers import get_download
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, reject_asset_handler
-from backend.app.api.session_handlers import complete_dataset_upload, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
+from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
 from backend.app.api.workflow_handlers import (
     generation_config,
     generation_results,
@@ -40,11 +40,14 @@ def build_router() -> Router:
     router.add_http("GET", "/api/assets", asset_by_path)
     router.add_http("GET", "/api/datasets", datasets_catalog)
     router.add_http("POST", "/api/datasets/{dataset_id}/activate", activate_dataset)
+    router.add_http("PATCH", "/api/datasets/{dataset_id}", rename_dataset)
+    router.add_http("DELETE", "/api/datasets/{dataset_id}", delete_dataset)
     router.add_http("GET", "/api/jobs", list_global_jobs)
     router.add_http("POST", "/api/jobs/{job_id}/cancel", cancel_global_job_handler)
     router.add_http("POST", "/api/uploads/init", init_dataset_upload)
     router.add_http("PUT", "/api/uploads/{upload_id}/parts", upload_dataset_chunk)
     router.add_http("POST", "/api/uploads/{upload_id}/complete", complete_dataset_upload)
+    router.add_http("DELETE", "/api/uploads/{upload_id}", cancel_dataset_upload)
     router.add_http("POST", "/api/sessions/upload", upload_dataset)
     router.add_http("GET", "/api/sessions/{session_id}", get_session)
     router.add_http("GET", "/api/sessions/{session_id}/tasks/{task_id}", task_status)
