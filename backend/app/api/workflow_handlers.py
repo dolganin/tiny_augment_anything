@@ -12,7 +12,7 @@ from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.configuration import generation_defaults
-from backend.app.services.queue import enqueue_task
+from backend.app.services.queue import enqueue_task, remove_queued_task
 from backend.app.services.sessions import parse_session_id
 
 
@@ -181,6 +181,11 @@ async def cancel_running_task(request: Request, params: dict[str, str], state: o
         row = await cancel_task(connection, session_id, task_id)
     if row is None:
         raise AppError(404, "Активная задача для отмены не найдена.")
+    await remove_queued_task(
+        runtime_state.redis,
+        runtime_state.settings,
+        {"taskId": str(row["id"]), "sessionId": str(session_id), "taskType": row["task_type"]},
+    )
     return json_response(200, {"jobId": str(row["id"]), "status": row["status"]})
 
 

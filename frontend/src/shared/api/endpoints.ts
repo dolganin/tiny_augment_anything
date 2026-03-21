@@ -14,6 +14,7 @@ export const endpoints = {
   uploadDataset: '/sessions/upload',
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
   taskStatus: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}`,
+  cancelTask: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}/cancel`,
   datasetStats: (sessionId: string) => `/sessions/${sessionId}/dataset/stats`,
   selectClasses: (sessionId: string) => `/sessions/${sessionId}/dataset/classes`,
   syncWorkflowState: (sessionId: string) => `/sessions/${sessionId}/workflow/state`,

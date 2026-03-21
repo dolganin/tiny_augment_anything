@@ -288,6 +288,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         await clearActiveUploadSession()
       }
       if (pendingImport) {
+        await workflowApi.cancelTask(pendingImport.sessionId, pendingImport.jobId).catch(() => undefined)
         await deleteDatasetMutation.mutateAsync(pendingImport.datasetId)
         if (activeDatasetId === pendingImport.datasetId) {
           resetSession()

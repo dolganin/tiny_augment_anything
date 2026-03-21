@@ -4,7 +4,9 @@ import asyncio
 from uuid import UUID
 
 from backend.app.config.settings import load_settings
+from backend.app.domain.enums import TaskStatus
 from backend.app.domain.enums import TaskType
+from backend.app.repositories.tasks import get_task
 from backend.app.services.bootstrap import bootstrap_runtime, shutdown_runtime
 from backend.app.services.queue import dequeue_task
 from backend.app.workers.import_dataset import run_import_dataset
@@ -23,6 +25,10 @@ async def main() -> None:
             task_id = UUID(task_payload["taskId"])
             session_id = UUID(task_payload["sessionId"])
             task_type = task_payload["taskType"]
+            async with runtime_state.database.connection() as connection:
+                task = await get_task(connection, task_id)
+            if task is None or task["status"] == TaskStatus.CANCELLED.value:
+                continue
             if task_type == TaskType.IMPORT.value:
                 await run_import_dataset(runtime_state, session_id, task_id)
                 continue

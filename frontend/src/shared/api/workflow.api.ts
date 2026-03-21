@@ -51,6 +51,10 @@ export const workflowApi = {
     const response = await http.get(endpoints.taskStatus(sessionId, taskId))
     return taskStatusResponseSchema.parse(response.data)
   },
+  async cancelTask(sessionId: string, taskId: string) {
+    const response = await http.post(endpoints.cancelTask(sessionId, taskId))
+    return taskStartedResponseSchema.parse(response.data)
+  },
   async initUpload(fileName: string, fileSize: number, signal?: AbortSignal) {
     const response = await http.post(
       endpoints.initUpload,

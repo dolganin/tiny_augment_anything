@@ -5,13 +5,13 @@ from uuid import UUID
 from backend.app.domain.enums import TaskStatus, WorkflowStage
 from backend.app.repositories.tasks import get_task
 from backend.app.services.uploads import fail_prepared_dataset_import, import_prepared_dataset
-from backend.app.workers.shared import emit_event, emit_failure
+from backend.app.workers.shared import emit_cancelled, emit_event, emit_failure
 
 
 async def run_import_dataset(runtime_state, session_id: UUID, task_id: UUID) -> None:
     async with runtime_state.database.connection() as connection:
         task = await get_task(connection, task_id)
-        if task is None:
+        if task is None or task["status"] == TaskStatus.CANCELLED.value:
             return
         payload = task["payload"]
         dataset_id = payload.get("datasetId")
@@ -40,8 +40,12 @@ async def run_import_dataset(runtime_state, session_id: UUID, task_id: UUID) -> 
                 dataset_id=UUID(dataset_id),
                 version_id=UUID(version_id),
                 archive_path=archive_path,
+                task_id=task_id,
             )
         except Exception as error:
+            if str(error) == "Импорт датасета отменён.":
+                await emit_cancelled(runtime_state, connection, session_id, task_id, "Импорт датасета отменён.")
+                return
             await fail_prepared_dataset_import(connection, UUID(dataset_id))
             await emit_failure(runtime_state, connection, session_id, task_id, str(error))
             return

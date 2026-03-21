@@ -8,6 +8,8 @@ import shutil
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 
+from backend.app.domain.enums import TaskStatus
+from backend.app.repositories.tasks import get_task
 from backend.app.services.archive_layout import collect_dataset_archive_images
 from backend.app.repositories.datasets import create_assets, create_dataset, create_initial_version, get_dataset_stats, update_dataset_status
 from backend.app.repositories.sessions import create_pending_session, finalize_import_session
@@ -250,9 +252,10 @@ async def import_prepared_dataset(
     dataset_id: UUID,
     version_id: UUID,
     archive_path: str,
+    task_id: UUID | None = None,
 ) -> dict[str, int | str]:
     source_archive_path = runtime_root / archive_path
-    assets = _extract_assets(runtime_paths, runtime_root, dataset_id, source_archive_path)
+    assets = await _extract_assets(connection, runtime_paths, runtime_root, dataset_id, source_archive_path, task_id)
     if not assets:
         raise AppError(422, "Архив не содержит изображений в ожидаемой структуре.")
     manifest_dir = dataset_manifest_dir(runtime_paths, dataset_id)
@@ -305,13 +308,17 @@ def _write_upload_meta(meta_path: Path, payload: dict[str, int | str]) -> None:
     meta_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
-def _extract_assets(runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID, archive_path) -> list[dict]:
+async def _extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID, archive_path, task_id: UUID | None) -> list[dict]:
     originals_dir = dataset_originals_dir(runtime_paths, dataset_id)
     originals_dir.mkdir(parents=True, exist_ok=True)
     assets: list[dict] = []
     archive_entries = collect_dataset_archive_images(archive_path)
     with ZipFile(archive_path, "r") as archive:
-        for entry in archive_entries:
+        for index, entry in enumerate(archive_entries):
+            if task_id is not None and index % 8 == 0:
+                task = await get_task(connection, task_id)
+                if task is None or task["status"] == TaskStatus.CANCELLED.value:
+                    raise AppError(409, "Импорт датасета отменён.")
             asset_id = uuid4()
             class_dir = originals_dir / entry.class_name
             class_dir.mkdir(parents=True, exist_ok=True)

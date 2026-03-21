@@ -17,3 +17,7 @@ async def dequeue_task(redis, settings: Settings) -> dict[str, Any] | None:
         return None
     _, raw_payload = item
     return json.loads(raw_payload)
+
+
+async def remove_queued_task(redis, settings: Settings, payload: dict[str, Any]) -> None:
+    await redis.lrem(settings.redis_queue_name, 0, json.dumps(payload, ensure_ascii=False))

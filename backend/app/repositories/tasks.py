@@ -107,7 +107,7 @@ async def cancel_task(connection, session_id: UUID, task_id: UUID) -> dict[str, 
             WHERE id = %s
               AND session_id = %s
               AND status IN (%s, %s)
-            RETURNING id, status
+            RETURNING id, status, task_type
             """,
             (
                 TaskStatus.CANCELLED.value,
