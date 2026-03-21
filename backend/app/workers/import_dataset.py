@@ -4,14 +4,18 @@ from uuid import UUID
 
 from backend.app.domain.enums import TaskStatus, WorkflowStage
 from backend.app.repositories.tasks import get_task
+from backend.app.runtime.logging import get_logger, log_event
 from backend.app.services.uploads import fail_prepared_dataset_import, import_prepared_dataset
 from backend.app.workers.shared import emit_cancelled, emit_event, emit_failure
+
+logger = get_logger(__name__)
 
 
 async def run_import_dataset(runtime_state, session_id: UUID, task_id: UUID) -> None:
     async with runtime_state.database.connection() as connection:
         task = await get_task(connection, task_id)
         if task is None or task["status"] == TaskStatus.CANCELLED.value:
+            log_event(logger, 20, "worker.import.skipped", session_id=session_id, task_id=task_id)
             return
         payload = task["payload"]
         dataset_id = payload.get("datasetId")
@@ -20,6 +24,17 @@ async def run_import_dataset(runtime_state, session_id: UUID, task_id: UUID) -> 
         if not isinstance(dataset_id, str) or not isinstance(version_id, str) or not isinstance(archive_path, str):
             await emit_failure(runtime_state, connection, session_id, task_id, "Некорректный payload импорта датасета.")
             return
+        log_event(
+            logger,
+            20,
+            "worker.import.started",
+            session_id=session_id,
+            task_id=task_id,
+            dataset_id=dataset_id,
+            version_id=version_id,
+            archive_path=archive_path,
+            runtime_dir=runtime_state.settings.runtime_dir,
+        )
         await emit_event(
             runtime_state,
             connection,
@@ -44,11 +59,31 @@ async def run_import_dataset(runtime_state, session_id: UUID, task_id: UUID) -> 
             )
         except Exception as error:
             if str(error) == "Импорт датасета отменён.":
+                log_event(logger, 20, "worker.import.cancelled", session_id=session_id, task_id=task_id)
                 await emit_cancelled(runtime_state, connection, session_id, task_id, "Импорт датасета отменён.")
                 return
+            log_event(
+                logger,
+                40,
+                "worker.import.failed",
+                session_id=session_id,
+                task_id=task_id,
+                dataset_id=dataset_id,
+                error=str(error),
+            )
             await fail_prepared_dataset_import(connection, UUID(dataset_id))
             await emit_failure(runtime_state, connection, session_id, task_id, str(error))
             return
+        log_event(
+            logger,
+            20,
+            "worker.import.completed",
+            session_id=session_id,
+            task_id=task_id,
+            dataset_id=dataset_id,
+            asset_count=result["assetCount"],
+            class_count=result["classCount"],
+        )
         await emit_event(
             runtime_state,
             connection,

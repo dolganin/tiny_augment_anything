@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 class Settings:
     app_host: str
     app_port: int
+    app_log_level: str
     postgres_dsn: str
     redis_dsn: str
     runtime_dir: Path
@@ -29,6 +30,7 @@ def load_settings() -> Settings:
     return Settings(
         app_host=str(os.getenv("APP_HOST") or _get_config_value(config, ("app", "host"), "0.0.0.0")),
         app_port=int(os.getenv("APP_PORT") or _get_config_value(config, ("app", "port"), 8000)),
+        app_log_level=str(os.getenv("APP_LOG_LEVEL") or _get_config_value(config, ("app", "log_level"), "INFO")),
         postgres_dsn=str(
             os.getenv("POSTGRES_DSN")
             or _get_config_value(

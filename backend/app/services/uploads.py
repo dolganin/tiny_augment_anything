@@ -14,6 +14,7 @@ from backend.app.services.archive_layout import collect_dataset_archive_images
 from backend.app.repositories.datasets import create_assets, create_dataset, create_initial_version, get_dataset_stats, update_dataset_status
 from backend.app.repositories.sessions import create_pending_session, finalize_import_session
 from backend.app.runtime.errors import AppError
+from backend.app.runtime.logging import get_logger, log_event
 from backend.app.services.filesystem import (
     RuntimePaths,
     dataset_manifest_dir,
@@ -58,6 +59,7 @@ class ChunkUploadStatus:
 
 
 DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024
+logger = get_logger(__name__)
 
 
 def init_chunk_upload(runtime_paths: RuntimePaths, file_name: str, file_size: int) -> ChunkUploadInit:
@@ -82,6 +84,17 @@ def init_chunk_upload(runtime_paths: RuntimePaths, file_name: str, file_size: in
             "uploaded_bytes": 0,
         },
     )
+    log_event(
+        logger,
+        20,
+        "upload.init",
+        upload_id=upload_id,
+        file_name=file_name,
+        file_size=file_size,
+        chunk_size=DEFAULT_CHUNK_SIZE,
+        total_parts=total_parts,
+        upload_dir=upload_dir,
+    )
     return ChunkUploadInit(upload_id=upload_id, chunk_size=DEFAULT_CHUNK_SIZE, total_parts=total_parts)
 
 
@@ -101,6 +114,20 @@ def append_chunk(runtime_paths: RuntimePaths, upload_id: UUID, part_number: int,
     meta["next_part"] = part_number + 1
     meta["uploaded_bytes"] = int(meta["uploaded_bytes"]) + len(payload)
     _write_upload_meta(meta_path, meta)
+    next_part = int(meta["next_part"])
+    expected_parts = int(meta["total_parts"])
+    if next_part == 1 or next_part == expected_parts or next_part % 10 == 0:
+        log_event(
+            logger,
+            20,
+            "upload.chunk.appended",
+            upload_id=upload_id,
+            part_number=part_number,
+            next_part=next_part,
+            total_parts=expected_parts,
+            uploaded_bytes=int(meta["uploaded_bytes"]),
+            file_size=int(meta["file_size"]),
+        )
     return min(1.0, int(meta["uploaded_bytes"]) / int(meta["file_size"]))
 
 
@@ -109,6 +136,7 @@ def discard_chunk_upload(runtime_paths: RuntimePaths, upload_id: UUID) -> None:
     if not upload_dir.exists():
         return
     shutil.rmtree(upload_dir, ignore_errors=True)
+    log_event(logger, 20, "upload.discarded", upload_id=upload_id, upload_dir=upload_dir)
 
 
 def get_chunk_upload_status(runtime_paths: RuntimePaths, upload_id: UUID) -> ChunkUploadStatus:
@@ -153,7 +181,19 @@ async def prepare_dataset_upload_from_staged_archive(
     session_dir = session_upload_dir(runtime_paths, session_id)
     session_dir.mkdir(parents=True, exist_ok=True)
     target_archive_path = session_dir / "source.zip"
+    log_event(
+        logger,
+        20,
+        "upload.complete.begin",
+        upload_id=upload_id,
+        source_archive_path=archive_path,
+        target_archive_path=target_archive_path,
+        session_id=session_id,
+        dataset_id=dataset_id,
+    )
     archive_path.replace(target_archive_path)
+    if not target_archive_path.exists():
+        raise AppError(500, "Архив не удалось перенести в рабочее хранилище.")
     archive_relative_path = make_relative_path(runtime_root, target_archive_path)
     await create_pending_session(connection, session_id, dataset_id)
     await create_dataset(
@@ -169,6 +209,15 @@ async def prepare_dataset_upload_from_staged_archive(
         upload_dir.rmdir()
     except OSError:
         pass
+    log_event(
+        logger,
+        20,
+        "upload.complete.ready",
+        upload_id=upload_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        archive_path=archive_relative_path,
+    )
     return UploadPreparation(
         session_id=session_id,
         dataset_id=dataset_id,
@@ -255,6 +304,17 @@ async def import_prepared_dataset(
     task_id: UUID | None = None,
 ) -> dict[str, int | str]:
     source_archive_path = runtime_root / archive_path
+    log_event(
+        logger,
+        20,
+        "upload.import.begin",
+        task_id=task_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        archive_path=archive_path,
+        resolved_archive_path=source_archive_path,
+        archive_exists=source_archive_path.exists(),
+    )
     assets = await _extract_assets(connection, runtime_paths, runtime_root, dataset_id, source_archive_path, task_id)
     if not assets:
         raise AppError(422, "Архив не содержит изображений в ожидаемой структуре.")
@@ -292,6 +352,16 @@ async def import_prepared_dataset(
     await finalize_import_session(connection, session_id, version_id)
     await update_dataset_status(connection, dataset_id, "ready")
     await get_dataset_stats(connection, dataset_id, version_id)
+    log_event(
+        logger,
+        20,
+        "upload.import.complete",
+        task_id=task_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        asset_count=len(assets),
+        class_count=len(class_stats),
+    )
     return {"assetCount": len(assets), "classCount": len(class_stats)}
 
 

@@ -6,6 +6,7 @@ from backend.app.domain.enums import TaskType
 from backend.app.repositories.sessions import save_selected_classes, touch_session
 from backend.app.repositories.tasks import create_task
 from backend.app.runtime.errors import AppError
+from backend.app.runtime.logging import get_logger, log_event
 from backend.app.runtime.multipart import parse_multipart
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
@@ -13,6 +14,9 @@ from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.queue import enqueue_task
 from backend.app.services.sessions import build_snapshot, parse_session_id
 from backend.app.services.uploads import append_chunk, discard_chunk_upload, get_chunk_upload_status, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
+
+
+logger = get_logger(__name__)
 
 
 async def upload_dataset(request: Request, params: dict[str, str], state: object):
@@ -68,6 +72,7 @@ async def init_dataset_upload(request: Request, params: dict[str, str], state: o
         raise AppError(400, "Нужно поле fileName.")
     if not isinstance(file_size, int) or file_size <= 0:
         raise AppError(400, "Нужно положительное поле fileSize.")
+    log_event(logger, 20, "api.upload.init.requested", file_name=file_name, file_size=file_size)
     upload = init_chunk_upload(runtime_state.runtime_paths, file_name, file_size)
     return json_response(
         200,
@@ -94,6 +99,16 @@ async def upload_dataset_chunk(request: Request, params: dict[str, str], state: 
         total_parts = int(raw_total_parts)
     except ValueError as error:
         raise AppError(400, "Некорректные параметры части.") from error
+    if part_number == 0 or part_number + 1 == total_parts or (part_number + 1) % 10 == 0:
+        log_event(
+            logger,
+            20,
+            "api.upload.chunk.received",
+            upload_id=upload_id,
+            part_number=part_number,
+            total_parts=total_parts,
+            payload_size=len(request.body),
+        )
     progress = append_chunk(runtime_state.runtime_paths, upload_id, part_number, total_parts, request.body)
     return json_response(200, {"status": "success", "progress": progress})
 
@@ -126,6 +141,7 @@ async def complete_dataset_upload(request: Request, params: dict[str, str], stat
         upload_id = UUID(params["upload_id"])
     except ValueError as error:
         raise AppError(400, "Некорректный uploadId.") from error
+    log_event(logger, 20, "api.upload.complete.requested", upload_id=upload_id)
     async with runtime_state.database.connection() as connection:
         result = await prepare_dataset_upload_from_staged_archive(
             connection=connection,
@@ -144,6 +160,16 @@ async def complete_dataset_upload(request: Request, params: dict[str, str], stat
             },
             dataset_version_id=None,
         )
+    log_event(
+        logger,
+        20,
+        "api.upload.complete.enqueued",
+        upload_id=upload_id,
+        session_id=result.session_id,
+        dataset_id=result.dataset_id,
+        job_id=task["jobId"],
+        archive_path=result.archive_path,
+    )
     await enqueue_task(
         runtime_state.redis,
         runtime_state.settings,
@@ -168,6 +194,7 @@ async def cancel_dataset_upload(request: Request, params: dict[str, str], state:
         upload_id = UUID(params["upload_id"])
     except ValueError as error:
         raise AppError(400, "Некорректный uploadId.") from error
+    log_event(logger, 20, "api.upload.cancel.requested", upload_id=upload_id)
     discard_chunk_upload(runtime_state.runtime_paths, upload_id)
     return json_response(200, {"status": "success"})
 

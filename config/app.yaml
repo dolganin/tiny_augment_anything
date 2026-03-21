@@ -1,6 +1,7 @@
 app:
   host: 0.0.0.0
   port: 8000
+  log_level: INFO
 
 storage:
   runtime_dir: /big_data/augment_anything

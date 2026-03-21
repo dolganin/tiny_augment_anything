@@ -23,10 +23,14 @@ from backend.app.api.workflow_handlers import (
 from backend.app.api.ws_handlers import session_stream
 from backend.app.config.settings import load_settings
 from backend.app.runtime.errors import AppError
+from backend.app.runtime.logging import configure_logging, get_logger, log_event
 from backend.app.runtime.request import Request, read_body
 from backend.app.runtime.response import json_response
 from backend.app.runtime.router import Router
 from backend.app.services.bootstrap import RuntimeState, bootstrap_runtime, shutdown_runtime
+
+
+logger = get_logger(__name__)
 
 
 async def health_handler(request: Request, params: dict[str, str], state: object):
@@ -100,12 +104,24 @@ class TinyAugmentBackend:
             message = await receive()
             message_type = message["type"]
             if message_type == "lifespan.startup":
-                self.state = await bootstrap_runtime(load_settings())
+                settings = load_settings()
+                configure_logging(settings.app_log_level)
+                log_event(
+                    logger,
+                    20,
+                    "app.startup.begin",
+                    runtime_dir=settings.runtime_dir,
+                    log_level=settings.app_log_level,
+                )
+                self.state = await bootstrap_runtime(settings)
+                log_event(logger, 20, "app.startup.ready", runtime_dir=self.state.settings.runtime_dir)
                 await send({"type": "lifespan.startup.complete"})
                 continue
             if message_type == "lifespan.shutdown":
                 if self.state is not None:
+                    log_event(logger, 20, "app.shutdown.begin")
                     await shutdown_runtime(self.state)
+                    log_event(logger, 20, "app.shutdown.complete")
                 await send({"type": "lifespan.shutdown.complete"})
                 return
 
@@ -123,8 +139,25 @@ class TinyAugmentBackend:
             response = await handler(request, params, self.state)
             await response.send(send)
         except AppError as error:
+            log_event(
+                logger,
+                30,
+                "http.app_error",
+                method=scope["method"],
+                path=scope["path"],
+                status_code=error.status_code,
+                message=error.message,
+            )
             await json_response(error.status_code, {"message": error.message}).send(send)
         except Exception as error:
+            log_event(
+                logger,
+                40,
+                "http.unhandled_error",
+                method=scope["method"],
+                path=scope["path"],
+                error=str(error),
+            )
             await json_response(500, {"message": str(error)}).send(send)
 
     async def handle_websocket(self, scope, receive, send) -> None:
