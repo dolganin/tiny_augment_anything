@@ -5,7 +5,7 @@ from uuid import UUID
 
 from backend.app.domain.enums import TaskStatus, WorkflowStage
 from backend.app.repositories.workflow_session import update_session_stage
-from backend.app.workers.shared import emit_completion, emit_event, emit_failure, ensure_not_cancelled
+from backend.app.workers.shared import emit_cancelled, emit_completion, emit_event, emit_failure, ensure_not_cancelled
 
 
 async def run_fine_tune(runtime_state, session_id: UUID, task_id: UUID) -> None:
@@ -19,7 +19,7 @@ async def run_fine_tune(runtime_state, session_id: UUID, task_id: UUID) -> None:
         )
         for epoch in range(1, 4):
             if await ensure_not_cancelled(connection, task_id):
-                await emit_failure(runtime_state, connection, session_id, task_id, "Fine-tune был остановлен пользователем.")
+                await emit_cancelled(runtime_state, connection, session_id, task_id, "Fine-tune был остановлен пользователем.")
                 return
             await asyncio.sleep(0.2)
             progress = epoch / 3

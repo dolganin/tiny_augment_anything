@@ -11,7 +11,7 @@ from backend.app.repositories.workflow_assets import list_active_assets
 from backend.app.repositories.workflow_runs import create_classifier_run, finish_classifier_run
 from backend.app.repositories.workflow_session import get_session_context, update_session_stage
 from backend.app.services.filesystem import dataset_exports_dir
-from backend.app.workers.shared import emit_completion, emit_event, emit_failure, ensure_not_cancelled, export_dataset_archive
+from backend.app.workers.shared import emit_cancelled, emit_completion, emit_event, emit_failure, ensure_not_cancelled, export_dataset_archive
 
 
 async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None:
@@ -25,7 +25,7 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
         await update_session_stage(connection, session_id, WorkflowStage.CLASSIFIER_TRAIN)
         for epoch in range(1, 4):
             if await ensure_not_cancelled(connection, task_id):
-                await emit_failure(runtime_state, connection, session_id, task_id, "Обучение классификатора было остановлено пользователем.")
+                await emit_cancelled(runtime_state, connection, session_id, task_id, "Обучение классификатора было остановлено пользователем.")
                 return
             await asyncio.sleep(0.2)
             progress = epoch / 3

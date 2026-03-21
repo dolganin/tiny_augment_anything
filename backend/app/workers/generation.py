@@ -14,7 +14,7 @@ from backend.app.services.filesystem import (
     dataset_modified_dir,
     make_relative_path,
 )
-from backend.app.workers.shared import checksum_bytes, emit_completion, emit_event, emit_failure, ensure_not_cancelled, load_binary
+from backend.app.workers.shared import checksum_bytes, emit_cancelled, emit_completion, emit_event, emit_failure, ensure_not_cancelled, load_binary
 
 
 async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: str) -> None:
@@ -59,7 +59,7 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
         class_pool = [str(item) for item in selected_classes if isinstance(item, str)] or [template_asset["class_name"] if template_asset else "generated"]
         for index in range(sample_count):
             if await ensure_not_cancelled(connection, task_id):
-                await emit_failure(runtime_state, connection, session_id, task_id, "Задача генерации была остановлена пользователем.")
+                await emit_cancelled(runtime_state, connection, session_id, task_id, "Задача генерации была остановлена пользователем.")
                 return
             class_name = class_pool[index % len(class_pool)]
             target_dir = output_dir / class_name

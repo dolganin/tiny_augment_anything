@@ -69,6 +69,20 @@ async def emit_failure(runtime_state, connection, session_id: UUID, task_id: UUI
     )
 
 
+async def emit_cancelled(runtime_state, connection, session_id: UUID, task_id: UUID, message: str) -> None:
+    await emit_event(
+        runtime_state,
+        connection,
+        session_id,
+        task_id,
+        "task.failed",
+        {"message": message, "cancelled": True},
+        status=TaskStatus.CANCELLED,
+        progress=1.0,
+        message=message,
+    )
+
+
 async def ensure_not_cancelled(connection, task_id: UUID) -> bool:
     task = await get_task(connection, task_id)
     return bool(task and task["status"] == TaskStatus.CANCELLED.value)
