@@ -20,7 +20,8 @@ def fine_tune(cfg: DictConfig) -> None:
     optimizer_init = hydra.utils.instantiate(cfg.optimizer)
     optimizer = optimizer_init(model.parameters())
 
-    scheduler_init = hydra.utils.instantiate(cfg.scheduler)
+    total_steps = len(train_loader) * cfg.train.epochs
+    scheduler_init = hydra.utils.instantiate(cfg.scheduler, T_max=total_steps)
     scheduler = scheduler_init(optimizer)
 
     trainer = Trainer(
