@@ -111,6 +111,7 @@ export const datasetCatalogItemSchema = z.object({
   versionIndex: z.number().int().positive(),
   assetCount: z.number().int().nonnegative(),
   updatedAt: z.string(),
+  previewPaths: z.array(z.string()).default([]),
   recentTasks: z.array(datasetCatalogTaskSchema),
 })
 

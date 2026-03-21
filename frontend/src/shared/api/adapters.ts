@@ -95,6 +95,7 @@ export const adaptDatasetCatalog = (response: DatasetsCatalogResponse): DatasetC
     versionIndex: item.versionIndex,
     assetCount: item.assetCount,
     updatedAt: item.updatedAt,
+    previewUrls: item.previewPaths.map((path) => toFileUrl(path)),
     isPendingLocal: false,
     recentTasks: item.recentTasks.map((task) => ({
       jobId: task.jobId,

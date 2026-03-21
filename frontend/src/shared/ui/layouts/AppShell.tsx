@@ -119,12 +119,7 @@ export function AppShell({ children }: PropsWithChildren) {
               })}
             </nav>
           </>
-        ) : (
-          <div className="shell__empty">
-            <strong>Пайплайн появится после выбора датасета</strong>
-            <span>Открой проект из каталога или загрузи новый архив.</span>
-          </div>
-        )}
+        ) : null}
       </aside>
 
       <div className="shell__content">{children}</div>

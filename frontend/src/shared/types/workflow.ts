@@ -83,6 +83,7 @@ export type DatasetCatalogItem = {
   versionIndex: number
   assetCount: number
   updatedAt: string
+  previewUrls: string[]
   recentTasks: DatasetCatalogTask[]
   isPendingLocal?: boolean
 }

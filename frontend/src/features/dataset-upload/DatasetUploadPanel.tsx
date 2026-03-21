@@ -84,6 +84,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         versionIndex: 1,
         assetCount: 0,
         updatedAt: new Date().toISOString(),
+        previewUrls: [],
         recentTasks: [
           {
             jobId: pendingImport.jobId,
@@ -112,6 +113,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       versionIndex: 1,
       assetCount: 0,
       updatedAt: new Date().toISOString(),
+      previewUrls: [],
       recentTasks: [
         {
           jobId: uploadSession.uploadId ?? `pending-${uploadSession.fileName}`,

@@ -91,6 +91,23 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
               role={canOpen ? 'button' : undefined}
               tabIndex={canOpen ? 0 : -1}
             >
+              <div className="dataset-card__cover">
+                {item.previewUrls.length > 0 ? (
+                  item.previewUrls.map((previewUrl, index) => (
+                    <img
+                      alt={`Превью датасета ${item.datasetName} ${index + 1}`}
+                      className="dataset-card__cover-image"
+                      key={`${item.datasetId}-${previewUrl}-${index}`}
+                      src={previewUrl}
+                    />
+                  ))
+                ) : (
+                  <div className="dataset-card__cover-empty">
+                    <span>{statusLabels[item.status]}</span>
+                  </div>
+                )}
+              </div>
+
               <div className="dataset-card__header">
                 <div>
                   <p className="dataset-card__eyebrow">Проект</p>
@@ -163,29 +180,13 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
                 </div>
                 <div>
                   <strong>{item.recentTasks.length}</strong>
-                  <span>Действий</span>
+                  <span>Задач</span>
                 </div>
               </div>
 
               <div className="dataset-card__meta">
                 <span>Этап: {workflowStageLabels[item.workflowStage]}</span>
                 <span>Обновлён: {new Date(item.updatedAt).toLocaleString('ru-RU')}</span>
-              </div>
-
-              <div className="dataset-card__history">
-                {item.recentTasks.length > 0 ? (
-                  item.recentTasks.map((task) => (
-                    <div className="dataset-task" key={task.jobId}>
-                      <div>
-                        <strong>{task.taskType}</strong>
-                        <span>{task.message ?? 'Без дополнительного сообщения'}</span>
-                      </div>
-                      <span className={`dataset-task__status dataset-task__status--${task.status}`}>{task.status}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="dataset-card__empty-history">История пока пуста.</p>
-                )}
               </div>
 
               <div className="dataset-card__footer">
