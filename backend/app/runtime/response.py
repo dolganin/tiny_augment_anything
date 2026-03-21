@@ -63,6 +63,28 @@ async def file_response(send, file_path: Path, content_type: str) -> None:
     await send({"type": "http.response.body", "body": b"", "more_body": False})
 
 
+async def file_response_with_headers(send, file_path: Path, content_type: str, headers: Headers) -> None:
+    merged_headers: Headers = [
+        (b"content-type", content_type.encode("utf-8")),
+        (b"content-length", str(file_path.stat().st_size).encode("utf-8")),
+        *headers,
+    ]
+    await send({"type": "http.response.start", "status": 200, "headers": merged_headers})
+    with file_path.open("rb") as file_object:
+        while True:
+            chunk = file_object.read(65536)
+            if not chunk:
+                break
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True,
+                }
+            )
+    await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+
 def merge_headers(*chunks: Iterable[tuple[bytes, bytes]]) -> Headers:
     merged: Headers = []
     for chunk in chunks:

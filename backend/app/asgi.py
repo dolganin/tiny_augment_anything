@@ -3,7 +3,7 @@ from __future__ import annotations
 from backend.app.api.assets_handlers import asset_by_path
 from backend.app.api.catalog_handlers import activate_dataset, datasets_catalog, delete_dataset, rename_dataset
 from backend.app.api.dataset_handlers import dataset_stats
-from backend.app.api.download_handlers import get_download
+from backend.app.api.download_handlers import download_dataset
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, reject_asset_handler
 from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_dataset_upload_status, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
@@ -46,6 +46,7 @@ def build_router() -> Router:
     router.add_http("POST", "/api/datasets/{dataset_id}/activate", activate_dataset)
     router.add_http("PATCH", "/api/datasets/{dataset_id}", rename_dataset)
     router.add_http("DELETE", "/api/datasets/{dataset_id}", delete_dataset)
+    router.add_http("GET", "/api/datasets/{dataset_id}/download", download_dataset)
     router.add_http("GET", "/api/jobs", list_global_jobs)
     router.add_http("POST", "/api/jobs/{job_id}/cancel", cancel_global_job_handler)
     router.add_http("POST", "/api/uploads/init", init_dataset_upload)
@@ -70,7 +71,6 @@ def build_router() -> Router:
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/reject", reject_asset_handler)
     router.add_http("POST", "/api/sessions/{session_id}/classifier/train", start_classifier_training)
     router.add_http("GET", "/api/sessions/{session_id}/metrics", metrics)
-    router.add_http("GET", "/api/sessions/{session_id}/download", get_download)
     router.add_ws("/ws/sessions/{session_id}/stream", session_stream)
     return router
 

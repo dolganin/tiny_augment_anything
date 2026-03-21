@@ -73,6 +73,28 @@ async def get_dataset_details(connection, dataset_id: UUID) -> dict[str, Any] | 
         return await cursor.fetchone()
 
 
+async def get_dataset_export_context(connection, dataset_id: UUID) -> dict[str, Any] | None:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT
+                d.id AS dataset_id,
+                d.name AS dataset_name,
+                s.id AS session_id,
+                s.current_dataset_version_id,
+                COALESCE(v.version_index, 1) AS version_index
+            FROM datasets d
+            JOIN sessions s ON s.dataset_id = d.id
+            LEFT JOIN dataset_versions v ON v.id = s.current_dataset_version_id
+            WHERE d.id = %s
+            ORDER BY s.updated_at DESC, s.created_at DESC
+            LIMIT 1
+            """,
+            (dataset_id,),
+        )
+        return await cursor.fetchone()
+
+
 async def list_session_ids_for_dataset(connection, dataset_id: UUID) -> list[UUID]:
     async with connection.cursor() as cursor:
         await cursor.execute(

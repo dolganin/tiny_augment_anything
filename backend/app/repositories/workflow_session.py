@@ -57,6 +57,21 @@ async def update_session_stage(
     )
 
 
+async def update_session_download_path(connection, session_id: UUID, download_path: str) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE sessions
+        SET last_download_path = %s,
+            revision = revision + 1,
+            updated_at = %s,
+            last_seen_at = %s
+        WHERE id = %s
+        """,
+        (download_path, now, now, session_id),
+    )
+
+
 async def sync_session_state(
     connection,
     session_id: UUID,
