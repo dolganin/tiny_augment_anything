@@ -108,6 +108,7 @@ def build_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
+        persistent_workers=True,
         prefetch_factor=prefetch_factor,
     )
 
@@ -117,6 +118,7 @@ def build_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
+        persistent_workers=True,
         prefetch_factor=prefetch_factor,
     )
 
