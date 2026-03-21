@@ -74,9 +74,16 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
           const canOpen = !isPendingTransfer
           const canManage = !isPendingTransfer
           const canDownload = item.status === 'ready' && !isPendingTransfer
+          const sampleUrls = item.previewUrls.slice(0, 2)
           return (
             <article
-              className={isActive ? 'dataset-card dataset-card--active' : 'dataset-card'}
+              className={[
+                'dataset-card',
+                isActive ? 'dataset-card--active' : '',
+                sampleUrls.length > 0 ? 'dataset-card--with-samples' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               key={item.datasetId}
               onClick={() => {
                 if (canOpen && !isOpening) {
@@ -91,22 +98,19 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
               role={canOpen ? 'button' : undefined}
               tabIndex={canOpen ? 0 : -1}
             >
-              <div className="dataset-card__cover">
-                {item.previewUrls.length > 0 ? (
-                  item.previewUrls.map((previewUrl, index) => (
+              {sampleUrls.length > 0 ? (
+                <div className="dataset-card__samples">
+                  {sampleUrls.map((previewUrl, index) => (
                     <img
                       alt={`Превью датасета ${item.datasetName} ${index + 1}`}
-                      className="dataset-card__cover-image"
+                      className="dataset-card__sample"
                       key={`${item.datasetId}-${previewUrl}-${index}`}
+                      loading="lazy"
                       src={previewUrl}
                     />
-                  ))
-                ) : (
-                  <div className="dataset-card__cover-empty">
-                    <span>{statusLabels[item.status]}</span>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="dataset-card__header">
                 <div>
