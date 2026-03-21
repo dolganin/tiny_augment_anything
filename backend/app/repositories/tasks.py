@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -59,6 +60,37 @@ async def get_task_status(connection, session_id: UUID, task_id: UUID) -> dict[s
             WHERE id = %s AND session_id = %s
             """,
             (task_id, session_id),
+        )
+        return await cursor.fetchone()
+
+
+async def get_latest_active_task(
+    connection,
+    session_id: UUID,
+    task_types: Sequence[TaskType],
+) -> dict[str, Any] | None:
+    if not task_types:
+        return None
+    placeholders = ", ".join(["%s"] * len(task_types))
+    values = tuple(task_type.value for task_type in task_types)
+    query = f"""
+        SELECT id, task_type, status, created_at
+        FROM tasks
+        WHERE session_id = %s
+          AND status IN (%s, %s)
+          AND task_type IN ({placeholders})
+        ORDER BY created_at DESC
+        LIMIT 1
+    """
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            query,
+            (
+                session_id,
+                TaskStatus.PENDING.value,
+                TaskStatus.RUNNING.value,
+                *values,
+            ),
         )
         return await cursor.fetchone()
 

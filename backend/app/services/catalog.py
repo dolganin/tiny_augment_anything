@@ -3,9 +3,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from backend.app.repositories.catalog import get_latest_session_for_dataset, list_datasets, list_recent_tasks_for_session
-from backend.app.repositories.sessions import get_snapshot
 from backend.app.runtime.errors import AppError
-from backend.app.services.sessions import adapt_snapshot
+from backend.app.services.sessions import build_snapshot
 
 
 async def build_dataset_catalog(connection) -> list[dict]:
@@ -45,5 +44,4 @@ async def activate_dataset_session(connection, dataset_id: UUID) -> dict:
     row = await get_latest_session_for_dataset(connection, dataset_id)
     if row is None:
         raise AppError(404, "Для датасета не найдена активная сессия.")
-    snapshot = await get_snapshot(connection, row["session_id"])
-    return adapt_snapshot(snapshot)
+    return await build_snapshot(connection, row["session_id"])

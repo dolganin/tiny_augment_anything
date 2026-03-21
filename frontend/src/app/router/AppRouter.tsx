@@ -4,6 +4,7 @@ import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
 import { DownloadPage } from '@/pages/download/DownloadPage'
 import { FineTunePage } from '@/pages/fine-tune/FineTunePage'
 import { GeneratePage } from '@/pages/generate/GeneratePage'
+import { HomePage } from '@/pages/home/HomePage'
 import { MetricsPage } from '@/pages/metrics/MetricsPage'
 import { ModeSelectPage } from '@/pages/mode-select/ModeSelectPage'
 import { ModifyPage } from '@/pages/modify/ModifyPage'
@@ -18,7 +19,6 @@ export function AppRouter() {
   const selectedClasses = useSessionStore((state) => state.selectedClasses)
   const mode = useSessionStore((state) => state.currentMode)
   const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
-  const approvedItems = useSessionStore((state) => state.approvedItems)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const metrics = useSessionStore((state) => state.metrics)
   const downloadUrl = useSessionStore((state) => state.downloadUrl)
@@ -31,18 +31,24 @@ export function AppRouter() {
   const canModify = canOpenMode && mode === 'modify'
   const canReview = canGenerate || canModify
   const canTrainClassifier =
-    approvedItems.length > 0 || Boolean(classifierJobId) || workflowStage === 'classifier-train'
-  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics'
+    Boolean(classifierJobId) ||
+    Boolean(metrics) ||
+    Boolean(downloadUrl) ||
+    workflowStage === 'classifier-train' ||
+    workflowStage === 'metrics' ||
+    workflowStage === 'download'
+  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics' || workflowStage === 'download'
   const canDownload = Boolean(downloadUrl) || workflowStage === 'download'
 
   return (
     <Routes>
-      <Route element={<ProtectedRoute canAccess={true} redirectTo="/upload" />}>
-        <Route index element={<UploadPage />} />
+      <Route element={<ProtectedRoute canAccess={true} redirectTo="/datasets" />}>
+        <Route index element={<HomePage />} />
+        <Route path="/datasets" element={<HomePage />} />
         <Route path="/upload" element={<UploadPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute canAccess={hasDataset} redirectTo="/upload" />}>
+      <Route element={<ProtectedRoute canAccess={hasDataset} redirectTo="/datasets" />}>
         <Route path="/dataset/stats" element={<DatasetStatsPage />} />
       </Route>
 
@@ -68,7 +74,7 @@ export function AppRouter() {
         <Route path="/review" element={<ReviewPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute canAccess={canTrainClassifier} redirectTo="/review" />}>
+      <Route element={<ProtectedRoute canAccess={canTrainClassifier} redirectTo="/dataset/stats" />}>
         <Route path="/classifier/train" element={<ClassifierTrainPage />} />
       </Route>
 

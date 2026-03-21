@@ -30,11 +30,12 @@ type SessionState = {
   workflowStage: WorkflowStage
   markHydrated: () => void
   setSession: (payload: Partial<SessionSnapshot>) => void
+  replaceSession: (payload: Partial<SessionSnapshot>) => void
   setStage: (stage: WorkflowStage) => void
   reset: () => void
 }
 
-type SessionSnapshot = Omit<SessionState, 'hydrated' | 'markHydrated' | 'setSession' | 'setStage' | 'reset'>
+type SessionSnapshot = Omit<SessionState, 'hydrated' | 'markHydrated' | 'setSession' | 'replaceSession' | 'setStage' | 'reset'>
 
 const initialState: SessionSnapshot = {
   sessionId: null,
@@ -64,6 +65,7 @@ export const useSessionStore = create<SessionState>()(
       ...initialState,
       markHydrated: () => set({ hydrated: true }),
       setSession: (payload) => set((state) => ({ ...state, ...payload })),
+      replaceSession: (payload) => set({ hydrated: true, ...initialState, ...payload }),
       setStage: (workflowStage) => set({ workflowStage }),
       reset: () => set({ hydrated: true, ...initialState }),
     }),

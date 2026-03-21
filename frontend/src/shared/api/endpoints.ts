@@ -1,4 +1,8 @@
 export const endpoints = {
+  datasetsCatalog: '/datasets',
+  activateDataset: (datasetId: string) => `/datasets/${datasetId}/activate`,
+  jobs: '/jobs',
+  cancelJob: (jobId: string) => `/jobs/${jobId}/cancel`,
   uploadDataset: '/sessions/upload',
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
   datasetStats: (sessionId: string) => `/sessions/${sessionId}/dataset/stats`,

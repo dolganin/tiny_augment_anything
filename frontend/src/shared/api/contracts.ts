@@ -48,6 +48,10 @@ export const sessionSnapshotResponseSchema = z.object({
   currentMode: z.enum(['generate', 'modify']).nullable().optional(),
   fineTuneEnabled: z.boolean().default(false),
   fineTuneResolved: z.boolean().default(false),
+  fineTuneJobId: z.string().nullable().optional(),
+  generationJobId: z.string().nullable().optional(),
+  classifierJobId: z.string().nullable().optional(),
+  downloadPath: z.string().nullable().optional(),
   workflowStage: z
     .enum([
       'upload',
@@ -66,6 +70,53 @@ export const sessionSnapshotResponseSchema = z.object({
 
 export const datasetStatsResponseSchema = z.object({
   classes: z.array(datasetClassStatSchema),
+})
+
+export const datasetCatalogTaskSchema = z.object({
+  jobId: z.string(),
+  taskType: z.string(),
+  status: apiTaskStatusSchema,
+  progress: z.number().min(0).max(1),
+  message: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+})
+
+export const datasetCatalogItemSchema = z.object({
+  datasetId: z.string(),
+  datasetName: z.string(),
+  sessionId: z.string(),
+  workflowStage: sessionSnapshotResponseSchema.shape.workflowStage,
+  currentMode: z.enum(['generate', 'modify']).nullable().optional(),
+  fineTuneEnabled: z.boolean(),
+  fineTuneResolved: z.boolean(),
+  versionIndex: z.number().int().positive(),
+  assetCount: z.number().int().nonnegative(),
+  updatedAt: z.string(),
+  recentTasks: z.array(datasetCatalogTaskSchema),
+})
+
+export const datasetsCatalogResponseSchema = z.object({
+  items: z.array(datasetCatalogItemSchema),
+})
+
+export const globalJobSchema = z.object({
+  jobId: z.string(),
+  sessionId: z.string(),
+  datasetId: z.string().nullable(),
+  datasetName: z.string().nullable(),
+  taskType: z.string(),
+  status: apiTaskStatusSchema,
+  progress: z.number().min(0).max(1),
+  message: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  heartbeatAt: z.string().nullable(),
+})
+
+export const jobsResponseSchema = z.object({
+  items: z.array(globalJobSchema),
 })
 
 export const selectedClassesPayloadSchema = z.object({
@@ -146,7 +197,9 @@ export const workflowSocketEventSchema = z.object({
 export type DatasetUploadResponse = z.infer<typeof datasetUploadResponseSchema>
 export type SessionSnapshotResponse = z.infer<typeof sessionSnapshotResponseSchema>
 export type DatasetStatsResponse = z.infer<typeof datasetStatsResponseSchema>
+export type DatasetsCatalogResponse = z.infer<typeof datasetsCatalogResponseSchema>
 export type GenerationConfigResponse = z.infer<typeof generationConfigResponseSchema>
 export type GenerationResultsResponse = z.infer<typeof generationResultsResponseSchema>
+export type JobsResponse = z.infer<typeof jobsResponseSchema>
 export type MetricsResponse = z.infer<typeof metricsResponseSchema>
 export type WorkflowSocketEvent = z.infer<typeof workflowSocketEventSchema>

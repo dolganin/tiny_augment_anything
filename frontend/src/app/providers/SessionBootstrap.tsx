@@ -5,7 +5,7 @@ import { useSessionStore } from '@/store/session/session.store'
 
 export function SessionBootstrap({ children }: PropsWithChildren) {
   const sessionId = useSessionStore((state) => state.sessionId)
-  const setSession = useSessionStore((state) => state.setSession)
+  const replaceSession = useSessionStore((state) => state.replaceSession)
   const query = useRestoreSessionQuery(sessionId)
 
   useEffect(() => {
@@ -13,8 +13,8 @@ export function SessionBootstrap({ children }: PropsWithChildren) {
       return
     }
 
-    setSession(adaptSessionSnapshot(query.data))
-  }, [query.data, setSession])
+    replaceSession(adaptSessionSnapshot(query.data))
+  }, [query.data, replaceSession])
 
   return children
 }

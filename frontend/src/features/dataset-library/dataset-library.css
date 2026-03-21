@@ -1,0 +1,137 @@
+.dataset-library {
+  display: grid;
+  gap: 18px;
+}
+
+.dataset-library--empty {
+  place-items: center;
+  min-height: 280px;
+  text-align: center;
+}
+
+.dataset-library__empty-title,
+.dataset-library__empty-copy {
+  margin: 0;
+}
+
+.dataset-library__empty-copy {
+  color: var(--color-text-muted);
+  max-width: 480px;
+}
+
+.dataset-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(240, 240, 240, 0.04), rgba(114, 183, 224, 0.08));
+}
+
+.dataset-card--active {
+  border-color: rgba(114, 183, 224, 0.6);
+  box-shadow: 0 0 0 1px rgba(114, 183, 224, 0.24);
+}
+
+.dataset-card__header,
+.dataset-card__stats,
+.dataset-task,
+.dataset-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dataset-card__header {
+  align-items: start;
+}
+
+.dataset-card__eyebrow,
+.dataset-card__meta span,
+.dataset-task span,
+.dataset-card__stats span {
+  color: var(--color-text-muted);
+}
+
+.dataset-card__eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dataset-card__title {
+  margin: 0;
+  font-size: 24px;
+}
+
+.dataset-card__stage,
+.dataset-task__status {
+  align-self: start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(114, 183, 224, 0.12);
+  border: 1px solid rgba(114, 183, 224, 0.3);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.dataset-card__stats > div,
+.dataset-task > div {
+  display: grid;
+  gap: 4px;
+}
+
+.dataset-card__stats strong {
+  font-size: 24px;
+}
+
+.dataset-card__meta {
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.dataset-card__history {
+  display: grid;
+  gap: 10px;
+}
+
+.dataset-task {
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(7, 10, 13, 0.24);
+}
+
+.dataset-task strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.dataset-card__empty-history {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.dataset-card__open {
+  justify-self: start;
+  padding: 12px 18px;
+  border: 1px solid rgba(114, 183, 224, 0.3);
+  border-radius: 16px;
+  background: #07131c;
+  color: #f0f0f0;
+  cursor: pointer;
+}
+
+.dataset-card__open:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+@media (max-width: 840px) {
+  .dataset-card__header,
+  .dataset-card__stats,
+  .dataset-task {
+    flex-direction: column;
+  }
+}

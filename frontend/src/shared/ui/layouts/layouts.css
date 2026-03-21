@@ -48,6 +48,52 @@
   line-height: 1.6;
 }
 
+.shell__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.shell__home-link,
+.shell__jobs-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  background: #f8fbff;
+  font-weight: 700;
+  transition:
+    border-color var(--transition-base),
+    transform var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.shell__home-link:hover,
+.shell__jobs-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(48, 98, 187, 0.28);
+  background: #eef5ff;
+}
+
+.shell__jobs-toggle {
+  gap: 10px;
+}
+
+.shell__jobs-toggle span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #dbe9ff;
+  font-size: 12px;
+}
+
 .shell__nav {
   display: grid;
   gap: 10px;
@@ -84,11 +130,16 @@
   color: var(--color-text-muted);
 }
 
-.shell__session {
-  margin-top: auto;
+.shell__dataset {
   padding: 16px;
   border-radius: 20px;
   background: #f8fbff;
+}
+
+.shell__dataset-name {
+  display: block;
+  margin-top: 8px;
+  line-height: 1.4;
 }
 
 .shell__session-value {
@@ -96,6 +147,16 @@
   margin-top: 8px;
   line-height: 1.5;
   word-break: break-word;
+}
+
+.shell__empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #f8fbff;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
 .shell__content {
@@ -175,6 +236,12 @@
 
   .page-frame__header,
   .page-frame__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell__actions {
     grid-template-columns: 1fr;
   }
 }

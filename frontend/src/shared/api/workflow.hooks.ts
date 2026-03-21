@@ -2,11 +2,29 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { workflowApi } from '@/shared/api/workflow.api'
 
 const workflowKeys = {
+  datasetsCatalog: ['workflow', 'datasets-catalog'] as const,
+  jobs: ['workflow', 'jobs'] as const,
   session: (sessionId: string) => ['workflow', 'session', sessionId] as const,
   datasetStats: (sessionId: string) => ['workflow', 'dataset-stats', sessionId] as const,
   generationConfig: (sessionId: string) => ['workflow', 'generation-config', sessionId] as const,
   generationResults: (sessionId: string) => ['workflow', 'generation-results', sessionId] as const,
   metrics: (sessionId: string) => ['workflow', 'metrics', sessionId] as const,
+}
+
+export function useDatasetsCatalogQuery() {
+  return useQuery({
+    queryKey: workflowKeys.datasetsCatalog,
+    queryFn: () => workflowApi.getDatasetsCatalog(),
+    refetchInterval: 5000,
+  })
+}
+
+export function useJobsQuery() {
+  return useQuery({
+    queryKey: workflowKeys.jobs,
+    queryFn: () => workflowApi.getJobs(),
+    refetchInterval: 3000,
+  })
 }
 
 export function useRestoreSessionQuery(sessionId: string | null) {
@@ -66,6 +84,18 @@ export function useDownloadMutation(sessionId: string) {
 export function useUploadDatasetMutation() {
   return useMutation({
     mutationFn: (file: File) => workflowApi.uploadDataset(file),
+  })
+}
+
+export function useActivateDatasetMutation() {
+  return useMutation({
+    mutationFn: (datasetId: string) => workflowApi.activateDataset(datasetId),
+  })
+}
+
+export function useCancelJobMutation() {
+  return useMutation({
+    mutationFn: (jobId: string) => workflowApi.cancelJob(jobId),
   })
 }
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from backend.app.repositories.sessions import get_snapshot, save_selected_classes, touch_session
+from backend.app.repositories.sessions import save_selected_classes, touch_session
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.multipart import parse_multipart
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
-from backend.app.services.sessions import adapt_snapshot, parse_session_id
+from backend.app.services.sessions import build_snapshot, parse_session_id
 from backend.app.services.uploads import process_dataset_upload
 
 
@@ -39,9 +39,9 @@ async def get_session(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
     async with runtime_state.database.connection() as connection:
-        row = await get_snapshot(connection, session_id)
+        snapshot = await build_snapshot(connection, session_id)
         await touch_session(connection, session_id)
-    return json_response(200, adapt_snapshot(row))
+    return json_response(200, snapshot)
 
 
 async def save_classes(request: Request, params: dict[str, str], state: object):

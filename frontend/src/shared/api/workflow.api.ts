@@ -1,9 +1,11 @@
 import {
+  datasetsCatalogResponseSchema,
   datasetStatsResponseSchema,
   datasetUploadResponseSchema,
   downloadResponseSchema,
   generationConfigResponseSchema,
   generationResultsResponseSchema,
+  jobsResponseSchema,
   generationStartPayloadSchema,
   metricsResponseSchema,
   modificationSourceResponseSchema,
@@ -17,6 +19,22 @@ import { endpoints } from '@/shared/api/endpoints'
 import { http } from '@/shared/api/http'
 
 export const workflowApi = {
+  async getDatasetsCatalog() {
+    const response = await http.get(endpoints.datasetsCatalog)
+    return datasetsCatalogResponseSchema.parse(response.data)
+  },
+  async activateDataset(datasetId: string) {
+    const response = await http.post(endpoints.activateDataset(datasetId))
+    return sessionSnapshotResponseSchema.parse(response.data)
+  },
+  async getJobs() {
+    const response = await http.get(endpoints.jobs)
+    return jobsResponseSchema.parse(response.data)
+  },
+  async cancelJob(jobId: string) {
+    const response = await http.post(endpoints.cancelJob(jobId))
+    return taskStartedResponseSchema.parse(response.data)
+  },
   async uploadDataset(file: File) {
     const formData = new FormData()
     formData.append('file', file)

@@ -1,0 +1,138 @@
+.jobs-drawer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.jobs-drawer--open {
+  pointer-events: auto;
+}
+
+.jobs-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(7, 10, 13, 0.38);
+  opacity: 0;
+  backdrop-filter: blur(6px);
+  transition: opacity var(--transition-base);
+}
+
+.jobs-drawer--open .jobs-drawer__backdrop {
+  opacity: 1;
+}
+
+.jobs-drawer__panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, calc(100vw - 24px));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(114, 183, 224, 0.22);
+  border-radius: 28px;
+  background: #f0f0f0;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+  transform: translateX(calc(100% + 24px));
+  transition: transform var(--transition-base);
+}
+
+.jobs-drawer--open .jobs-drawer__panel {
+  transform: translateX(0);
+}
+
+.jobs-drawer__header,
+.job-card__head,
+.job-card__footer,
+.job-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.jobs-drawer__eyebrow,
+.job-card__head span,
+.job-card__meta,
+.job-card__footer {
+  color: #425165;
+}
+
+.jobs-drawer__eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.jobs-drawer__title {
+  margin: 0;
+  color: #070a0d;
+}
+
+.jobs-drawer__close,
+.job-card__action {
+  border: 1px solid rgba(48, 98, 187, 0.22);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1d2967;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.jobs-drawer__list {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  overflow: auto;
+}
+
+.job-card,
+.jobs-drawer__empty {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(48, 98, 187, 0.14);
+}
+
+.job-card__status {
+  align-self: start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  background: rgba(48, 98, 187, 0.1);
+}
+
+.job-card__progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(48, 98, 187, 0.08);
+}
+
+.job-card__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3062bb, #72b7e0);
+}
+
+.job-card__error {
+  margin: 0;
+  color: #b23b4e;
+}
+
+@media (max-width: 720px) {
+  .jobs-drawer__panel {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    border-radius: 0;
+  }
+}
