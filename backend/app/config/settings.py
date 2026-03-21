@@ -14,6 +14,7 @@ class Settings:
     runtime_dir: Path
     redis_queue_name: str
     redis_events_prefix: str
+    executor_mode: str
 
 
 def load_settings() -> Settings:
@@ -29,4 +30,5 @@ def load_settings() -> Settings:
         runtime_dir=runtime_dir,
         redis_queue_name=os.getenv("REDIS_QUEUE_NAME", "tiny_augment:tasks"),
         redis_events_prefix=os.getenv("REDIS_EVENTS_PREFIX", "tiny_augment:events"),
+        executor_mode=os.getenv("EXECUTOR_MODE", "stub"),
     )

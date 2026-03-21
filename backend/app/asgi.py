@@ -1,7 +1,23 @@
 from __future__ import annotations
 
+from backend.app.api.assets_handlers import asset_by_path
 from backend.app.api.dataset_handlers import dataset_stats
+from backend.app.api.download_handlers import get_download
+from backend.app.api.review_handlers import approve_asset, reject_asset_handler
 from backend.app.api.session_handlers import get_session, save_classes, upload_dataset
+from backend.app.api.workflow_handlers import (
+    generation_config,
+    generation_results,
+    metrics,
+    modification_source,
+    cancel_running_task,
+    start_classifier_training,
+    start_fine_tune,
+    start_generation,
+    start_modification,
+    task_status,
+)
+from backend.app.api.ws_handlers import session_stream
 from backend.app.config.settings import load_settings
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.request import Request, read_body
@@ -18,10 +34,25 @@ async def health_handler(request: Request, params: dict[str, str], state: object
 def build_router() -> Router:
     router = Router()
     router.add_http("GET", "/api/health", health_handler)
+    router.add_http("GET", "/api/assets", asset_by_path)
     router.add_http("POST", "/api/sessions/upload", upload_dataset)
     router.add_http("GET", "/api/sessions/{session_id}", get_session)
+    router.add_http("GET", "/api/sessions/{session_id}/tasks/{task_id}", task_status)
+    router.add_http("POST", "/api/sessions/{session_id}/tasks/{task_id}/cancel", cancel_running_task)
     router.add_http("POST", "/api/sessions/{session_id}/dataset/classes", save_classes)
     router.add_http("GET", "/api/sessions/{session_id}/dataset/stats", dataset_stats)
+    router.add_http("POST", "/api/sessions/{session_id}/diffusion/fine-tune", start_fine_tune)
+    router.add_http("GET", "/api/sessions/{session_id}/generation/config", generation_config)
+    router.add_http("POST", "/api/sessions/{session_id}/generation", start_generation)
+    router.add_http("GET", "/api/sessions/{session_id}/modification/source", modification_source)
+    router.add_http("POST", "/api/sessions/{session_id}/modification", start_modification)
+    router.add_http("GET", "/api/sessions/{session_id}/results", generation_results)
+    router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/approve", approve_asset)
+    router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/reject", reject_asset_handler)
+    router.add_http("POST", "/api/sessions/{session_id}/classifier/train", start_classifier_training)
+    router.add_http("GET", "/api/sessions/{session_id}/metrics", metrics)
+    router.add_http("GET", "/api/sessions/{session_id}/download", get_download)
+    router.add_ws("/ws/sessions/{session_id}/stream", session_stream)
     return router
 
 
@@ -45,7 +76,7 @@ class TinyAugmentBackend:
             await self.handle_http(scope, receive, send)
             return
         if scope_type == "websocket":
-            await send({"type": "websocket.close", "code": 1000})
+            await self.handle_websocket(scope, receive, send)
             return
         raise RuntimeError(f"Unsupported scope type: {scope_type}")
 
@@ -80,6 +111,23 @@ class TinyAugmentBackend:
             await json_response(error.status_code, {"message": error.message}).send(send)
         except Exception as error:
             await json_response(500, {"message": str(error)}).send(send)
+
+    async def handle_websocket(self, scope, receive, send) -> None:
+        route = self.router.match_ws(str(scope["path"]))
+        if route is None:
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        if self.state is None:
+            await send({"type": "websocket.close", "code": 1011})
+            return
+        handler, params = route
+        websocket_scope = {"scope": scope, "receive": receive, "send": send}
+        try:
+            await handler(websocket_scope, params, self.state)
+        except AppError:
+            await send({"type": "websocket.close", "code": 1008})
+        except Exception:
+            await send({"type": "websocket.close", "code": 1011})
 
 
 app = TinyAugmentBackend()

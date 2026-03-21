@@ -33,6 +33,7 @@ services:
       REDIS_DSN: redis://redis:6379/0
       REDIS_QUEUE_NAME: tiny_augment:tasks
       REDIS_EVENTS_PREFIX: tiny_augment:events
+      EXECUTOR_MODE: stub
     volumes:
       - ./backend:/app/backend
       - ./src:/app/src
@@ -59,6 +60,7 @@ services:
       REDIS_DSN: redis://redis:6379/0
       REDIS_QUEUE_NAME: tiny_augment:tasks
       REDIS_EVENTS_PREFIX: tiny_augment:events
+      EXECUTOR_MODE: stub
     volumes:
       - ./backend:/app/backend
       - ./src:/app/src
