@@ -1,0 +1,102 @@
+services:
+  frontend:
+    image: node:20-alpine
+    container_name: tiny_augment_frontend
+    working_dir: /app
+    ports:
+      - "5444:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api
+      VITE_WS_BASE_URL: ws://localhost:8000/ws
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tiny_augment_backend
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      APP_RUNTIME_DIR: /app/runtime_data
+      POSTGRES_DSN: postgresql://tinyaugment:tinyaugment@postgres:5432/tinyaugment
+      REDIS_DSN: redis://redis:6379/0
+      REDIS_QUEUE_NAME: tiny_augment:tasks
+      REDIS_EVENTS_PREFIX: tiny_augment:events
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+      - ./runtime_data:/app/runtime_data
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./README.md:/app/README.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tiny_augment_worker
+    working_dir: /app
+    command: ["uv", "run", "python", "-m", "backend.worker"]
+    environment:
+      APP_RUNTIME_DIR: /app/runtime_data
+      POSTGRES_DSN: postgresql://tinyaugment:tinyaugment@postgres:5432/tinyaugment
+      REDIS_DSN: redis://redis:6379/0
+      REDIS_QUEUE_NAME: tiny_augment:tasks
+      REDIS_EVENTS_PREFIX: tiny_augment:events
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+      - ./runtime_data:/app/runtime_data
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./README.md:/app/README.md
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tiny_augment_postgres
+    environment:
+      POSTGRES_DB: tinyaugment
+      POSTGRES_USER: tinyaugment
+      POSTGRES_PASSWORD: tinyaugment
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tinyaugment -d tinyaugment"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: tiny_augment_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
