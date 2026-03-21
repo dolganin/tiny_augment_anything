@@ -45,6 +45,26 @@ async def list_recent_tasks_for_session(connection, session_id: UUID, limit: int
         return await cursor.fetchall()
 
 
+async def list_dataset_preview_paths(connection, dataset_id: UUID, limit: int) -> list[str]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT a.preview_path
+            FROM dataset_assets a
+            JOIN sessions s ON s.dataset_id = a.dataset_id
+            WHERE a.dataset_id = %s
+              AND s.current_dataset_version_id IS NOT NULL
+              AND a.approved_in_version_id = s.current_dataset_version_id
+              AND a.deleted_at IS NULL
+            ORDER BY random()
+            LIMIT %s
+            """,
+            (dataset_id, limit),
+        )
+        rows = await cursor.fetchall()
+    return [str(row["preview_path"]) for row in rows]
+
+
 async def get_latest_session_for_dataset(connection, dataset_id: UUID) -> dict[str, Any] | None:
     async with connection.cursor() as cursor:
         await cursor.execute(

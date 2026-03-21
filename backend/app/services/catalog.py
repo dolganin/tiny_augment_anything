@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from uuid import UUID
 
-from backend.app.repositories.catalog import get_dataset_details, get_latest_session_for_dataset, list_datasets, list_recent_tasks_for_session, list_session_ids_for_dataset
+from backend.app.repositories.catalog import get_dataset_details, get_latest_session_for_dataset, list_dataset_preview_paths, list_datasets, list_recent_tasks_for_session, list_session_ids_for_dataset
 from backend.app.repositories.datasets import rename_dataset
 from backend.app.repositories.sessions import delete_sessions_for_dataset
 from backend.app.runtime.errors import AppError
@@ -16,6 +16,7 @@ async def build_dataset_catalog(connection) -> list[dict]:
     result: list[dict] = []
     for item in items:
         recent_tasks = await list_recent_tasks_for_session(connection, item["session_id"], 3)
+        preview_paths = await list_dataset_preview_paths(connection, item["dataset_id"], 3)
         result.append(
             {
                 "datasetId": str(item["dataset_id"]),
@@ -29,6 +30,7 @@ async def build_dataset_catalog(connection) -> list[dict]:
                 "versionIndex": int(item["version_index"]),
                 "assetCount": int(item["asset_count"]),
                 "updatedAt": item["updated_at"].isoformat(),
+                "previewPaths": preview_paths,
                 "recentTasks": [
                     {
                         "jobId": str(task["id"]),
