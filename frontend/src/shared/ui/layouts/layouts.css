@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 272px minmax(0, 1fr);
   min-height: 100vh;
   padding: 20px;
   gap: 20px;
@@ -18,8 +18,8 @@
 .shell__sidebar {
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  gap: 24px;
+  padding: 20px;
+  gap: 20px;
 }
 
 .shell__brand {
@@ -267,6 +267,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 20px;
+}
+
+.page-frame__body--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .page-frame__main,

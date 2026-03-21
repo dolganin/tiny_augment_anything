@@ -13,6 +13,7 @@ import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { useSessionStore } from '@/store/session/session.store'
 import { ClassDistributionChart } from '@/features/dataset-stats/ClassDistributionChart'
 import { ClassSelectionPanel } from '@/features/class-selection/ClassSelectionPanel'
+import '@/features/dataset-stats/dataset-stats.css'
 
 export function DatasetStatsPage() {
   const navigate = useNavigate()
@@ -33,7 +34,6 @@ export function DatasetStatsPage() {
     if (!statsQuery.data) {
       return
     }
-
     setSession({ datasetStats: adaptDatasetStats(statsQuery.data) })
   }, [setSession, statsQuery.data])
 
@@ -41,7 +41,6 @@ export function DatasetStatsPage() {
     if (!statsQuery.error) {
       return
     }
-
     setErrorMessage(getErrorMessage(statsQuery.error))
   }, [statsQuery.error])
 
@@ -51,7 +50,6 @@ export function DatasetStatsPage() {
     const nextSelection = selectedClasses.includes(className)
       ? selectedClasses.filter((item) => item !== className)
       : [...selectedClasses, className]
-
     setSession({ selectedClasses: nextSelection })
   }
 
@@ -59,7 +57,6 @@ export function DatasetStatsPage() {
     if (!sessionId || selectedClasses.length === 0) {
       return
     }
-
     try {
       await selectedClassesMutation.mutateAsync(selectedClasses)
       setSession({ workflowStage: 'fine-tune' })
@@ -73,23 +70,50 @@ export function DatasetStatsPage() {
     <>
       <PageFrame
         title="Статистика классов"
-        description="Бэкенд уже отсортировал классы по редкости. На этом шаге выбираются классы, для которых будет наращиваться датасет."
-        aside={<StatsAside datasetName={datasetName} totalClasses={datasetStats.length} />}
+        description="Проверь редкие классы, выбери нужные категории и переходи к следующему этапу аугментации."
       >
+        <div className="dataset-stats__summary">
+          <div className="dataset-stats__summary-card">
+            <span className="dataset-stats__summary-label">Датасет</span>
+            <strong className="dataset-stats__summary-value">{datasetName ?? 'Без имени'}</strong>
+          </div>
+          <div className="dataset-stats__summary-card">
+            <span className="dataset-stats__summary-label">Классов всего</span>
+            <strong className="dataset-stats__summary-value">{datasetStats.length}</strong>
+          </div>
+          <div className="dataset-stats__summary-card">
+            <span className="dataset-stats__summary-label">В интерфейсе</span>
+            <strong className="dataset-stats__summary-value">{visibleStats.length} самых редких</strong>
+          </div>
+        </div>
+
         {statsQuery.isLoading ? (
           <div className="upload-stage__loading">
-            <Spinner label="Загружаю распределение классов и собираю редкие категории." />
+            <Spinner label="Загружаю распределение классов." />
           </div>
         ) : null}
 
         {!statsQuery.isLoading && visibleStats.length > 0 ? (
-          <div className="info-card">
-            <ClassDistributionChart items={visibleStats} />
-            <ClassSelectionPanel
-              items={visibleStats}
-              onToggle={toggleClass}
-              selectedClasses={selectedClasses}
-            />
+          <div className="dataset-stats__layout">
+            <section className="info-card dataset-stats__chart-card">
+              <div className="dataset-stats__section-head">
+                <h3 className="dataset-stats__section-title">Распределение по классам</h3>
+                <p className="dataset-stats__section-copy">Первые 10 классов после сортировки по редкости.</p>
+              </div>
+              <ClassDistributionChart items={visibleStats} />
+            </section>
+
+            <section className="info-card dataset-stats__selection-card">
+              <div className="dataset-stats__section-head">
+                <h3 className="dataset-stats__section-title">Выбор классов</h3>
+                <p className="dataset-stats__section-copy">Отметь классы, для которых нужно увеличить датасет.</p>
+              </div>
+              <ClassSelectionPanel
+                items={visibleStats}
+                onToggle={toggleClass}
+                selectedClasses={selectedClasses}
+              />
+            </section>
           </div>
         ) : null}
 
@@ -121,27 +145,5 @@ export function DatasetStatsPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
-  )
-}
-
-function StatsAside({
-  datasetName,
-  totalClasses,
-}: {
-  datasetName: string | null
-  totalClasses: number
-}) {
-  return (
-    <div className="info-card">
-      <p className="info-card__text">
-        Датасет: <strong>{datasetName ?? 'без имени'}</strong>
-      </p>
-      <p className="info-card__text">
-        Всего классов в ответе: <strong>{totalClasses}</strong>
-      </p>
-      <p className="info-card__text">
-        Для интерфейса показываются только первые 10 элементов отсортированного списка.
-      </p>
-    </div>
   )
 }

@@ -19,7 +19,7 @@ export function PageFrame({ title, description, aside, children }: PageFrameProp
           <p className="page-frame__description">{description}</p>
         </header>
 
-        <div className="page-frame__body">
+        <div className={aside ? 'page-frame__body' : 'page-frame__body page-frame__body--single'}>
           <div className="page-frame__main">{children}</div>
           {aside ? <aside className="page-frame__aside">{aside}</aside> : null}
         </div>
