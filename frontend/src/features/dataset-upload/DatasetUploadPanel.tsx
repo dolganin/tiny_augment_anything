@@ -1,14 +1,15 @@
-import axios from 'axios'
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { adaptSessionSnapshot } from '@/shared/api/adapters'
 import { workflowApi } from '@/shared/api/workflow.api'
-import { useDeleteDatasetMutation, useTaskStatusQuery, useUploadDatasetMutation } from '@/shared/api/workflow.hooks'
+import { useDeleteDatasetMutation, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
+import { clearActiveUploadSession, createUploadSession, loadActiveUploadSession, type PersistedUploadSession, saveActiveUploadSession } from '@/shared/lib/upload-session-storage'
+import { isUploadAbortError, runResumableUpload } from '@/shared/lib/upload-runtime'
 import { type DatasetCatalogItem } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 
@@ -34,23 +35,39 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
   const activeDatasetId = useSessionStore((state) => state.datasetId)
   const replaceSession = useSessionStore((state) => state.replaceSession)
   const resetSession = useSessionStore((state) => state.reset)
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
+  const [uploadSession, setUploadSession] = useState<PersistedUploadSession | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
-  const [pendingImport, setPendingImport] = useState<PendingImportState | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
-  const uploadMutation = useUploadDatasetMutation()
   const deleteDatasetMutation = useDeleteDatasetMutation()
-  const importTaskQuery = useTaskStatusQuery(pendingImport?.sessionId ?? null, pendingImport?.jobId ?? null)
 
+  const pendingImport = useMemo<PendingImportState | null>(() => {
+    if (
+      uploadSession?.phase !== 'importing' ||
+      !uploadSession.sessionId ||
+      !uploadSession.datasetId ||
+      !uploadSession.jobId
+    ) {
+      return null
+    }
+    return {
+      sessionId: uploadSession.sessionId,
+      datasetId: uploadSession.datasetId,
+      datasetName: uploadSession.datasetName ?? uploadSession.fileName.replace(/\.zip$/i, ''),
+      jobId: uploadSession.jobId,
+    }
+  }, [uploadSession])
+
+  const importTaskQuery = useTaskStatusQuery(pendingImport?.sessionId ?? null, pendingImport?.jobId ?? null)
+  const selectedFileName = uploadSession?.fileName ?? null
   const importProgress = Math.round((importTaskQuery.data?.progress ?? 0) * 100)
   const isImportPending =
     pendingImport !== null &&
     (importTaskQuery.data?.status === 'pending' ||
       importTaskQuery.data?.status === 'running' ||
       importTaskQuery.isLoading)
-  const isBusy = uploadMutation.isPending || isImportPending || isCancelling
-  const baseDatasetName = pendingImport?.datasetName ?? selectedFileName?.replace(/\.zip$/i, '') ?? 'Новый датасет'
+  const isBusy = isUploading || isImportPending || isCancelling
 
   const pendingProject = useMemo<DatasetCatalogItem | null>(() => {
     if (pendingImport) {
@@ -79,14 +96,14 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         isPendingLocal: true,
       }
     }
-    if (!uploadMutation.isPending || !selectedFileName) {
+    if (uploadSession?.phase !== 'uploading') {
       return null
     }
     return {
-      datasetId: `pending-${selectedFileName}`,
-      datasetName: baseDatasetName,
+      datasetId: uploadSession.uploadId ? `pending-${uploadSession.uploadId}` : `pending-${uploadSession.fileName}`,
+      datasetName: uploadSession.fileName.replace(/\.zip$/i, ''),
       status: 'uploading',
-      sessionId: `pending-${selectedFileName}`,
+      sessionId: uploadSession.uploadId ? `pending-${uploadSession.uploadId}` : `pending-${uploadSession.fileName}`,
       workflowStage: 'upload',
       currentMode: null,
       fineTuneEnabled: false,
@@ -96,17 +113,17 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       updatedAt: new Date().toISOString(),
       recentTasks: [
         {
-          jobId: `pending-${selectedFileName}`,
+          jobId: uploadSession.uploadId ?? `pending-${uploadSession.fileName}`,
           taskType: 'upload',
-          status: 'running',
+          status: isUploading ? 'running' : 'pending',
           progress: uploadProgress / 100,
-          message: uploadProgress >= 100 ? 'Архив на сервере, запускаю импорт' : `Передача архива ${uploadProgress}%`,
+          message: isUploading ? `Передача архива ${uploadProgress}%` : 'Ожидает возобновления',
           errorMessage: null,
         },
       ],
       isPendingLocal: true,
     }
-  }, [baseDatasetName, importTaskQuery.data?.error?.message, importTaskQuery.data?.message, importTaskQuery.data?.progress, importTaskQuery.data?.status, pendingImport, selectedFileName, uploadMutation.isPending, uploadProgress])
+  }, [importTaskQuery.data?.error?.message, importTaskQuery.data?.message, importTaskQuery.data?.progress, importTaskQuery.data?.status, isUploading, pendingImport, uploadProgress, uploadSession])
 
   useEffect(() => {
     onProjectChange?.(pendingProject)
@@ -117,6 +134,118 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       onProjectChange?.(null)
     }
   }, [onProjectChange])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const storedSession = await loadActiveUploadSession()
+        if (cancelled || !storedSession) {
+          return
+        }
+        setUploadSession(storedSession)
+        if (storedSession.phase === 'uploading' && storedSession.file) {
+          await resumeUpload(storedSession)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(getErrorMessage(error))
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (isUploading) {
+          uploadAbortRef.current?.abort('pause')
+        }
+        return
+      }
+      if (!isUploading && uploadSession?.phase === 'uploading' && uploadSession.file) {
+        void resumeUpload(uploadSession)
+      }
+    }
+    const handleWakeup = () => {
+      if (!isUploading && uploadSession?.phase === 'uploading' && uploadSession.file) {
+        void resumeUpload(uploadSession)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWakeup)
+    window.addEventListener('online', handleWakeup)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWakeup)
+      window.removeEventListener('online', handleWakeup)
+    }
+  }, [isUploading, uploadSession])
+
+  useEffect(() => {
+    if (!pendingImport || importTaskQuery.data?.status !== 'success') {
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        await clearActiveUploadSession()
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['workflow', 'datasets-catalog'] }),
+          queryClient.invalidateQueries({ queryKey: ['workflow', 'jobs'] }),
+        ])
+        if (openOnImportComplete) {
+          const snapshot = await workflowApi.restoreSession(pendingImport.sessionId)
+          if (cancelled) {
+            return
+          }
+          replaceSession(adaptSessionSnapshot(snapshot))
+          navigate(navigateTo)
+        }
+        if (!cancelled) {
+          setUploadSession(null)
+          setUploadProgress(0)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(getErrorMessage(error))
+          setUploadSession(null)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [importTaskQuery.data?.status, navigate, navigateTo, openOnImportComplete, pendingImport, queryClient, replaceSession])
+
+  useEffect(() => {
+    if (!pendingImport) {
+      return
+    }
+    if (importTaskQuery.data?.status === 'error' || importTaskQuery.data?.status === 'cancelled') {
+      void clearActiveUploadSession()
+      setErrorMessage(
+        importTaskQuery.data.error?.message ??
+          importTaskQuery.data.message ??
+          'Импорт датасета завершился с ошибкой.',
+      )
+      setUploadSession(null)
+      setUploadProgress(0)
+    }
+  }, [importTaskQuery.data, pendingImport])
+
+  useEffect(() => {
+    if (!pendingImport || !importTaskQuery.error) {
+      return
+    }
+    void clearActiveUploadSession()
+    setErrorMessage(getErrorMessage(importTaskQuery.error))
+    setUploadSession(null)
+    setUploadProgress(0)
+  }, [importTaskQuery.error, pendingImport])
 
   const openFileDialog = () => {
     if (isBusy) {
@@ -135,56 +264,35 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       event.target.value = ''
       return
     }
-    const abortController = new AbortController()
-    let importStarted = false
-    uploadAbortRef.current = abortController
-    setSelectedFileName(file.name)
-    setUploadProgress(0)
-    setPendingImport(null)
+    event.target.value = ''
     try {
-      const response = await uploadMutation.mutateAsync({
-        file,
-        signal: abortController.signal,
-        onProgress: (progress) => {
-          setUploadProgress(progress)
-        },
-      })
-      if (response.error?.message) {
-        setErrorMessage(response.error.message)
-        return
-      }
-      setPendingImport({
-        sessionId: response.sessionId,
-        datasetId: response.datasetId,
-        datasetName: response.datasetName ?? file.name.replace(/\.zip$/i, ''),
-        jobId: response.jobId,
-      })
-      importStarted = true
+      const session = createUploadSession(file)
+      await saveActiveUploadSession(session)
+      setUploadSession(session)
+      setUploadProgress(0)
+      await resumeUpload(session)
     } catch (error) {
-      if (!isAbortError(error)) {
-        setErrorMessage(getErrorMessage(error))
-      }
-      setSelectedFileName(null)
-    } finally {
-      uploadAbortRef.current = null
-      event.target.value = ''
-      if (!importStarted) {
-        setUploadProgress(0)
-      }
+      setErrorMessage(getErrorMessage(error))
+      setUploadSession(null)
     }
   }
 
   const handleResetUpload = async () => {
     setIsCancelling(true)
     try {
-      if (uploadMutation.isPending) {
-        uploadAbortRef.current?.abort()
+      if (uploadSession?.phase === 'uploading') {
+        uploadAbortRef.current?.abort('cancel')
+        if (uploadSession.uploadId) {
+          await workflowApi.cancelUpload(uploadSession.uploadId).catch(() => undefined)
+        }
+        await clearActiveUploadSession()
       }
       if (pendingImport) {
         await deleteDatasetMutation.mutateAsync(pendingImport.datasetId)
         if (activeDatasetId === pendingImport.datasetId) {
           resetSession()
         }
+        await clearActiveUploadSession()
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['workflow', 'datasets-catalog'] }),
           queryClient.invalidateQueries({ queryKey: ['workflow', 'jobs'] }),
@@ -193,76 +301,13 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     } finally {
-      setPendingImport(null)
-      setSelectedFileName(null)
+      setUploadSession(null)
       setUploadProgress(0)
       setIsCancelling(false)
     }
   }
 
-  useEffect(() => {
-    if (!pendingImport || importTaskQuery.data?.status !== 'success') {
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['workflow', 'datasets-catalog'] }),
-          queryClient.invalidateQueries({ queryKey: ['workflow', 'jobs'] }),
-        ])
-        if (openOnImportComplete) {
-          const snapshot = await workflowApi.restoreSession(pendingImport.sessionId)
-          if (cancelled) {
-            return
-          }
-          replaceSession(adaptSessionSnapshot(snapshot))
-          navigate(navigateTo)
-        }
-        if (!cancelled) {
-          setPendingImport(null)
-          setSelectedFileName(null)
-          setUploadProgress(0)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(getErrorMessage(error))
-          setPendingImport(null)
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [importTaskQuery.data?.status, navigate, navigateTo, openOnImportComplete, pendingImport, queryClient, replaceSession])
-
-  useEffect(() => {
-    if (!pendingImport) {
-      return
-    }
-    if (importTaskQuery.data?.status === 'error' || importTaskQuery.data?.status === 'cancelled') {
-      setErrorMessage(
-        importTaskQuery.data.error?.message ??
-          importTaskQuery.data.message ??
-          'Импорт датасета завершился с ошибкой.',
-      )
-      setPendingImport(null)
-      setSelectedFileName(null)
-      setUploadProgress(0)
-    }
-  }, [importTaskQuery.data, pendingImport])
-
-  useEffect(() => {
-    if (!pendingImport || !importTaskQuery.error) {
-      return
-    }
-    setErrorMessage(getErrorMessage(importTaskQuery.error))
-    setPendingImport(null)
-    setSelectedFileName(null)
-    setUploadProgress(0)
-  }, [importTaskQuery.error, pendingImport])
-
-  const uploadStatusLabel = uploadMutation.isPending
+  const uploadStatusLabel = isUploading
     ? uploadProgress >= 100
       ? 'Архив на сервере, запускаю импорт'
       : `Загрузка архива: ${uploadProgress}%`
@@ -270,7 +315,9 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       ? importTaskQuery.data?.message ?? (importProgress > 0 ? `Импорт датасета: ${importProgress}%` : 'Импортирую датасет')
       : isCancelling
         ? 'Сбрасываю загрузку'
-        : 'Ожидание'
+        : uploadSession?.phase === 'uploading'
+          ? 'Пауза. Продолжу после возврата во вкладку'
+          : 'Ожидание'
 
   return (
     <>
@@ -279,7 +326,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
           accept=".zip,application/zip"
           className="upload-stage__input"
           disabled={isBusy}
-          onChange={handleFileSelect}
+          onChange={(event) => void handleFileSelect(event)}
           ref={fileInputRef}
           type="file"
         />
@@ -288,17 +335,17 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
           <UploadIcon />
           <span className="upload-stage__title">{isBusy ? 'Загрузка датасета' : 'Выбрать архив датасета'}</span>
           <span className="upload-stage__hint">
-            {uploadMutation.isPending
-              ? uploadProgress >= 100
-                ? 'Архив уже передан, начинается импорт.'
-                : `Передача файла: ${uploadProgress}%`
+            {isUploading
+              ? `Передача файла: ${uploadProgress}%`
               : isImportPending
                 ? importTaskQuery.data?.message ?? 'Архив загружен, идёт импорт.'
-                : 'Поддерживается один zip-архив.'}
+                : uploadSession?.phase === 'uploading'
+                  ? 'Загрузка поставлена на паузу и возобновится автоматически.'
+                  : 'Поддерживается один zip-архив.'}
           </span>
         </button>
 
-        {isBusy ? (
+        {isBusy || uploadSession?.phase === 'uploading' ? (
           <div className="upload-stage__loading">
             <div className="upload-stage__loading-head">
               <Spinner label={uploadStatusLabel} />
@@ -315,7 +362,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
               <div
                 className="upload-stage__progress-bar"
                 style={{
-                  width: `${Math.max(uploadMutation.isPending ? uploadProgress : importProgress, 8)}%`,
+                  width: `${Math.max(isUploading ? uploadProgress : importProgress || uploadProgress, 8)}%`,
                 }}
               />
             </div>
@@ -344,6 +391,42 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       </Modal>
     </>
   )
+
+  async function resumeUpload(session: PersistedUploadSession): Promise<void> {
+    if (isUploading || session.phase !== 'uploading') {
+      return
+    }
+    if (!session.file) {
+      setErrorMessage('Не удалось восстановить файл для продолжения загрузки.')
+      return
+    }
+    const abortController = new AbortController()
+    uploadAbortRef.current = abortController
+    setIsUploading(true)
+    setUploadSession(session)
+    try {
+      const result = await runResumableUpload({
+        session,
+        signal: abortController.signal,
+        onProgress: setUploadProgress,
+      })
+      setUploadSession(result.session)
+      setUploadProgress(100)
+    } catch (error) {
+      if (isUploadAbortError(error) || isDomAbortError(error)) {
+        if (abortController.signal.reason === 'cancel') {
+          setUploadSession(null)
+        }
+      } else {
+        setErrorMessage(getErrorMessage(error))
+      }
+    } finally {
+      uploadAbortRef.current = null
+      setIsUploading(false)
+      const storedSession = await loadActiveUploadSession()
+      setUploadSession(storedSession)
+    }
+  }
 }
 
 function UploadIcon() {
@@ -362,6 +445,6 @@ function UploadIcon() {
   )
 }
 
-function isAbortError(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.code === 'ERR_CANCELED'
+function isDomAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
 }

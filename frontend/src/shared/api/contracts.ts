@@ -47,6 +47,17 @@ export const uploadInitResponseSchema = z.object({
   totalParts: z.number().int().positive(),
 })
 
+export const uploadStatusResponseSchema = z.object({
+  uploadId: z.string(),
+  fileName: z.string(),
+  fileSize: z.number().int().positive(),
+  chunkSize: z.number().int().positive(),
+  totalParts: z.number().int().positive(),
+  nextPart: z.number().int().nonnegative(),
+  uploadedBytes: z.number().int().nonnegative(),
+  progress: z.number().min(0).max(1),
+})
+
 export const sessionSnapshotResponseSchema = z.object({
   sessionId: z.string(),
   datasetId: z.string().nullable().optional(),
@@ -225,4 +236,5 @@ export type JobsResponse = z.infer<typeof jobsResponseSchema>
 export type MetricsResponse = z.infer<typeof metricsResponseSchema>
 export type TaskStatusResponse = z.infer<typeof taskStatusResponseSchema>
 export type UploadInitResponse = z.infer<typeof uploadInitResponseSchema>
+export type UploadStatusResponse = z.infer<typeof uploadStatusResponseSchema>
 export type WorkflowSocketEvent = z.infer<typeof workflowSocketEventSchema>

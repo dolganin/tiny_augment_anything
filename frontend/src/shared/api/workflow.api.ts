@@ -17,6 +17,7 @@ import {
   taskStartedResponseSchema,
   taskStatusResponseSchema,
   uploadInitResponseSchema,
+  uploadStatusResponseSchema,
 } from '@/shared/api/contracts'
 import { endpoints } from '@/shared/api/endpoints'
 import { http } from '@/shared/api/http'
@@ -50,53 +51,50 @@ export const workflowApi = {
     const response = await http.get(endpoints.taskStatus(sessionId, taskId))
     return taskStatusResponseSchema.parse(response.data)
   },
+  async initUpload(fileName: string, fileSize: number, signal?: AbortSignal) {
+    const response = await http.post(
+      endpoints.initUpload,
+      { fileName, fileSize },
+      { timeout: 30_000, signal },
+    )
+    return uploadInitResponseSchema.parse(response.data)
+  },
+  async getUploadStatus(uploadId: string) {
+    const response = await http.get(endpoints.uploadStatus(uploadId))
+    return uploadStatusResponseSchema.parse(response.data)
+  },
+  async uploadChunk(
+    uploadId: string,
+    partNumber: number,
+    totalParts: number,
+    chunk: Blob,
+    signal?: AbortSignal,
+    onProgress?: (progress: number) => void,
+  ) {
+    const response = await http.put(endpoints.uploadChunk(uploadId, partNumber, totalParts), chunk, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+      },
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => {
+        const loaded = event.loaded ?? chunk.size
+        const progress = chunk.size === 0 ? 1 : loaded / chunk.size
+        onProgress?.(Math.min(1, progress))
+      },
+    })
+    return statusResponseSchema.parse(response.data)
+  },
+  async completeUpload(uploadId: string, signal?: AbortSignal) {
+    const response = await http.post(endpoints.completeUpload(uploadId), null, {
+      timeout: 0,
+      signal,
+    })
+    return datasetUploadResponseSchema.parse(response.data)
+  },
   async cancelUpload(uploadId: string) {
     const response = await http.delete(endpoints.cancelUpload(uploadId))
     return statusResponseSchema.parse(response.data)
-  },
-  async uploadDataset(file: File, onProgress?: (progress: number) => void, signal?: AbortSignal) {
-    let uploadId: string | null = null
-    try {
-      const initResponse = await http.post(
-        endpoints.initUpload,
-        { fileName: file.name, fileSize: file.size },
-        { timeout: 30_000, signal },
-      )
-      const upload = uploadInitResponseSchema.parse(initResponse.data)
-      uploadId = upload.uploadId
-      const totalParts = upload.totalParts
-
-      for (let partNumber = 0; partNumber < totalParts; partNumber += 1) {
-        const start = partNumber * upload.chunkSize
-        const end = Math.min(file.size, start + upload.chunkSize)
-        const chunk = file.slice(start, end)
-        const uploadedBefore = start
-        await http.put(endpoints.uploadChunk(upload.uploadId, partNumber, totalParts), chunk, {
-          headers: {
-            'Content-Type': 'application/octet-stream',
-          },
-          timeout: 0,
-          signal,
-          onUploadProgress: (event) => {
-            const loaded = event.loaded ?? chunk.size
-            const progress = Math.min(100, Math.round(((uploadedBefore + loaded) / file.size) * 100))
-            onProgress?.(progress)
-          },
-        })
-        onProgress?.(Math.min(100, Math.round((end / file.size) * 100)))
-      }
-
-      const response = await http.post(endpoints.completeUpload(upload.uploadId), null, {
-        timeout: 0,
-        signal,
-      })
-      return datasetUploadResponseSchema.parse(response.data)
-    } catch (error) {
-      if (uploadId && signal?.aborted) {
-        void workflowApi.cancelUpload(uploadId).catch(() => undefined)
-      }
-      throw error
-    }
   },
   async restoreSession(sessionId: string) {
     const response = await http.get(endpoints.restoreSession(sessionId))

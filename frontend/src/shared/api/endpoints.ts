@@ -6,6 +6,7 @@ export const endpoints = {
   jobs: '/jobs',
   cancelJob: (jobId: string) => `/jobs/${jobId}/cancel`,
   initUpload: '/uploads/init',
+  uploadStatus: (uploadId: string) => `/uploads/${uploadId}`,
   uploadChunk: (uploadId: string, partNumber: number, totalParts: number) =>
     `/uploads/${uploadId}/parts?partNumber=${partNumber}&totalParts=${totalParts}`,
   completeUpload: (uploadId: string) => `/uploads/${uploadId}/complete`,

@@ -1,12 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { workflowApi } from '@/shared/api/workflow.api'
 
-type UploadDatasetPayload = {
-  file: File
-  onProgress?: (progress: number) => void
-  signal?: AbortSignal
-}
-
 const workflowKeys = {
   datasetsCatalog: ['workflow', 'datasets-catalog'] as const,
   jobs: ['workflow', 'jobs'] as const,
@@ -105,13 +99,6 @@ export function useMetricsQuery(sessionId: string | null) {
 export function useDownloadMutation(sessionId: string) {
   return useMutation({
     mutationFn: () => workflowApi.getDownload(sessionId),
-  })
-}
-
-export function useUploadDatasetMutation() {
-  return useMutation({
-    mutationFn: ({ file, onProgress, signal }: UploadDatasetPayload) =>
-      workflowApi.uploadDataset(file, onProgress, signal),
   })
 }
 
