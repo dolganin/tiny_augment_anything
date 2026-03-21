@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { adaptJobs } from '@/shared/api/adapters'
 import { useCancelJobMutation, useJobsQuery } from '@/shared/api/workflow.hooks'
-import { workflowStages, workflowStageLabels, workflowStagePaths } from '@/shared/types/workflow'
+import { workflowStages, workflowStageLabels, workflowStagePaths, type WorkflowStage } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 import { useWorkspaceStore } from '@/store/workspace/workspace.store'
 import '@/shared/ui/layouts/layouts.css'
@@ -21,6 +21,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   const jobs = useMemo(() => (jobsQuery.data ? adaptJobs(jobsQuery.data) : []), [jobsQuery.data])
   const activeJobsCount = jobs.filter((item) => item.status === 'pending' || item.status === 'running').length
+  const currentStageIndex = workflowStages.indexOf(workflowStage)
 
   const handleCancelJob = async (jobId: string) => {
     await cancelJobMutation.mutateAsync(jobId)
@@ -92,16 +93,30 @@ export function AppShell({ children }: PropsWithChildren) {
             </div>
 
             <nav className="shell__nav">
-              {workflowStages.map((stage) => (
-                <NavLink
-                  className={({ isActive }) => (isActive ? 'shell__nav-item shell__nav-item--active' : 'shell__nav-item')}
-                  key={stage}
-                  to={workflowStagePaths[stage]}
-                >
-                  <span className="shell__nav-label">{workflowStageLabels[stage]}</span>
-                  <span className="shell__nav-state">{stage === workflowStage ? 'Текущий этап' : 'Открыть шаг'}</span>
-                </NavLink>
-              ))}
+              {workflowStages.map((stage) => {
+                const isCompleted = currentStageIndex > workflowStages.indexOf(stage)
+                return (
+                  <NavLink
+                    className={({ isActive }) =>
+                      [
+                        'shell__nav-item',
+                        isActive ? 'shell__nav-item--active' : '',
+                        isCompleted ? 'shell__nav-item--completed' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')
+                    }
+                    key={stage}
+                    to={workflowStagePaths[stage]}
+                  >
+                    <div className="shell__nav-head">
+                      <span className="shell__nav-label">{workflowStageLabels[stage]}</span>
+                      {isCompleted ? <StepDoneIcon /> : null}
+                    </div>
+                    <span className="shell__nav-state">{resolveStageState(stage, workflowStage, isCompleted)}</span>
+                  </NavLink>
+                )
+              })}
             </nav>
           </>
         ) : (
@@ -114,5 +129,30 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <div className="shell__content">{children}</div>
     </div>
+  )
+}
+
+function resolveStageState(stage: WorkflowStage, currentStage: WorkflowStage, isCompleted: boolean) {
+  if (isCompleted) {
+    return 'Этап закрыт'
+  }
+  if (stage === currentStage) {
+    return 'Текущий этап'
+  }
+  return 'Открыть шаг'
+}
+
+function StepDoneIcon() {
+  return (
+    <svg aria-hidden="true" className="shell__nav-check" viewBox="0 0 20 20">
+      <path
+        d="m4.5 10.5 3.2 3.2L15.5 6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+    </svg>
   )
 }
