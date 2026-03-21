@@ -5,9 +5,9 @@ export function UploadPage() {
   return (
     <PageFrame
       title="Загрузка датасета"
-      description="Загрузи zip-архив с датасетом. После успешной валидации интерфейс создаст рабочую сессию и переведёт тебя к статистике редких классов."
+      description="Загрузи zip-архив с датасетом. После успешной валидации интерфейс создаст рабочую сессию и откроет статистику редких классов."
     >
-      <DatasetUploadPanel />
+      <DatasetUploadPanel openOnImportComplete />
     </PageFrame>
   )
 }

@@ -83,6 +83,7 @@ export const adaptDatasetCatalog = (response: DatasetsCatalogResponse): DatasetC
   response.items.map((item) => ({
     datasetId: item.datasetId,
     datasetName: item.datasetName,
+    status: item.status,
     sessionId: item.sessionId,
     workflowStage: item.workflowStage as WorkflowStage,
     currentMode: item.currentMode ?? null,
@@ -91,6 +92,7 @@ export const adaptDatasetCatalog = (response: DatasetsCatalogResponse): DatasetC
     versionIndex: item.versionIndex,
     assetCount: item.assetCount,
     updatedAt: item.updatedAt,
+    isPendingLocal: false,
     recentTasks: item.recentTasks.map((task) => ({
       jobId: task.jobId,
       taskType: task.taskType,

@@ -4,6 +4,7 @@ import { workflowApi } from '@/shared/api/workflow.api'
 type UploadDatasetPayload = {
   file: File
   onProgress?: (progress: number) => void
+  signal?: AbortSignal
 }
 
 const workflowKeys = {
@@ -109,14 +110,27 @@ export function useDownloadMutation(sessionId: string) {
 
 export function useUploadDatasetMutation() {
   return useMutation({
-    mutationFn: ({ file, onProgress }: UploadDatasetPayload) =>
-      workflowApi.uploadDataset(file, onProgress),
+    mutationFn: ({ file, onProgress, signal }: UploadDatasetPayload) =>
+      workflowApi.uploadDataset(file, onProgress, signal),
   })
 }
 
 export function useActivateDatasetMutation() {
   return useMutation({
     mutationFn: (datasetId: string) => workflowApi.activateDataset(datasetId),
+  })
+}
+
+export function useRenameDatasetMutation() {
+  return useMutation({
+    mutationFn: ({ datasetId, name }: { datasetId: string; name: string }) =>
+      workflowApi.renameDataset(datasetId, name),
+  })
+}
+
+export function useDeleteDatasetMutation() {
+  return useMutation({
+    mutationFn: (datasetId: string) => workflowApi.deleteDataset(datasetId),
   })
 }
 

@@ -1,10 +1,9 @@
 import { PropsWithChildren, useMemo } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { adaptJobs } from '@/shared/api/adapters'
 import { useCancelJobMutation, useJobsQuery } from '@/shared/api/workflow.hooks'
 import { workflowStages, workflowStageLabels, workflowStagePaths } from '@/shared/types/workflow'
-import { JobsDrawer } from '@/features/job-queue/JobsDrawer'
 import { useSessionStore } from '@/store/session/session.store'
 import { useWorkspaceStore } from '@/store/workspace/workspace.store'
 import '@/shared/ui/layouts/layouts.css'
@@ -15,9 +14,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const sessionId = useSessionStore((state) => state.sessionId)
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
-  const jobsDrawerOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
-  const toggleJobsDrawer = useWorkspaceStore((state) => state.toggleJobsDrawer)
-  const setJobsDrawerOpen = useWorkspaceStore((state) => state.setJobsDrawerOpen)
+  const jobsPanelOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
+  const toggleJobsPanel = useWorkspaceStore((state) => state.toggleJobsDrawer)
   const jobsQuery = useJobsQuery()
   const cancelJobMutation = useCancelJobMutation()
 
@@ -36,27 +34,54 @@ export function AppShell({ children }: PropsWithChildren) {
     <div className="shell">
       <aside className="shell__sidebar">
         <div className="shell__brand">
-          <img
-            alt="Логотип Tiny Augment Anything"
-            className="shell__logo"
-            height="72"
-            src="/favicon/favicon-512.png"
-            width="72"
-          />
+          <img alt="Логотип Tiny Augment Anything" className="shell__logo" height="72" src="/favicon/favicon-512.png" width="72" />
           <p className="shell__eyebrow">Tiny Augment Anything</p>
           <h1 className="shell__title">Датасеты и пайплайны</h1>
-          <p className="shell__subtitle">Каталог датасетов и текущие задачи.</p>
+          <p className="shell__subtitle">Каталог проектов и очередь фоновых задач.</p>
         </div>
 
-        <div className="shell__actions">
-          <Link className="shell__home-link" to="/datasets">
-            Главный экран
-          </Link>
-          <button className="shell__jobs-toggle" onClick={toggleJobsDrawer} type="button">
-            Задачи
-            <span>{activeJobsCount}</span>
+        <section className="shell__queue-card">
+          <button className="shell__queue-header" onClick={toggleJobsPanel} type="button">
+            <span>Очередь задач</span>
+            <strong>{jobsPanelOpen ? '−' : '+'}</strong>
           </button>
-        </div>
+          <div className={jobsPanelOpen ? 'shell__queue-body' : 'shell__queue-body shell__queue-body--hidden'}>
+            <div className="shell__queue-summary">
+              <span>Активных</span>
+              <strong>{activeJobsCount}</strong>
+            </div>
+            {jobs.length > 0 ? (
+              <div className="shell__queue-list">
+                {jobs.slice(0, 5).map((item) => {
+                  const isActive = item.status === 'pending' || item.status === 'running'
+                  return (
+                    <article className="shell__queue-item" key={item.jobId}>
+                      <div className="shell__queue-item-head">
+                        <strong>{item.taskType}</strong>
+                        <span>{Math.round(item.progress * 100)}%</span>
+                      </div>
+                      <span className={`shell__queue-item-status shell__queue-item-status--${item.status}`}>{item.status}</span>
+                      <p className="shell__queue-item-copy">{item.datasetName ?? item.message ?? 'Фоновая задача'}</p>
+                      <div className="shell__queue-progress">
+                        <div className="shell__queue-progress-fill" style={{ width: `${Math.round(item.progress * 100)}%` }} />
+                      </div>
+                      {isActive ? (
+                        <button className="shell__queue-action" onClick={() => void handleCancelJob(item.jobId)} type="button">
+                          Отменить
+                        </button>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="shell__queue-empty">
+                <strong>Очередь пуста</strong>
+                <span>Новые задачи появятся здесь.</span>
+              </div>
+            )}
+          </div>
+        </section>
 
         {datasetId ? (
           <>
@@ -69,16 +94,12 @@ export function AppShell({ children }: PropsWithChildren) {
             <nav className="shell__nav">
               {workflowStages.map((stage) => (
                 <NavLink
-                  className={({ isActive }) =>
-                    isActive ? 'shell__nav-item shell__nav-item--active' : 'shell__nav-item'
-                  }
+                  className={({ isActive }) => (isActive ? 'shell__nav-item shell__nav-item--active' : 'shell__nav-item')}
                   key={stage}
                   to={workflowStagePaths[stage]}
                 >
                   <span className="shell__nav-label">{workflowStageLabels[stage]}</span>
-                  <span className="shell__nav-state">
-                    {stage === workflowStage ? 'Текущий этап' : 'Открыть шаг'}
-                  </span>
+                  <span className="shell__nav-state">{stage === workflowStage ? 'Текущий этап' : 'Открыть шаг'}</span>
                 </NavLink>
               ))}
             </nav>
@@ -86,19 +107,12 @@ export function AppShell({ children }: PropsWithChildren) {
         ) : (
           <div className="shell__empty">
             <strong>Пайплайн появится после выбора датасета</strong>
-            <span>Открой датасет или загрузи новый архив.</span>
+            <span>Открой проект из каталога или загрузи новый архив.</span>
           </div>
         )}
       </aside>
 
       <div className="shell__content">{children}</div>
-
-      <JobsDrawer
-        items={jobs}
-        onCancelJob={(jobId) => void handleCancelJob(jobId)}
-        onClose={() => setJobsDrawerOpen(false)}
-        open={jobsDrawerOpen}
-      />
     </div>
   )
 }

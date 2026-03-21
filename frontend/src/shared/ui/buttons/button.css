@@ -46,6 +46,12 @@
   border-color: var(--color-border);
 }
 
+.button--danger {
+  background: #fff1f2;
+  color: #b42338;
+  border-color: rgba(180, 35, 56, 0.2);
+}
+
 .button--full {
   width: 100%;
 }

@@ -72,9 +72,12 @@ export type DatasetCatalogTask = {
   errorMessage: string | null
 }
 
+export type DatasetStatus = 'uploading' | 'importing' | 'ready' | 'error'
+
 export type DatasetCatalogItem = {
   datasetId: string
   datasetName: string
+  status: DatasetStatus
   sessionId: string
   workflowStage: WorkflowStage
   currentMode: WorkflowMode
@@ -84,6 +87,7 @@ export type DatasetCatalogItem = {
   assetCount: number
   updatedAt: string
   recentTasks: DatasetCatalogTask[]
+  isPendingLocal?: boolean
 }
 
 export type GlobalJob = {

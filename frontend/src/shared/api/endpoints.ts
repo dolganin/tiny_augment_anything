@@ -1,12 +1,15 @@
 export const endpoints = {
   datasetsCatalog: '/datasets',
   activateDataset: (datasetId: string) => `/datasets/${datasetId}/activate`,
+  updateDataset: (datasetId: string) => `/datasets/${datasetId}`,
+  deleteDataset: (datasetId: string) => `/datasets/${datasetId}`,
   jobs: '/jobs',
   cancelJob: (jobId: string) => `/jobs/${jobId}/cancel`,
   initUpload: '/uploads/init',
   uploadChunk: (uploadId: string, partNumber: number, totalParts: number) =>
     `/uploads/${uploadId}/parts?partNumber=${partNumber}&totalParts=${totalParts}`,
   completeUpload: (uploadId: string) => `/uploads/${uploadId}/complete`,
+  cancelUpload: (uploadId: string) => `/uploads/${uploadId}`,
   uploadDataset: '/sessions/upload',
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
   taskStatus: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}`,

@@ -91,6 +91,7 @@ export const datasetCatalogTaskSchema = z.object({
 export const datasetCatalogItemSchema = z.object({
   datasetId: z.string(),
   datasetName: z.string(),
+  status: z.enum(['uploading', 'importing', 'ready', 'error']),
   sessionId: z.string(),
   workflowStage: sessionSnapshotResponseSchema.shape.workflowStage,
   currentMode: z.enum(['generate', 'modify']).nullable().optional(),
@@ -133,6 +134,10 @@ export const selectedClassesPayloadSchema = z.object({
 export const taskStartedResponseSchema = z.object({
   jobId: z.string(),
   status: apiTaskStatusSchema,
+})
+
+export const statusResponseSchema = z.object({
+  status: z.literal('success'),
 })
 
 export const taskStatusResponseSchema = z.object({
