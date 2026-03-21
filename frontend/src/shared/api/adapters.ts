@@ -18,6 +18,9 @@ import {
   WorkflowStage,
 } from '@/shared/types/workflow'
 
+const normalizeWorkflowStage = (stage: SessionSnapshotResponse['workflowStage']): WorkflowStage =>
+  stage === 'download' ? 'metrics' : stage
+
 const toFileUrl = (path: string) => {
   const fileUrl = new URL(`${env.apiBaseUrl}${endpoints.fileByPath}`)
   fileUrl.searchParams.set('path', path)
@@ -36,7 +39,7 @@ export const adaptSessionSnapshot = (session: SessionSnapshotResponse) => ({
   generationJobId: session.generationJobId ?? null,
   classifierJobId: session.classifierJobId ?? null,
   downloadUrl: session.downloadPath ? adaptDownload(session.downloadPath) : null,
-  workflowStage: session.workflowStage as WorkflowStage,
+  workflowStage: normalizeWorkflowStage(session.workflowStage),
 })
 
 export const adaptDatasetStats = (response: DatasetStatsResponse): DatasetClassStat[] =>
@@ -85,7 +88,7 @@ export const adaptDatasetCatalog = (response: DatasetsCatalogResponse): DatasetC
     datasetName: item.datasetName,
     status: item.status,
     sessionId: item.sessionId,
-    workflowStage: item.workflowStage as WorkflowStage,
+    workflowStage: normalizeWorkflowStage(item.workflowStage),
     currentMode: item.currentMode ?? null,
     fineTuneEnabled: item.fineTuneEnabled,
     fineTuneResolved: item.fineTuneResolved,

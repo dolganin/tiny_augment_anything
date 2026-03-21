@@ -3,6 +3,7 @@ export const endpoints = {
   activateDataset: (datasetId: string) => `/datasets/${datasetId}/activate`,
   updateDataset: (datasetId: string) => `/datasets/${datasetId}`,
   deleteDataset: (datasetId: string) => `/datasets/${datasetId}`,
+  datasetDownload: (datasetId: string) => `/datasets/${datasetId}/download`,
   jobs: '/jobs',
   cancelJob: (jobId: string) => `/jobs/${jobId}/cancel`,
   initUpload: '/uploads/init',
@@ -28,7 +29,6 @@ export const endpoints = {
   rejectAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/reject`,
   startClassifierTraining: (sessionId: string) => `/sessions/${sessionId}/classifier/train`,
   getMetrics: (sessionId: string) => `/sessions/${sessionId}/metrics`,
-  getDownload: (sessionId: string) => `/sessions/${sessionId}/download`,
   fileByPath: '/assets',
   workflowSocket: (sessionId: string) => `/sessions/${sessionId}/stream`,
 }

@@ -2,7 +2,6 @@ import {
   datasetsCatalogResponseSchema,
   datasetStatsResponseSchema,
   datasetUploadResponseSchema,
-  downloadResponseSchema,
   generationConfigResponseSchema,
   generationResultsResponseSchema,
   jobsResponseSchema,
@@ -20,6 +19,7 @@ import {
   uploadStatusResponseSchema,
 } from '@/shared/api/contracts'
 import { endpoints } from '@/shared/api/endpoints'
+import { env } from '@/shared/config/env'
 import { http } from '@/shared/api/http'
 
 export const workflowApi = {
@@ -38,6 +38,9 @@ export const workflowApi = {
   async deleteDataset(datasetId: string) {
     const response = await http.delete(endpoints.deleteDataset(datasetId))
     return statusResponseSchema.parse(response.data)
+  },
+  getDatasetDownloadUrl(datasetId: string) {
+    return `${env.apiBaseUrl}${endpoints.datasetDownload(datasetId)}`
   },
   async getJobs() {
     const response = await http.get(endpoints.jobs)
@@ -158,9 +161,5 @@ export const workflowApi = {
   async getMetrics(sessionId: string) {
     const response = await http.get(endpoints.getMetrics(sessionId))
     return metricsResponseSchema.parse(response.data)
-  },
-  async getDownload(sessionId: string) {
-    const response = await http.get(endpoints.getDownload(sessionId))
-    return downloadResponseSchema.parse(response.data)
   },
 }

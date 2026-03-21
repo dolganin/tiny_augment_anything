@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adaptDatasetCatalog, adaptSessionSnapshot } from '@/shared/api/adapters'
+import { workflowApi } from '@/shared/api/workflow.api'
 import { useActivateDatasetMutation, useDatasetsCatalogQuery, useDeleteDatasetMutation, useRenameDatasetMutation } from '@/shared/api/workflow.hooks'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { DatasetUploadPanel } from '@/features/dataset-upload/DatasetUploadPanel'
@@ -83,6 +84,15 @@ export function HomePage() {
     }
   }
 
+  const handleDownloadDataset = (item: DatasetCatalogItem) => {
+    const link = document.createElement('a')
+    link.href = workflowApi.getDatasetDownloadUrl(item.datasetId)
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
   return (
     <>
       <PageFrame
@@ -96,6 +106,7 @@ export function HomePage() {
           isLoading={catalogQuery.isLoading}
           items={items}
           onDeleteDataset={handleDeleteDataset}
+          onDownloadDataset={handleDownloadDataset}
           onOpenDataset={handleOpenDataset}
           onRenameDataset={handleRenameDataset}
           openingDatasetId={openingDatasetId}

@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { ClassifierTrainPage } from '@/pages/classifier-train/ClassifierTrainPage'
 import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
-import { DownloadPage } from '@/pages/download/DownloadPage'
 import { FineTunePage } from '@/pages/fine-tune/FineTunePage'
 import { GeneratePage } from '@/pages/generate/GeneratePage'
 import { HomePage } from '@/pages/home/HomePage'
@@ -21,7 +20,6 @@ export function AppRouter() {
   const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const metrics = useSessionStore((state) => state.metrics)
-  const downloadUrl = useSessionStore((state) => state.downloadUrl)
   const workflowStage = useSessionStore((state) => state.workflowStage)
 
   const hasDataset = Boolean(datasetId)
@@ -33,12 +31,9 @@ export function AppRouter() {
   const canTrainClassifier =
     Boolean(classifierJobId) ||
     Boolean(metrics) ||
-    Boolean(downloadUrl) ||
     workflowStage === 'classifier-train' ||
-    workflowStage === 'metrics' ||
-    workflowStage === 'download'
-  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics' || workflowStage === 'download'
-  const canDownload = Boolean(downloadUrl) || workflowStage === 'download'
+    workflowStage === 'metrics'
+  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics'
 
   return (
     <Routes>
@@ -82,10 +77,6 @@ export function AppRouter() {
         element={<ProtectedRoute canAccess={canShowMetrics} redirectTo="/classifier/train" />}
       >
         <Route path="/metrics" element={<MetricsPage />} />
-      </Route>
-
-      <Route element={<ProtectedRoute canAccess={canDownload} redirectTo="/metrics" />}>
-        <Route path="/download" element={<DownloadPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

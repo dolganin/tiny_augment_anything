@@ -96,12 +96,6 @@ export function useMetricsQuery(sessionId: string | null) {
   })
 }
 
-export function useDownloadMutation(sessionId: string) {
-  return useMutation({
-    mutationFn: () => workflowApi.getDownload(sessionId),
-  })
-}
-
 export function useActivateDatasetMutation() {
   return useMutation({
     mutationFn: (datasetId: string) => workflowApi.activateDataset(datasetId),

@@ -12,6 +12,7 @@ type DatasetCatalogProps = {
   renamingDatasetId: string | null
   deletingDatasetId: string | null
   onOpenDataset: (item: DatasetCatalogItem) => void
+  onDownloadDataset: (item: DatasetCatalogItem) => void
   onRenameDataset: (item: DatasetCatalogItem, name: string) => Promise<void>
   onDeleteDataset: (item: DatasetCatalogItem) => Promise<void>
 }
@@ -24,7 +25,7 @@ const statusLabels = {
 } satisfies Record<DatasetCatalogItem['status'], string>
 
 export function DatasetCatalog(props: DatasetCatalogProps) {
-  const { activeSessionId, isLoading, items, openingDatasetId, renamingDatasetId, deletingDatasetId, onOpenDataset, onRenameDataset, onDeleteDataset } = props
+  const { activeSessionId, isLoading, items, openingDatasetId, renamingDatasetId, deletingDatasetId, onOpenDataset, onDownloadDataset, onRenameDataset, onDeleteDataset } = props
   const [menuDatasetId, setMenuDatasetId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<DatasetCatalogItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DatasetCatalogItem | null>(null)
@@ -72,6 +73,7 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
           const isPendingTransfer = item.datasetId.startsWith('pending-')
           const canOpen = !isPendingTransfer
           const canManage = !isPendingTransfer
+          const canDownload = item.status === 'ready' && !isPendingTransfer
           return (
             <article
               className={isActive ? 'dataset-card dataset-card--active' : 'dataset-card'}
@@ -114,6 +116,18 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
 
               {menuDatasetId === item.datasetId ? (
                 <div className="dataset-card__menu" onClick={(event) => event.stopPropagation()}>
+                  {canDownload ? (
+                    <button
+                      className="dataset-card__menu-item"
+                      onClick={() => {
+                        onDownloadDataset(item)
+                        setMenuDatasetId(null)
+                      }}
+                      type="button"
+                    >
+                      Скачать архив
+                    </button>
+                  ) : null}
                   <button
                     className="dataset-card__menu-item"
                     onClick={() => {

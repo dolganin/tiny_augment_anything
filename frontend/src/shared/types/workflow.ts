@@ -8,7 +8,6 @@ export const workflowStages = [
   'review',
   'classifier-train',
   'metrics',
-  'download',
 ] as const
 
 export type WorkflowStage = (typeof workflowStages)[number]
@@ -25,7 +24,6 @@ export const workflowStageLabels: Record<WorkflowStage, string> = {
   review: 'Отбор',
   'classifier-train': 'Классификатор',
   metrics: 'Метрики',
-  download: 'Скачивание',
 }
 
 export const workflowStagePaths: Record<WorkflowStage, string> = {
@@ -38,7 +36,6 @@ export const workflowStagePaths: Record<WorkflowStage, string> = {
   review: '/review',
   'classifier-train': '/classifier/train',
   metrics: '/metrics',
-  download: '/download',
 }
 
 export type DatasetClassStat = {
