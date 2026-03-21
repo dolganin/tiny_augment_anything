@@ -6,13 +6,14 @@ services:
     ports:
       - "5444:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:8000/api
-      VITE_WS_BASE_URL: ws://localhost:8000/ws
+      VITE_API_BASE_URL: /api
+      VITE_WS_BASE_URL: /ws
+      BACKEND_PROXY_TARGET: http://backend:8000
       CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "if [ ! -x node_modules/.bin/vite ]; then npm install; fi && npm run dev -- --host 0.0.0.0 --port 5173"
     depends_on:
       backend:
         condition: service_healthy
@@ -26,21 +27,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      APP_HOST: 0.0.0.0
-      APP_PORT: 8000
-      APP_RUNTIME_DIR: /app/runtime_data
-      POSTGRES_DSN: postgresql://tinyaugment:tinyaugment@postgres:5432/tinyaugment
-      REDIS_DSN: redis://redis:6379/0
-      REDIS_QUEUE_NAME: tiny_augment:tasks
-      REDIS_EVENTS_PREFIX: tiny_augment:events
-      EXECUTOR_MODE: stub
+      APP_CONFIG_PATH: /app/config/app.yaml
     volumes:
       - ./backend:/app/backend
+      - ./config:/app/config
       - ./src:/app/src
-      - ./runtime_data:/app/runtime_data
+      - ./storage/tiny-augment:/data/tiny-augment
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
       - ./README.md:/app/README.md
+    command: ["uv", "run", "--no-sync", "uvicorn", "backend.app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,9 +50,9 @@ services:
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2).read()",
         ]
-      interval: 5s
+      interval: 120s
       timeout: 3s
-      retries: 20
+      retries: 3
       start_period: 10s
 
   worker:
@@ -65,18 +61,14 @@ services:
       dockerfile: backend/Dockerfile
     container_name: tiny_augment_worker
     working_dir: /app
-    command: ["uv", "run", "python", "-m", "backend.worker"]
+    command: ["uv", "run", "--no-sync", "python", "-m", "backend.worker"]
     environment:
-      APP_RUNTIME_DIR: /app/runtime_data
-      POSTGRES_DSN: postgresql://tinyaugment:tinyaugment@postgres:5432/tinyaugment
-      REDIS_DSN: redis://redis:6379/0
-      REDIS_QUEUE_NAME: tiny_augment:tasks
-      REDIS_EVENTS_PREFIX: tiny_augment:events
-      EXECUTOR_MODE: stub
+      APP_CONFIG_PATH: /app/config/app.yaml
     volumes:
       - ./backend:/app/backend
+      - ./config:/app/config
       - ./src:/app/src
-      - ./runtime_data:/app/runtime_data
+      - ./storage/tiny-augment:/data/tiny-augment
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
       - ./README.md:/app/README.md
@@ -108,5 +100,6 @@ services:
       - redis_data:/data
 
 volumes:
+  frontend_node_modules:
   postgres_data:
   redis_data:
