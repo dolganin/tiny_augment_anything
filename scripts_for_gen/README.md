@@ -47,7 +47,6 @@ pip install -r requirements.inference.txt
 python segment_evf_sam2_json.py \
   --input-json example_input.json \
   --output-json segmented.json \
-  --evf-repo /path/to/EVF-SAM \
   --version YxZhang/evf-sam2-multitask \
   --model-type sam2 \
   --semantic-default \
@@ -63,6 +62,8 @@ python generate_zimage_json.py \
   --input-json segmented.json \
   --output-json generated.json \
   --use-all-masks \
+  --lora-path C:\path\to\my_lora\pytorch_lora_weights.safetensors \
+  --lora-scale 0.8 \
   --size 1024
 ```
 

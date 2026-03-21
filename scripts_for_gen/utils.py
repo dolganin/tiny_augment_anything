@@ -1,36 +1,15 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+import torch
 
-
-def load_json_container(path: Path) -> Tuple[Dict[str, Any] | None, List[Dict[str, Any]]]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(data, list):
-        return None, data
-    if isinstance(data, dict):
-        if isinstance(data.get("items"), list):
-            meta = {k: v for k, v in data.items() if k != "items"}
-            return meta, data["items"]
-
-
-def save_json_container(path: Path, meta: Dict[str, Any] | None, items: List[Dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload: Any = items if meta is None else {**meta, "items": items}
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def choose_device(user_device: str | None) -> str:
+def choose_device(user_device):
     if user_device:
         return user_device
-    import torch
-
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def choose_dtype(device: str, precision: str):
-    import torch
+def choose_dtype(device, precision):
 
     if not device.startswith("cuda"):
         return torch.float32
@@ -41,13 +20,13 @@ def choose_dtype(device: str, precision: str):
     return torch.float32
 
 
-def sanitize_stem(value: str) -> str:
+def sanitize_stem(value):
     cleaned = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in value)
     cleaned = cleaned.strip("_")
     return cleaned or "item"
 
 
-def resolve_path(raw_path: str, json_dir: Path) -> Path:
+def resolve_path(raw_path, json_dir):
     p = Path(raw_path)
     if not p.is_absolute():
         p = (json_dir / p).resolve()

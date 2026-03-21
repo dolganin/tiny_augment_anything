@@ -21,17 +21,17 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 #from torchmetrics.multimodal import CLIPScore
 
-from utils import choose_device, choose_dtype, load_json_container, resolve_path
+from utils import choose_device, choose_dtype, resolve_path
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True)
     return p.parse_args()
 
 
 class ImageDataset(Dataset):
-    def __init__(self, items, root: Path, src_key: str, tgt_key: str, prompt_key: str, resolution: int):
+    def __init__(self, items, root, src_key, tgt_key, prompt_key, resolution):
         self.items = items
         self.root = root
         self.src_key = src_key
@@ -71,7 +71,7 @@ def collate(batch):
     }
 
 
-def save_lora(pipe: ZImageImg2ImgPipeline, output_dir: Path):
+def save_lora(pipe: ZImageImg2ImgPipeline, output_dir):
     state_dict = get_peft_model_state_dict(pipe.transformer)
     state_dict = convert_state_dict_to_diffusers(state_dict)
     pipe.save_lora_weights(output_dir, transformer_lora_layers=state_dict)
@@ -94,7 +94,7 @@ def load_eval_image(path: Path, resolution: int):
 
 @torch.no_grad()
 def evaluate(
-    pipe: ZImageImg2ImgPipeline,
+    pipe,
     items,
     root,
     src_key,
@@ -151,7 +151,7 @@ def evaluate(
     return fid, lpips, ssim, psnr
 
 
-def save_curve(path: Path, xs, ys, ylabel: str):
+def save_curve(path, xs, ys, ylabel):
     plt.figure(figsize=(8, 5))
     plt.plot(xs, ys)
     plt.xlabel("step")
@@ -161,7 +161,7 @@ def save_curve(path: Path, xs, ys, ylabel: str):
     plt.close()
 
 
-def main() -> None:
+def main():
     args = parse_args()
     config_path = Path(args.config).resolve()
     cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
@@ -180,7 +180,7 @@ def main() -> None:
     output_dir = resolve_path(str(train_cfg.get("output_dir", "zimage_lora_out")), config_path.parent)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    _, items = load_json_container(dataset_path)
+    items = json.loads(dataset_path.read_text(encoding="utf-8"))
     root = dataset_path.parent
     src_key = str(imagedataset.get("src_key", "src_img"))
     tgt_key = str(imagedataset.get("tgt_key", "tgt_img"))
@@ -189,7 +189,7 @@ def main() -> None:
 
     eval_path_raw = eval_cfg.get("path")
     eval_path = resolve_path(str(eval_path_raw), config_path.parent) if eval_path_raw else dataset_path
-    _, eval_items = load_json_container(eval_path)
+    eval_items = json.loads(eval_path.read_text(encoding="utf-8"))
     eval_root = eval_path.parent
     eval_items = [x for x in eval_items if x.get(src_key) and x.get(tgt_key) and (x.get(prompt_key) or x.get("prompt") or x.get("caption"))]
     eval_items = eval_items[: int(eval_cfg.get("num_items", 8))]
