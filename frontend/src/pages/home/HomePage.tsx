@@ -98,7 +98,6 @@ export function HomePage() {
       <PageFrame
         title="Датасеты"
         description="Загрузи новый архив или открой существующий проект и продолжи пайплайн с нужного шага."
-        aside={<DatasetUploadPanel onProjectChange={setPendingProject} />}
       >
         <DatasetCatalog
           activeSessionId={activeSessionId}
@@ -112,6 +111,7 @@ export function HomePage() {
           openingDatasetId={openingDatasetId}
           renamingDatasetId={renameDatasetMutation.isPending ? renameDatasetMutation.variables?.datasetId ?? null : null}
         />
+        <DatasetUploadPanel onProjectChange={setPendingProject} />
       </PageFrame>
 
       <Modal onClose={() => setErrorMessage(null)} open={Boolean(errorMessage)} title="Ошибка каталога" tone="error">
