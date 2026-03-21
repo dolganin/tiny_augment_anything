@@ -5,7 +5,7 @@ import { DatasetCatalogItem, workflowStageLabels } from '@/shared/types/workflow
 import '@/features/dataset-library/dataset-library.css'
 
 type DatasetCatalogProps = {
-  activeSessionId: string | null
+  activeDatasetId: string | null
   isLoading: boolean
   items: DatasetCatalogItem[]
   openingDatasetId: string | null
@@ -25,7 +25,7 @@ const statusLabels = {
 } satisfies Record<DatasetCatalogItem['status'], string>
 
 export function DatasetCatalog(props: DatasetCatalogProps) {
-  const { activeSessionId, isLoading, items, openingDatasetId, renamingDatasetId, deletingDatasetId, onOpenDataset, onDownloadDataset, onRenameDataset, onDeleteDataset } = props
+  const { activeDatasetId, isLoading, items, openingDatasetId, renamingDatasetId, deletingDatasetId, onOpenDataset, onDownloadDataset, onRenameDataset, onDeleteDataset } = props
   const [menuDatasetId, setMenuDatasetId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<DatasetCatalogItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DatasetCatalogItem | null>(null)
@@ -68,7 +68,7 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
     <>
       <div className="dataset-library">
         {sortedItems.map((item) => {
-          const isActive = item.sessionId === activeSessionId
+          const isActive = item.datasetId === activeDatasetId
           const isOpening = openingDatasetId === item.datasetId
           const isPendingTransfer = item.datasetId.startsWith('pending-')
           const canOpen = !isPendingTransfer

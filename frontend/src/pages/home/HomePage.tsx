@@ -13,7 +13,6 @@ import { Modal } from '@/shared/ui/feedback/Modal'
 
 export function HomePage() {
   const navigate = useNavigate()
-  const activeSessionId = useSessionStore((state) => state.sessionId)
   const activeDatasetId = useSessionStore((state) => state.datasetId)
   const replaceSession = useSessionStore((state) => state.replaceSession)
   const resetSession = useSessionStore((state) => state.reset)
@@ -100,7 +99,7 @@ export function HomePage() {
         description="Загрузи новый архив или открой существующий проект и продолжи пайплайн с нужного шага."
       >
         <DatasetCatalog
-          activeSessionId={activeSessionId}
+          activeDatasetId={openingDatasetId ?? null}
           deletingDatasetId={deleteDatasetMutation.isPending ? deleteDatasetMutation.variables ?? null : null}
           isLoading={catalogQuery.isLoading}
           items={items}
