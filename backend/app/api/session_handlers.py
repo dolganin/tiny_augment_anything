@@ -12,7 +12,7 @@ from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.queue import enqueue_task
 from backend.app.services.sessions import build_snapshot, parse_session_id
-from backend.app.services.uploads import append_chunk, discard_chunk_upload, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
+from backend.app.services.uploads import append_chunk, discard_chunk_upload, get_chunk_upload_status, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
 
 
 async def upload_dataset(request: Request, params: dict[str, str], state: object):
@@ -96,6 +96,28 @@ async def upload_dataset_chunk(request: Request, params: dict[str, str], state: 
         raise AppError(400, "Некорректные параметры части.") from error
     progress = append_chunk(runtime_state.runtime_paths, upload_id, part_number, total_parts, request.body)
     return json_response(200, {"status": "success", "progress": progress})
+
+
+async def get_dataset_upload_status(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    try:
+        upload_id = UUID(params["upload_id"])
+    except ValueError as error:
+        raise AppError(400, "Некорректный uploadId.") from error
+    status = get_chunk_upload_status(runtime_state.runtime_paths, upload_id)
+    return json_response(
+        200,
+        {
+            "uploadId": str(status.upload_id),
+            "fileName": status.file_name,
+            "fileSize": status.file_size,
+            "chunkSize": status.chunk_size,
+            "totalParts": status.total_parts,
+            "nextPart": status.next_part,
+            "uploadedBytes": status.uploaded_bytes,
+            "progress": 0 if status.file_size == 0 else min(1.0, status.uploaded_bytes / status.file_size),
+        },
+    )
 
 
 async def complete_dataset_upload(request: Request, params: dict[str, str], state: object):

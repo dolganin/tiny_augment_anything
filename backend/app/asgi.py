@@ -6,7 +6,7 @@ from backend.app.api.dataset_handlers import dataset_stats
 from backend.app.api.download_handlers import get_download
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, reject_asset_handler
-from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
+from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_dataset_upload_status, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
 from backend.app.api.workflow_handlers import (
     generation_config,
     generation_results,
@@ -45,6 +45,7 @@ def build_router() -> Router:
     router.add_http("GET", "/api/jobs", list_global_jobs)
     router.add_http("POST", "/api/jobs/{job_id}/cancel", cancel_global_job_handler)
     router.add_http("POST", "/api/uploads/init", init_dataset_upload)
+    router.add_http("GET", "/api/uploads/{upload_id}", get_dataset_upload_status)
     router.add_http("PUT", "/api/uploads/{upload_id}/parts", upload_dataset_chunk)
     router.add_http("POST", "/api/uploads/{upload_id}/complete", complete_dataset_upload)
     router.add_http("DELETE", "/api/uploads/{upload_id}", cancel_dataset_upload)

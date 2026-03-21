@@ -44,6 +44,17 @@ class ChunkUploadInit:
     total_parts: int
 
 
+@dataclass(frozen=True, slots=True)
+class ChunkUploadStatus:
+    upload_id: UUID
+    file_name: str
+    file_size: int
+    chunk_size: int
+    total_parts: int
+    next_part: int
+    uploaded_bytes: int
+
+
 DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024
 
 
@@ -96,6 +107,24 @@ def discard_chunk_upload(runtime_paths: RuntimePaths, upload_id: UUID) -> None:
     if not upload_dir.exists():
         return
     shutil.rmtree(upload_dir, ignore_errors=True)
+
+
+def get_chunk_upload_status(runtime_paths: RuntimePaths, upload_id: UUID) -> ChunkUploadStatus:
+    upload_dir = staged_upload_dir(runtime_paths, upload_id)
+    meta_path = upload_dir / "meta.json"
+    archive_path = upload_dir / "source.zip"
+    if not meta_path.exists() or not archive_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
+    meta = _read_upload_meta(meta_path)
+    return ChunkUploadStatus(
+        upload_id=upload_id,
+        file_name=str(meta["file_name"]),
+        file_size=int(meta["file_size"]),
+        chunk_size=int(meta["chunk_size"]),
+        total_parts=int(meta["total_parts"]),
+        next_part=int(meta["next_part"]),
+        uploaded_bytes=int(meta["uploaded_bytes"]),
+    )
 
 
 async def prepare_dataset_upload_from_staged_archive(
