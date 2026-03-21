@@ -7,9 +7,10 @@ transforms:
   _target_:       tiny_augment.augmentations.get_augmentations
   img_size:       ${model.pretrain_img_size}
 
-train_batch_size: 32
-val_batch_size:   64
+train_batch_size: 128
+val_batch_size:   256
+prefetch_factor:  2
 
 sampler_type:     balanced
-num_workers:      8
+num_workers:      16
 weights_root:     null

@@ -9,5 +9,11 @@ object:
                       - fc_norm
                       - blocks.10
                       - blocks.11
+  device_type:        cuda:0
+
+model_path:
+  mlflow_run_id:      null
+  artifact_path:      null
 
 pretrain_img_size:    336
+compile_mode:         reduce-overhead

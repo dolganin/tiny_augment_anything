@@ -8,5 +8,8 @@ object:
                       - head
                       - stages.3
                       - stages.2
+  device_type:        cpu
 
 pretrain_img_size:    256
+last_checkpoint:      null
+compile_mode:         reduce-overhead

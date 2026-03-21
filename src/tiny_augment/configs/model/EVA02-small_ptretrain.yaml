@@ -11,5 +11,8 @@ object:
                       - blocks.9
                       - blocks.10
                       - blocks.11
+  device_type:        cuda:0
 
-pretrain_img_size: 336
+pretrain_img_size:    336
+last_checkpoint:      null
+compile_mode:         reduce-overhead

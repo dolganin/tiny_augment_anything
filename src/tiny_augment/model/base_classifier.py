@@ -44,7 +44,7 @@ class ISICClassifier(nn.Module):
         self.finetune_mode = finetune_mode
 
         self.model = timm.create_model(
-            backbone,
+            model_name=backbone,
             pretrained=pretrained,
             drop_rate=drop_rate,
             num_classes=num_classes,
@@ -91,6 +91,7 @@ class ISICClassifier(nn.Module):
         """
         Freezes model parameters based on the selected fine-tuning mode.
 
+        Parameters
         ----------
 
         trainable_prefixes : list[str] | None

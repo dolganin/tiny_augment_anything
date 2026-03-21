@@ -24,6 +24,7 @@ def build_dataloaders(
     transforms: Mapping[str, Callable],
     train_batch_size: int = 32,
     val_batch_size: int = 64,
+    prefetch_factor: int = 2,
     sampler_type: Literal["balanced", "weighted"] | None = None,
     num_workers: int = 8,
     weights_root: str | Path | None = None,
@@ -63,6 +64,9 @@ def build_dataloaders(
 
     val_batch_size : int, default=64
         Batch size for the validation dataloader.
+
+    prefetch_factor : int, default=2
+        Number of batch loaded by each worker.
 
     sampler_type : {"balanced", "weighted"} | None, default=None
         Sampling strategy for the training dataloader:
@@ -104,6 +108,7 @@ def build_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
+        prefetch_factor=prefetch_factor,
     )
 
     valid_loader = DataLoader(
@@ -112,6 +117,7 @@ def build_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
+        prefetch_factor=prefetch_factor,
     )
 
     return train_loader, valid_loader

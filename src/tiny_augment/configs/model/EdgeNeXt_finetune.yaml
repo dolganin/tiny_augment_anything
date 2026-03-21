@@ -6,10 +6,13 @@ object:
   finetune_mode:      partial
   trainable_prefixes: 
                       - head
+
                       - stages.3
+  device_type:        cuda:0
 
-checkpoint:
-  mlflow_run_id:     null
-  artifact_path:     null
+model_path:
+  mlflow_run_id:      null
+  artifact_path:      null
 
-pretrain_img_size:   256
+pretrain_img_size:    256
+compile_mode:         reduce-overhead
