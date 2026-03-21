@@ -55,3 +55,22 @@ async def update_session_stage(
         """,
         (stage.value, mode, fine_tune_enabled, fine_tune_resolved, download_path, now, now, session_id),
     )
+
+
+async def sync_session_state(
+    connection,
+    session_id: UUID,
+    *,
+    stage: WorkflowStage,
+    mode: str | None,
+    fine_tune_enabled: bool | None,
+    fine_tune_resolved: bool | None,
+) -> None:
+    await update_session_stage(
+        connection,
+        session_id,
+        stage,
+        mode=mode,
+        fine_tune_enabled=fine_tune_enabled,
+        fine_tune_resolved=fine_tune_resolved,
+    )

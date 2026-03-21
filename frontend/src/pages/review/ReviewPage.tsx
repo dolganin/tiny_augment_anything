@@ -81,7 +81,7 @@ export function ReviewPage() {
   }
 
   const handleClassifierStart = async () => {
-    if (!sessionId || approvedItems.length === 0) {
+    if (!sessionId) {
       return
     }
 
@@ -139,7 +139,7 @@ export function ReviewPage() {
                 Ещё нужно добрать изображений: <strong>{queue?.remainingCount ?? 0}</strong>
               </p>
               <Button
-                disabled={approvedItems.length === 0 || classifierMutation.isPending}
+                disabled={classifierMutation.isPending}
                 onClick={handleClassifierStart}
               >
                 Запустить обучение классификатора

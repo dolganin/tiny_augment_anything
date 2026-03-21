@@ -77,6 +77,10 @@ export const taskStartedResponseSchema = z.object({
   status: apiTaskStatusSchema,
 })
 
+export const syncStateResponseSchema = z.object({
+  status: z.literal('success'),
+})
+
 export const generationConfigResponseSchema = z.object({
   fields: z.array(generationFieldSchema),
   sampleCount: z.number().int().positive().default(1),

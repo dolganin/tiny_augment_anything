@@ -3,6 +3,7 @@ export const endpoints = {
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
   datasetStats: (sessionId: string) => `/sessions/${sessionId}/dataset/stats`,
   selectClasses: (sessionId: string) => `/sessions/${sessionId}/dataset/classes`,
+  syncWorkflowState: (sessionId: string) => `/sessions/${sessionId}/workflow/state`,
   startFineTune: (sessionId: string) => `/sessions/${sessionId}/diffusion/fine-tune`,
   generationDefaults: (sessionId: string) => `/sessions/${sessionId}/generation/config`,
   startGeneration: (sessionId: string) => `/sessions/${sessionId}/generation`,

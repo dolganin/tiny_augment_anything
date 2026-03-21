@@ -10,6 +10,7 @@ import {
   modificationStartPayloadSchema,
   selectedClassesPayloadSchema,
   sessionSnapshotResponseSchema,
+  syncStateResponseSchema,
   taskStartedResponseSchema,
 } from '@/shared/api/contracts'
 import { endpoints } from '@/shared/api/endpoints'
@@ -34,6 +35,10 @@ export const workflowApi = {
     const payload = selectedClassesPayloadSchema.parse({ classNames })
     const response = await http.post(endpoints.selectClasses(sessionId), payload)
     return taskStartedResponseSchema.parse(response.data)
+  },
+  async syncWorkflowState(sessionId: string, payload: unknown) {
+    const response = await http.post(endpoints.syncWorkflowState(sessionId), payload)
+    return syncStateResponseSchema.parse(response.data)
   },
   async startFineTune(sessionId: string) {
     const response = await http.post(endpoints.startFineTune(sessionId))

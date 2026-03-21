@@ -6,7 +6,7 @@ from backend.app.domain.enums import TaskType, WorkflowStage
 from backend.app.repositories.tasks import cancel_task, create_task, get_task_status
 from backend.app.repositories.workflow_assets import get_random_approved_asset
 from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_pending_results
-from backend.app.repositories.workflow_session import get_session_context
+from backend.app.repositories.workflow_session import get_session_context, sync_session_state
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
@@ -204,6 +204,34 @@ async def start_classifier_training(request: Request, params: dict[str, str], st
         {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.CLASSIFIER.value},
     )
     return json_response(200, task)
+
+
+async def sync_workflow_state(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    session_id = parse_session_id(params["session_id"])
+    payload = request.json()
+    if not isinstance(payload, dict):
+        raise AppError(400, "Некорректное тело workflow state.")
+    raw_stage = payload.get("workflowStage")
+    if not isinstance(raw_stage, str):
+        raise AppError(400, "Нужно поле workflowStage.")
+    try:
+        stage = WorkflowStage(raw_stage)
+    except ValueError as error:
+        raise AppError(400, "Некорректный workflowStage.") from error
+    mode = payload.get("currentMode")
+    fine_tune_enabled = payload.get("fineTuneEnabled")
+    fine_tune_resolved = payload.get("fineTuneResolved")
+    async with runtime_state.database.connection() as connection:
+        await sync_session_state(
+            connection,
+            session_id,
+            stage=stage,
+            mode=mode if isinstance(mode, str) else None,
+            fine_tune_enabled=fine_tune_enabled if isinstance(fine_tune_enabled, bool) else None,
+            fine_tune_resolved=fine_tune_resolved if isinstance(fine_tune_resolved, bool) else None,
+        )
+    return json_response(200, {"status": "success"})
 
 
 async def metrics(request: Request, params: dict[str, str], state: object):

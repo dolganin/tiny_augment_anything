@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStartFineTuneMutation } from '@/shared/api/workflow.hooks'
+import { useStartFineTuneMutation, useSyncWorkflowStateMutation } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
@@ -19,6 +19,7 @@ export function FineTunePage() {
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const fineTuneMutation = useStartFineTuneMutation(sessionId ?? '')
+  const syncWorkflowStateMutation = useSyncWorkflowStateMutation(sessionId ?? '')
 
   useEffect(() => {
     setSession({ workflowStage: 'fine-tune' })
@@ -91,14 +92,25 @@ export function FineTunePage() {
     }
   }
 
-  const skipFineTune = () => {
-    setSession({
-      fineTuneEnabled: false,
-      fineTuneResolved: true,
-      fineTuneJobId: null,
-      workflowStage: 'mode-select',
-    })
-    navigate('/mode')
+  const skipFineTune = async () => {
+    try {
+      if (sessionId) {
+        await syncWorkflowStateMutation.mutateAsync({
+          workflowStage: 'mode-select',
+          fineTuneEnabled: false,
+          fineTuneResolved: true,
+        })
+      }
+      setSession({
+        fineTuneEnabled: false,
+        fineTuneResolved: true,
+        fineTuneJobId: null,
+        workflowStage: 'mode-select',
+      })
+      navigate('/mode')
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error))
+    }
   }
 
   return (
@@ -119,7 +131,11 @@ export function FineTunePage() {
             >
               Запустить дообучение
             </Button>
-            <Button disabled={fineTuneMutation.isPending || fineTuneEnabled} onClick={skipFineTune} variant="ghost">
+            <Button
+              disabled={fineTuneMutation.isPending || syncWorkflowStateMutation.isPending || fineTuneEnabled}
+              onClick={skipFineTune}
+              variant="ghost"
+            >
               Пропустить этап
             </Button>
           </div>

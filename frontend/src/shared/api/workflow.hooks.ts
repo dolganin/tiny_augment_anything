@@ -81,6 +81,12 @@ export function useStartFineTuneMutation(sessionId: string) {
   })
 }
 
+export function useSyncWorkflowStateMutation(sessionId: string) {
+  return useMutation({
+    mutationFn: (payload: unknown) => workflowApi.syncWorkflowState(sessionId, payload),
+  })
+}
+
 export function useStartGenerationMutation(sessionId: string) {
   return useMutation({
     mutationFn: (payload: unknown) => workflowApi.startGeneration(sessionId, payload),
