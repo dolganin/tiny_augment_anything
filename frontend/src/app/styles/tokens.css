@@ -1,22 +1,24 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family:
     'JetBrains Mono',
     'JetBrains Sans',
     'Segoe UI',
     sans-serif;
-  --color-bg: #070a0d;
-  --color-surface: #1d2967;
-  --color-surface-strong: #3062bb;
-  --color-accent: #72b7e0;
-  --color-text: #f0f0f0;
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-strong: #edf3ff;
+  --color-accent: #3062bb;
+  --color-accent-soft: #72b7e0;
+  --color-text: #11213f;
+  --color-text-muted: #5a6a86;
   --color-error: #e06971;
-  --color-success: #6ac67f;
-  --color-border: rgba(114, 183, 224, 0.28);
-  --color-shadow: rgba(7, 10, 13, 0.4);
+  --color-success: #5fae67;
+  --color-border: rgba(48, 98, 187, 0.14);
+  --color-shadow: rgba(29, 41, 103, 0.08);
   --page-max-width: 1200px;
   --radius-card: 28px;
   --radius-control: 18px;
-  --blur-layer: blur(22px);
+  --blur-layer: blur(16px);
   --transition-base: 180ms ease;
 }
