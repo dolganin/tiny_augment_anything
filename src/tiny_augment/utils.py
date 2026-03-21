@@ -1,7 +1,7 @@
 import mlflow
-import tempfile
 import torch
 
+from pathlib import Path
 from omegaconf import OmegaConf, DictConfig
 
 
@@ -14,10 +14,14 @@ def log_config(cfg: DictConfig) -> None:
     cfg : DictConfig
         Hydra configuration object to log.
     """
+    config_path = Path(cfg.train.config_path)
 
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as f:
-        OmegaConf.save(cfg, f.name)
-        mlflow.log_artifact(f.name, artifact_path="hydra_config")
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    save_path = config_path / "hydra_config"
+
+    OmegaConf.save(cfg, save_path)
+    mlflow.log_artifact(str(save_path), artifact_path="hydra_config")
 
 
 def extract_mlflow_kwargs(logger: DictConfig) -> dict:
