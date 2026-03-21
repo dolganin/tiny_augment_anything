@@ -83,12 +83,12 @@ export function DatasetUploadPanel({ navigateTo = '/dataset/stats' }: DatasetUpl
         <button className="upload-stage__dropzone" onClick={openFileDialog} type="button">
           <UploadIcon />
           <span className="upload-stage__title">Выбрать архив датасета</span>
-          <span className="upload-stage__hint">Откроется проводник с фильтром только по `.zip`.</span>
+          <span className="upload-stage__hint">Только `.zip`.</span>
         </button>
 
         {uploadMutation.isPending ? (
           <div className="upload-stage__loading">
-            <Spinner label="Архив загружен. Бэкенд проверяет структуру датасета." />
+            <Spinner label="Бэкенд проверяет архив." />
           </div>
         ) : null}
 
@@ -98,13 +98,13 @@ export function DatasetUploadPanel({ navigateTo = '/dataset/stats' }: DatasetUpl
 
         <div className="info-card">
           <p className="info-card__text">
-            Поддерживается одиночный архив с layout датасета, который проверяется бэкендом.
+            Поддерживается один `.zip`-архив датасета.
           </p>
           <p className="info-card__text">
             Выбранный файл: <strong>{selectedFileName ?? 'ещё не выбран'}</strong>
           </p>
           <p className="info-card__text">
-            Статус: <strong>{uploadMutation.isPending ? 'идёт обработка' : 'ожидание загрузки'}</strong>
+            Статус: <strong>{uploadMutation.isPending ? 'идёт обработка' : 'ожидание'}</strong>
           </p>
         </div>
       </div>

@@ -24,9 +24,7 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
     return (
       <div className="dataset-library dataset-library--empty">
         <p className="dataset-library__empty-title">Пока нет ни одного датасета</p>
-        <p className="dataset-library__empty-copy">
-          Загрузи первый архив, и он появится здесь вместе с актуальным этапом пайплайна и последними операциями.
-        </p>
+        <p className="dataset-library__empty-copy">Загрузи первый архив, и он появится здесь.</p>
       </div>
     )
   }
@@ -65,7 +63,7 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
             </div>
 
             <div className="dataset-card__meta">
-              <span>Текущий маршрут: {workflowStagePaths[item.workflowStage]}</span>
+              <span>Маршрут: {workflowStagePaths[item.workflowStage]}</span>
               <span>Обновлён: {new Date(item.updatedAt).toLocaleString('ru-RU')}</span>
             </div>
 
@@ -83,7 +81,7 @@ export function DatasetCatalog(props: DatasetCatalogProps) {
                   </div>
                 ))
               ) : (
-                <p className="dataset-card__empty-history">История задач ещё не накопилась.</p>
+                <p className="dataset-card__empty-history">История пока пуста.</p>
               )}
             </div>
 

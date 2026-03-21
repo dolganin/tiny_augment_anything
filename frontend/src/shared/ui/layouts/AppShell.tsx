@@ -45,9 +45,7 @@ export function AppShell({ children }: PropsWithChildren) {
           />
           <p className="shell__eyebrow">Tiny Augment Anything</p>
           <h1 className="shell__title">Датасеты и пайплайны</h1>
-          <p className="shell__subtitle">
-            Рабочий стол хранит датасеты, позволяет вернуться к нужному pipeline и показывает фоновые задачи.
-          </p>
+          <p className="shell__subtitle">Каталог датасетов и текущие задачи.</p>
         </div>
 
         <div className="shell__actions">
@@ -88,7 +86,7 @@ export function AppShell({ children }: PropsWithChildren) {
         ) : (
           <div className="shell__empty">
             <strong>Пайплайн появится после выбора датасета</strong>
-            <span>Открой существующий датасет на главном экране или загрузи новый архив.</span>
+            <span>Открой датасет или загрузи новый архив.</span>
           </div>
         )}
       </aside>
