@@ -11,7 +11,7 @@ from tiny_augment.utils import log_config, extract_mlflow_kwargs, get_device
 mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
 
 
-@hydra.main(config_path="../configs", config_name="fine_tune")
+@hydra.main(version_base="1.3", config_path="../configs", config_name="fine_tune")
 def fine_tune(cfg: DictConfig) -> None:
     train_loader, val_loader = hydra.utils.call(cfg.dataloader)
     model = hydra.utils.call(cfg.model.object)

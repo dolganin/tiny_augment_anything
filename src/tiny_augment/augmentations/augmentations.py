@@ -175,10 +175,10 @@ def get_augmentations(img_size: int) -> dict[str, A.Compose]:
                 val_shift_limit=10,
                 p=0.5,
             ),
-            A.ShiftScaleRotate(
-                shift_limit=0.1,
-                scale_limit=0.1,
-                rotate_limit=15,
+            A.Affine(
+                translate_percent=(-0.1, 0.1),
+                scale=(0.9, 1.1),
+                rotate=(-15, 15),
                 border_mode=0,
                 p=0.85,
             ),

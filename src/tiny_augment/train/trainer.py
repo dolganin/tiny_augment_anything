@@ -215,9 +215,6 @@ class Trainer:
             imgs = imgs.to(self.device)
             target = target.to(self.device)
 
-            if is_train:
-                self.optimizer.zero_grad()
-
             with torch.set_grad_enabled(is_train):
                 if is_train:
                     self.optimizer.zero_grad()
@@ -233,9 +230,12 @@ class Trainer:
 
             losses.append(loss.item())
 
-            probs = torch.softmax(logits, dim=1).detach().cpu().numpy()
+            probs = torch.softmax(logits, dim=1).detach().cpu().float().numpy()
             preds.append(probs)
             targets.append(target.cpu().numpy())
+
+        preds = np.concatenate(preds, axis=0)
+        targets = np.concatenate(targets, axis=0)
 
         pred_targets = np.argmax(preds, axis=1)
 
