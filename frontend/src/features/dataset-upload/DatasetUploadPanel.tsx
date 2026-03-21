@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
+import { logger } from '@/shared/lib/logger'
 import { clearActiveUploadSession, createUploadSession, loadActiveUploadSession, type PersistedUploadSession, saveActiveUploadSession } from '@/shared/lib/upload-session-storage'
 import { isUploadAbortError, runResumableUpload } from '@/shared/lib/upload-runtime'
 import { type DatasetCatalogItem } from '@/shared/types/workflow'
@@ -143,6 +144,12 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         if (cancelled || !storedSession) {
           return
         }
+        logger.info('upload.panel.restore', {
+          phase: storedSession.phase,
+          uploadId: storedSession.uploadId,
+          datasetId: storedSession.datasetId,
+          jobId: storedSession.jobId,
+        })
         setUploadSession(storedSession)
         if (storedSession.phase === 'uploading' && storedSession.file) {
           await resumeUpload(storedSession)
@@ -160,18 +167,18 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (isUploading) {
-          uploadAbortRef.current?.abort('pause')
-        }
-        return
-      }
-      if (!isUploading && uploadSession?.phase === 'uploading' && uploadSession.file) {
+      if (!document.hidden && !isUploading && uploadSession?.phase === 'uploading' && uploadSession.file) {
+        logger.info('upload.panel.resume-visible', {
+          uploadId: uploadSession.uploadId,
+        })
         void resumeUpload(uploadSession)
       }
     }
     const handleWakeup = () => {
       if (!isUploading && uploadSession?.phase === 'uploading' && uploadSession.file) {
+        logger.info('upload.panel.resume-wakeup', {
+          uploadId: uploadSession.uploadId,
+        })
         void resumeUpload(uploadSession)
       }
     }
@@ -206,6 +213,11 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
           navigate(navigateTo)
         }
         if (!cancelled) {
+          logger.info('upload.panel.import-success', {
+            sessionId: pendingImport.sessionId,
+            datasetId: pendingImport.datasetId,
+            jobId: pendingImport.jobId,
+          })
           setUploadSession(null)
           setUploadProgress(0)
         }
@@ -227,6 +239,13 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
     }
     if (importTaskQuery.data?.status === 'error' || importTaskQuery.data?.status === 'cancelled') {
       void clearActiveUploadSession()
+      logger.warn('upload.panel.import-finished-non-success', {
+        sessionId: pendingImport.sessionId,
+        datasetId: pendingImport.datasetId,
+        jobId: pendingImport.jobId,
+        status: importTaskQuery.data.status,
+        message: importTaskQuery.data.error?.message ?? importTaskQuery.data.message,
+      })
       setErrorMessage(
         importTaskQuery.data.error?.message ??
           importTaskQuery.data.message ??
@@ -267,6 +286,10 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
     event.target.value = ''
     try {
       const session = createUploadSession(file)
+      logger.info('upload.panel.file-selected', {
+        fileName: file.name,
+        fileSize: file.size,
+      })
       await saveActiveUploadSession(session)
       setUploadSession(session)
       setUploadProgress(0)
@@ -281,6 +304,9 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
     setIsCancelling(true)
     try {
       if (uploadSession?.phase === 'uploading') {
+        logger.info('upload.panel.reset-uploading', {
+          uploadId: uploadSession.uploadId,
+        })
         uploadAbortRef.current?.abort('cancel')
         if (uploadSession.uploadId) {
           await workflowApi.cancelUpload(uploadSession.uploadId).catch(() => undefined)
@@ -288,6 +314,11 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         await clearActiveUploadSession()
       }
       if (pendingImport) {
+        logger.info('upload.panel.reset-importing', {
+          sessionId: pendingImport.sessionId,
+          datasetId: pendingImport.datasetId,
+          jobId: pendingImport.jobId,
+        })
         await workflowApi.cancelTask(pendingImport.sessionId, pendingImport.jobId).catch(() => undefined)
         await deleteDatasetMutation.mutateAsync(pendingImport.datasetId)
         if (activeDatasetId === pendingImport.datasetId) {
@@ -406,6 +437,11 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
     setIsUploading(true)
     setUploadSession(session)
     try {
+      logger.info('upload.panel.resume-start', {
+        phase: session.phase,
+        uploadId: session.uploadId,
+        nextPart: session.nextPart,
+      })
       const result = await runResumableUpload({
         session,
         signal: abortController.signal,
@@ -415,10 +451,18 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
       setUploadProgress(100)
     } catch (error) {
       if (isUploadAbortError(error) || isDomAbortError(error)) {
+        logger.warn('upload.panel.resume-aborted', {
+          uploadId: session.uploadId,
+          reason: abortController.signal.reason ?? null,
+        })
         if (abortController.signal.reason === 'cancel') {
           setUploadSession(null)
         }
       } else {
+        logger.error('upload.panel.resume-failed', {
+          uploadId: session.uploadId,
+          message: getErrorMessage(error),
+        })
         setErrorMessage(getErrorMessage(error))
       }
     } finally {

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { DatasetUploadResponse } from '@/shared/api/contracts'
 import { workflowApi } from '@/shared/api/workflow.api'
+import { logger } from '@/shared/lib/logger'
 import { PersistedUploadSession, saveActiveUploadSession } from '@/shared/lib/upload-session-storage'
 
 type RunResumableUploadArgs = {
@@ -21,6 +22,11 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
     throw new Error('Файл для возобновления загрузки не найден.')
   }
   let session = args.session
+  logger.info('upload.resume.begin', {
+    fileName: session.fileName,
+    uploadId: session.uploadId,
+    nextPart: session.nextPart,
+  })
   if (!session.uploadId) {
     const initialized = await workflowApi.initUpload(file.name, file.size, signal)
     session = {
@@ -31,6 +37,12 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
       nextPart: 0,
     }
     await saveActiveUploadSession(session)
+    logger.info('upload.resume.initialized', {
+      fileName: file.name,
+      uploadId: session.uploadId,
+      totalParts: session.totalParts,
+      chunkSize: session.chunkSize,
+    })
   }
   const uploadStatus = await resolveUploadStatus(session)
   session = {
@@ -41,6 +53,12 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
     nextPart: uploadStatus.nextPart,
   }
   await saveActiveUploadSession(session)
+  logger.info('upload.resume.status', {
+    uploadId: uploadStatus.uploadId,
+    nextPart: uploadStatus.nextPart,
+    totalParts: uploadStatus.totalParts,
+    progress: uploadStatus.progress,
+  })
   onProgress(Math.round(uploadStatus.progress * 100))
   for (let partNumber = uploadStatus.nextPart; partNumber < uploadStatus.totalParts; partNumber += 1) {
     throwIfAborted(signal)
@@ -60,6 +78,13 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
         onProgress(progress)
       },
     )
+    if (partNumber === 0 || partNumber + 1 === uploadStatus.totalParts || (partNumber + 1) % 10 === 0) {
+      logger.info('upload.resume.chunk-complete', {
+        uploadId: uploadStatus.uploadId,
+        partNumber,
+        totalParts: uploadStatus.totalParts,
+      })
+    }
     session = {
       ...session,
       nextPart: partNumber + 1,
@@ -68,6 +93,10 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
     onProgress(Math.min(100, Math.round((end / file.size) * 100)))
   }
   throwIfAborted(signal)
+  logger.info('upload.resume.complete-request', {
+    uploadId: uploadStatus.uploadId,
+    totalParts: uploadStatus.totalParts,
+  })
   const response = await workflowApi.completeUpload(uploadStatus.uploadId, signal)
   const importingSession: PersistedUploadSession = {
     ...session,
@@ -80,6 +109,12 @@ export async function runResumableUpload(args: RunResumableUploadArgs): Promise<
     jobId: response.jobId,
   }
   await saveActiveUploadSession(importingSession)
+  logger.info('upload.resume.importing', {
+    uploadId: uploadStatus.uploadId,
+    sessionId: response.sessionId,
+    datasetId: response.datasetId,
+    jobId: response.jobId,
+  })
   return { response, session: importingSession }
 }
 
