@@ -79,9 +79,9 @@ export function ModificationCanvas({
     if (activePoints.length === 0) {
       return ''
     }
-    const previewPoints = hoverPoint ? [...activePoints, hoverPoint] : activePoints
+    const previewPoints = !areaConfirmed && hoverPoint ? [...activePoints, hoverPoint] : activePoints
     return toSvgPath(previewPoints)
-  }, [activePoints, hoverPoint])
+  }, [activePoints, areaConfirmed, hoverPoint])
 
   const polygonPath = useMemo(() => {
     if (activePoints.length < 3) {
@@ -98,7 +98,7 @@ export function ModificationCanvas({
         : 'Полигон готов к применению'
 
   const handleAddPoint = (event: MouseEvent<SVGSVGElement>) => {
-    if (!naturalSize) {
+    if (!naturalSize || areaConfirmed) {
       return
     }
     const point = getPointInImage(event, naturalSize.width, naturalSize.height)
@@ -106,7 +106,7 @@ export function ModificationCanvas({
   }
 
   const handleMove = (event: MouseEvent<SVGSVGElement>) => {
-    if (!naturalSize || !renderSize || areaPoints.length === 0) {
+    if (!naturalSize || !renderSize || areaPoints.length === 0 || areaConfirmed) {
       setHoverPoint(null)
       return
     }

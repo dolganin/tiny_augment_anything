@@ -6,7 +6,6 @@ from redis.asyncio import Redis
 
 from backend.app.config.settings import Settings
 from backend.app.services.filesystem import RuntimePaths, build_runtime_paths, ensure_runtime_layout
-from backend.app.storage.postgres import Database
 
 
 @dataclass(slots=True)
@@ -25,6 +24,8 @@ class MLRuntimeState:
 
 
 async def bootstrap_runtime(settings: Settings) -> RuntimeState:
+    from backend.app.storage.postgres import Database
+
     runtime_paths = build_runtime_paths(settings)
     ensure_runtime_layout(runtime_paths)
     database = Database(settings.postgres_dsn)

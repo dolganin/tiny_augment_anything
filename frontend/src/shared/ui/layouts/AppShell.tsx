@@ -25,6 +25,18 @@ export function AppShell({ children }: PropsWithChildren) {
   const activeJobsCount = jobs.filter((item) => item.status === 'pending' || item.status === 'running').length
   const currentStageIndex = workflowStages.indexOf(workflowStage)
   const showWorkflowSidebar = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
+  const modelStatus = useMemo(() => {
+    if (fineTuneEnabled && fineTuneResolved) {
+      return 'Модель: загружена'
+    }
+    if (fineTuneResolved) {
+      return 'Модель: ленивый запуск'
+    }
+    if (fineTuneEnabled) {
+      return 'Модель: прогревается'
+    }
+    return 'Модель: не загружена'
+  }, [fineTuneEnabled, fineTuneResolved])
 
   const handleCancelJob = async (jobId: string) => {
     await cancelJobMutation.mutateAsync(jobId)
@@ -95,6 +107,7 @@ export function AppShell({ children }: PropsWithChildren) {
               <span className="shell__session-label">Активный датасет</span>
               <strong className="shell__dataset-name">{datasetName ?? datasetId}</strong>
               <span className="shell__session-value">{fineTuneEnabled ? 'Профиль: подготовленный' : 'Профиль: базовый'}</span>
+              <span className="shell__session-value">{modelStatus}</span>
             </div>
 
             <nav className="shell__nav">

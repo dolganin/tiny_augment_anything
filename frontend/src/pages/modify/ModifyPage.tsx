@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { adaptGenerationConfig, adaptModificationSource } from '@/shared/api/adapters'
 import {
+  useJobsQuery,
   useGenerationConfigQuery,
   useModificationSourceQuery,
   useStartModificationMutation,
+  useTaskStatusQuery,
 } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
 import { Button } from '@/shared/ui/buttons/Button'
@@ -37,9 +39,12 @@ export function ModifyPage() {
   const [areaConfirmed, setAreaConfirmed] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const taskSnapshotRef = useRef<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
+  const jobsQuery = useJobsQuery()
   const sourceQuery = useModificationSourceQuery(sessionId)
   const modificationMutation = useStartModificationMutation(sessionId ?? '')
+  const taskStatusQuery = useTaskStatusQuery(sessionId, generationJobId)
   const form = useForm<ModifyFormValues>({
     defaultValues: {
       prompt: '',
@@ -67,6 +72,10 @@ export function ModifyPage() {
   }, [configQuery.data, form, setSession])
 
   useEffect(() => {
+    taskSnapshotRef.current = null
+  }, [generationJobId])
+
+  useEffect(() => {
     if (configQuery.error) {
       setErrorMessage(getErrorMessage(configQuery.error))
     }
@@ -78,7 +87,12 @@ export function ModifyPage() {
 
   useWorkflowSocket({
     sessionId,
-    onError: () => setErrorMessage('Соединение WebSocket для модификации недоступно.'),
+    onError: () =>
+      setLogs((current) =>
+        current.includes('WebSocket недоступен, продолжаю через polling статуса задачи.')
+          ? current
+          : [...current, 'WebSocket недоступен, продолжаю через polling статуса задачи.'],
+      ),
     onMessage: (event) => {
       if (event.jobId && generationJobId && event.jobId !== generationJobId) {
         return
@@ -99,15 +113,81 @@ export function ModifyPage() {
       }
 
       if (event.type === 'task.completed' && generationJobId && event.jobId === generationJobId) {
-        setSession({ workflowStage: 'review' })
+        setSession({ workflowStage: 'review', generationJobId: null })
         navigate('/review')
       }
 
       if (event.type === 'task.failed' && generationJobId && event.jobId === generationJobId) {
+        setSession({ generationJobId: null })
         setErrorMessage(event.payload.message ?? 'Модификация завершилась с ошибкой.')
       }
     },
   })
+
+  useEffect(() => {
+    if (!taskStatusQuery.error) {
+      return
+    }
+    setSession({ generationJobId: null })
+    setErrorMessage(getErrorMessage(taskStatusQuery.error))
+  }, [setSession, taskStatusQuery.error])
+
+  useEffect(() => {
+    if (!generationJobId || !jobsQuery.data) {
+      return
+    }
+    const task = jobsQuery.data.items.find((item) => item.jobId === generationJobId)
+    if (!task) {
+      setSession({ generationJobId: null })
+      return
+    }
+    if (task.status === 'error' || task.status === 'cancelled') {
+      setSession({ generationJobId: null })
+      setErrorMessage(task.errorMessage ?? task.message ?? 'Модификация завершилась с ошибкой.')
+      return
+    }
+    if (task.status === 'success') {
+      setSession({ workflowStage: 'review', generationJobId: null })
+      navigate('/review')
+    }
+  }, [generationJobId, jobsQuery.data, navigate, setSession])
+
+  useEffect(() => {
+    if (!generationJobId || !taskStatusQuery.data) {
+      return
+    }
+    const { status, progress, message, error } = taskStatusQuery.data
+    const resolvedMessage = error?.message ?? message ?? null
+    const snapshot = [status, progress ?? 'null', resolvedMessage ?? ''].join('|')
+    if (snapshot === taskSnapshotRef.current) {
+      return
+    }
+    taskSnapshotRef.current = snapshot
+
+    if (status === 'pending' || status === 'running') {
+      const label = [
+        typeof progress === 'number' ? `готово ${Math.round(progress * 100)}%` : null,
+        resolvedMessage,
+      ]
+        .filter(Boolean)
+        .join(' | ')
+      if (label) {
+        setLogs((current) => [...current, label])
+      }
+      return
+    }
+
+    if (status === 'success') {
+      setSession({ workflowStage: 'review', generationJobId: null })
+      navigate('/review')
+      return
+    }
+
+    if (status === 'error' || status === 'cancelled') {
+      setSession({ generationJobId: null })
+      setErrorMessage(resolvedMessage ?? 'Модификация завершилась с ошибкой.')
+    }
+  }, [generationJobId, navigate, setSession, taskStatusQuery.data])
 
   const fields = useMemo(() => configQuery.data?.fields ?? [], [configQuery.data?.fields])
   const source = useMemo(() => {
@@ -121,6 +201,10 @@ export function ModifyPage() {
       sourceQuery.data.className,
     )
   }, [sourceQuery.data])
+  const isModificationActive =
+    modificationMutation.isPending ||
+    taskStatusQuery.data?.status === 'pending' ||
+    taskStatusQuery.data?.status === 'running'
 
   useEffect(() => {
     setAreaPoints([])
@@ -211,7 +295,7 @@ export function ModifyPage() {
           </div>
         ) : null}
 
-        {modificationMutation.isPending || generationJobId ? (
+        {isModificationActive && !errorMessage ? (
           <div className="upload-stage__loading">
             <Spinner
               label="Модификация выполняется. После завершения откроется экран отбора."

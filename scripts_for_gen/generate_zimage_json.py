@@ -118,7 +118,6 @@ def resize_pair(image, mask, size):
 
 class ZImageGenerator:
     def __init__(self, model_id, device, dtype, lora_path, lora_scale):
-
         self.torch = torch
         self.device = device
         self.img2img = ZImageImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype).to(device)

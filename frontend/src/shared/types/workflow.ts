@@ -24,7 +24,7 @@ export type WorkflowMode = 'generate' | 'modify' | null
 export const workflowStageLabels: Record<WorkflowStage, string> = {
   upload: 'Загрузка',
   'dataset-stats': 'Статистика',
-  'fine-tune': 'Подготовка',
+  'fine-tune': 'Инициализация',
   'mode-select': 'Режим',
   generate: 'Генерация',
   modify: 'Модификация',

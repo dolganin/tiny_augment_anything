@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStartFineTuneMutation, useSyncWorkflowStateMutation } from '@/shared/api/workflow.hooks'
+import { useStartFineTuneMutation, useSyncWorkflowStateMutation, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
@@ -15,64 +15,151 @@ export function FineTunePage() {
   const sessionId = useSessionStore((state) => state.sessionId)
   const fineTuneJobId = useSessionStore((state) => state.fineTuneJobId)
   const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
+  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const setSession = useSessionStore((state) => state.setSession)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const taskSnapshotRef = useRef<string | null>(null)
   const fineTuneMutation = useStartFineTuneMutation(sessionId ?? '')
   const syncWorkflowStateMutation = useSyncWorkflowStateMutation(sessionId ?? '')
+  const taskStatusQuery = useTaskStatusQuery(sessionId, fineTuneJobId)
+
+  const appendLog = (entry: string) => {
+    setLogs((current) => [...current, entry])
+  }
 
   useEffect(() => {
     setSession({ workflowStage: 'fine-tune' })
   }, [setSession])
 
+  useEffect(() => {
+    taskSnapshotRef.current = null
+  }, [fineTuneJobId])
+
   useWorkflowSocket({
     sessionId,
-    onError: () => setErrorMessage('Соединение WebSocket для логов обучения оборвалось.'),
+    onError: () =>
+      setLogs((current) =>
+        current.includes('WebSocket недоступен, продолжаю через polling статуса задачи.')
+          ? current
+          : [...current, 'WebSocket недоступен, продолжаю через polling статуса задачи.'],
+      ),
     onMessage: (event) => {
       if (event.jobId && fineTuneJobId && event.jobId !== fineTuneJobId) {
         return
       }
 
       if (event.type === 'fine_tune.progress') {
-        const { epoch, totalEpochs, loss, etaSeconds, message } = event.payload
+        const { phase, message, progress } = event.payload
         const chunks = [
-          epoch ? `epoch ${epoch}` : null,
-          totalEpochs ? `из ${totalEpochs}` : null,
-          typeof loss === 'number' ? `loss ${loss.toFixed(4)}` : null,
-          typeof etaSeconds === 'number' ? `eta ${etaSeconds}с` : null,
+          typeof phase === 'string' && phase ? `phase ${phase}` : null,
+          typeof progress === 'number' ? `готово ${Math.round(progress * 100)}%` : null,
           message ?? null,
         ].filter(Boolean)
 
         if (chunks.length > 0) {
-          setLogs((current) => [...current, chunks.join(' | ')])
+          appendLog(chunks.join(' | '))
         }
       }
 
       if (event.type === 'task.completed' && fineTuneJobId && event.jobId === fineTuneJobId) {
+        appendLog(event.payload.message ?? 'Инициализация модели завершена.')
         setSession({
           fineTuneResolved: true,
+          fineTuneJobId: null,
           workflowStage: 'modify',
         })
         navigate('/modify')
       }
 
       if (event.type === 'task.failed' && fineTuneJobId && event.jobId === fineTuneJobId) {
+        appendLog(`Ошибка: ${event.payload.message ?? 'Инициализация модели завершилась с ошибкой.'}`)
         setSession({
           fineTuneEnabled: false,
           fineTuneResolved: false,
+          fineTuneJobId: null,
         })
-        setErrorMessage(event.payload.message ?? 'Бэкенд вернул ошибку во время подготовки модели.')
+        setErrorMessage(event.payload.message ?? 'Бэкенд вернул ошибку во время инициализации модели.')
       }
     },
   })
 
+  useEffect(() => {
+    if (!taskStatusQuery.error) {
+      return
+    }
+    appendLog(`Ошибка: ${getErrorMessage(taskStatusQuery.error)}`)
+    setSession({
+      fineTuneEnabled: false,
+      fineTuneResolved: false,
+      fineTuneJobId: null,
+    })
+    setErrorMessage(getErrorMessage(taskStatusQuery.error))
+  }, [setSession, taskStatusQuery.error])
+
+  useEffect(() => {
+    if (!fineTuneJobId || !taskStatusQuery.data) {
+      return
+    }
+    const { status, progress, message, error } = taskStatusQuery.data
+    const resolvedMessage = error?.message ?? message ?? null
+    const snapshot = [status, progress ?? 'null', resolvedMessage ?? ''].join('|')
+    if (snapshot === taskSnapshotRef.current) {
+      return
+    }
+    taskSnapshotRef.current = snapshot
+
+    if (status === 'pending' || status === 'running') {
+      const label = [
+        typeof progress === 'number' ? `готово ${Math.round(progress * 100)}%` : null,
+        resolvedMessage,
+      ]
+        .filter(Boolean)
+        .join(' | ')
+      if (label) {
+        appendLog(label)
+      }
+      return
+    }
+
+    if (status === 'success') {
+      appendLog(resolvedMessage ?? 'Инициализация модели завершена.')
+      setSession({
+        fineTuneEnabled: true,
+        fineTuneResolved: true,
+        fineTuneJobId: null,
+        workflowStage: 'modify',
+      })
+      navigate('/modify')
+      return
+    }
+
+    if (status === 'error' || status === 'cancelled') {
+      appendLog(`Ошибка: ${resolvedMessage ?? 'Инициализация модели завершилась с ошибкой.'}`)
+      setSession({
+        fineTuneEnabled: false,
+        fineTuneResolved: false,
+        fineTuneJobId: null,
+      })
+      setErrorMessage(resolvedMessage ?? 'Бэкенд вернул ошибку во время инициализации модели.')
+    }
+  }, [fineTuneJobId, navigate, setSession, taskStatusQuery.data])
+
   const statusLabel = useMemo(() => {
+    if (fineTuneEnabled && fineTuneResolved) {
+      return 'модель загружена'
+    }
+
     if (fineTuneMutation.isPending || fineTuneEnabled) {
-      return 'подготовка запущена'
+      return 'модель загружается на устройство'
+    }
+
+    if (fineTuneResolved) {
+      return 'ленивый запуск'
     }
 
     return 'ожидание решения'
-  }, [fineTuneEnabled, fineTuneMutation.isPending])
+  }, [fineTuneEnabled, fineTuneMutation.isPending, fineTuneResolved])
 
   const startFineTune = async () => {
     if (!sessionId) {
@@ -86,8 +173,9 @@ export function FineTunePage() {
         fineTuneResolved: false,
         fineTuneJobId: response.jobId,
       })
-      setLogs((current) => [...current, 'Задача подготовки модели отправлена на бэкенд.'])
+      appendLog('Задача инициализации модели отправлена на бэкенд.')
     } catch (error) {
+      appendLog(`Ошибка: ${getErrorMessage(error)}`)
       setErrorMessage(getErrorMessage(error))
     }
   }
@@ -107,8 +195,10 @@ export function FineTunePage() {
         fineTuneJobId: null,
         workflowStage: 'modify',
       })
+      appendLog('Инициализация пропущена, будет использован ленивый запуск.')
       navigate('/modify')
     } catch (error) {
+      appendLog(`Ошибка: ${getErrorMessage(error)}`)
       setErrorMessage(getErrorMessage(error))
     }
   }
@@ -116,8 +206,8 @@ export function FineTunePage() {
   return (
     <>
       <PageFrame
-        title="Подготовка модели"
-        description="На этом шаге можно заранее подготовить базовые веса диффузионной модели или сразу перейти к модификации и позволить системе догрузить их лениво."
+        title="Инициализация модели"
+        description="На этом шаге модель загружается в память ml-worker и переносится на устройство заранее. После этого следующий шаг уже работает с готовым runtime, а не стартует загрузку в момент первой модификации."
         aside={<FineTuneAside statusLabel={statusLabel} />}
       >
         <div className="info-card">
@@ -129,7 +219,7 @@ export function FineTunePage() {
               disabled={fineTuneMutation.isPending || fineTuneEnabled}
               onClick={startFineTune}
             >
-              Подготовить базовые веса
+              Загрузить модель заранее
             </Button>
             <Button
               disabled={fineTuneMutation.isPending || syncWorkflowStateMutation.isPending || fineTuneEnabled}
@@ -141,23 +231,23 @@ export function FineTunePage() {
           </div>
         </div>
 
-        {fineTuneMutation.isPending || fineTuneEnabled ? (
+        {(fineTuneMutation.isPending || fineTuneEnabled || fineTuneJobId) && !errorMessage ? (
           <div className="upload-stage__loading">
-            <Spinner label="Бэкенд готовит базовые веса и транслирует статусы через WebSocket." tone="diffusion" />
+            <Spinner label="ml-worker инициализирует модель и сообщает, когда runtime уже готов на устройстве." tone="diffusion" />
           </div>
         ) : null}
 
         <TrainingLogPanel
-          emptyLabel="Логи подготовки появятся здесь после старта задачи."
+          emptyLabel="Логи инициализации появятся здесь после старта задачи."
           logs={logs}
-          title="Поток логов подготовки"
+          title="Поток логов инициализации"
         />
       </PageFrame>
 
       <Modal
         onClose={() => setErrorMessage(null)}
         open={Boolean(errorMessage)}
-        title="Ошибка подготовки модели"
+        title="Ошибка инициализации модели"
         tone="error"
       >
         <p className="upload-stage__error">{errorMessage}</p>
@@ -177,6 +267,9 @@ function FineTuneAside({ statusLabel }: { statusLabel: string }) {
       </p>
       <p className="info-card__text">
         Текущий статус: <strong>{statusLabel}</strong>
+      </p>
+      <p className="info-card__text">
+        Цель шага: <strong>получить runtime_ready до генерации</strong>
       </p>
     </div>
   )
