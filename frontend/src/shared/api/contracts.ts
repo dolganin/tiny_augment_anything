@@ -183,19 +183,14 @@ export const modificationSourceResponseSchema = z.object({
   className: z.string(),
 })
 
-export const modificationAreaBoxSchema = z.tuple([
-  z.number(),
-  z.number(),
-  z.number(),
-  z.number(),
-])
+export const modificationAreaPointSchema = z.tuple([z.number(), z.number()])
 
 export const modificationStartPayloadSchema = z.object({
   prompt: z.string().min(1),
   sourceAssetId: z.string().min(1),
   sampleCount: z.number().int().positive(),
   config: z.record(z.string()),
-  areaBox: modificationAreaBoxSchema.optional(),
+  areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
 })
 
 export const generationResultsResponseSchema = z.object({

@@ -98,7 +98,7 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
             template_asset["id"],
             str(payload.get("prompt", "")),
             dict(payload.get("config", {})),
-            _parse_area_box(payload.get("areaBox")),
+            _parse_area_points(payload.get("areaPoints")),
             _build_class_pool(context, template_asset["class_name"]),
         )
 
@@ -116,7 +116,7 @@ async def _run_zimage_generation(
     parent_asset_id: UUID,
     prompt: str,
     config: dict[str, object],
-    area_box: list[float] | None,
+    area_points: list[list[float]] | None,
     class_pool: list[str],
 ) -> None:
     if not source_path.exists():
@@ -142,7 +142,7 @@ async def _run_zimage_generation(
         prompt=prompt,
         sample_count=sample_count,
         config=config,
-        area_box=area_box,
+        area_points=area_points,
     )
     bundle = build_run_bundle(runtime_state.runtime_paths, task_id)
     prepare_run_bundle(bundle, records)
@@ -150,7 +150,7 @@ async def _run_zimage_generation(
     async def is_cancelled() -> bool:
         return await ensure_not_cancelled(connection, task_id)
 
-    if area_box is not None:
+    if area_points is not None:
         await emit_event(
             runtime_state,
             connection,
@@ -199,7 +199,7 @@ async def _run_zimage_generation(
         bundle,
         config,
         None,
-        bundle.segmented_json_path if area_box is not None else bundle.input_json_path,
+        bundle.segmented_json_path if area_points is not None else bundle.input_json_path,
     )
 
     async def on_progress(current_count: int, expected_count: int) -> None:
@@ -348,16 +348,17 @@ def _parse_asset_id(value: object) -> UUIDType | None:
         return None
 
 
-def _parse_area_box(value: object) -> list[float] | None:
+def _parse_area_points(value: object) -> list[list[float]] | None:
     if value is None:
         return None
-    if not isinstance(value, list) or len(value) != 4:
+    if not isinstance(value, list) or len(value) < 3:
         return None
-    parsed: list[float] = []
-    for item in value:
-        if not isinstance(item, (int, float)):
+    parsed: list[list[float]] = []
+    for point in value:
+        if not isinstance(point, list) or len(point) != 2:
             return None
-        parsed.append(float(item))
-    if parsed[2] <= parsed[0] or parsed[3] <= parsed[1]:
-        return None
+        x, y = point
+        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+            return None
+        parsed.append([float(x), float(y)])
     return parsed

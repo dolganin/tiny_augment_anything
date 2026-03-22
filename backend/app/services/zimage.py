@@ -59,7 +59,7 @@ def build_records(
     prompt: str,
     sample_count: int,
     config: dict[str, Any],
-    area_box: list[float] | None = None,
+    area_points: list[list[float]] | None = None,
 ) -> list[dict[str, Any]]:
     negative_prompt = str(config.get("negative_prompt", "")).strip()
     base_seed = int(_get_number(config, "seed", 42))
@@ -81,8 +81,8 @@ def build_records(
         }
         if negative_prompt:
             record["negative_prompt"] = negative_prompt
-        if area_box is not None:
-            record["area_box"] = [int(round(value)) for value in area_box]
+        if area_points is not None:
+            record["area_points"] = [[int(round(value)) for value in point] for point in area_points]
         records.append(record)
     return records
 

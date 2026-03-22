@@ -103,7 +103,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
     source_asset_id = payload.get("sourceAssetId")
     sample_count = payload.get("sampleCount")
     config = payload.get("config")
-    area_box = payload.get("areaBox")
+    area_points = payload.get("areaPoints")
     if not isinstance(prompt, str) or not prompt.strip():
         raise AppError(400, "Для модификации нужен prompt.")
     if not isinstance(source_asset_id, str) or not source_asset_id:
@@ -112,11 +112,14 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
         raise AppError(400, "sampleCount должен быть положительным числом.")
     if not isinstance(config, dict):
         raise AppError(400, "Нужен объект config.")
-    if area_box is not None:
-        if not isinstance(area_box, list) or len(area_box) != 4:
-            raise AppError(400, "areaBox должен содержать 4 координаты.")
-        if not all(isinstance(value, (int, float)) for value in area_box):
-            raise AppError(400, "areaBox должен содержать только числа.")
+    if area_points is not None:
+        if not isinstance(area_points, list) or len(area_points) < 3:
+            raise AppError(400, "areaPoints должен содержать минимум три точки.")
+        for point in area_points:
+            if not isinstance(point, list) or len(point) != 2:
+                raise AppError(400, "Каждая точка areaPoints должна содержать две координаты.")
+            if not all(isinstance(value, (int, float)) for value in point):
+                raise AppError(400, "Координаты areaPoints должны быть числами.")
     async with runtime_state.database.connection() as connection:
         context = await get_session_context(connection, session_id)
         if context is None or context["current_dataset_version_id"] is None:
@@ -130,7 +133,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
                 "sourceAssetId": source_asset_id,
                 "sampleCount": sample_count,
                 "config": config,
-                "areaBox": [float(value) for value in area_box] if area_box is not None else None,
+                "areaPoints": [[float(value) for value in point] for point in area_points] if area_points is not None else None,
             },
             dataset_version_id=context["current_dataset_version_id"],
         )
