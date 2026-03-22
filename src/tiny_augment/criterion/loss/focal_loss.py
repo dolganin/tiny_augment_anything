@@ -4,6 +4,8 @@ import torch
 class FocalLoss(torch.nn.Module):
     """
     Own focal loss implementation.
+
+    Common torch.nn.Module.
     """
 
     def __init__(self, alpha: list[float], gamma: float = 2.0) -> None:

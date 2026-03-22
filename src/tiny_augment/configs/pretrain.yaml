@@ -4,7 +4,7 @@ defaults:
   - criterion:    focal_loss
   - dataloader:   pretrain
   - optimizer:    AdamW
-  - scheduler:    CosineAnnealingLR
+  - scheduler:    SequentialLR
   - logger:       mlflow_pretrain
   - train:        train
 

@@ -7,8 +7,5 @@ object:
                       - blocks.10
                       - blocks.11
 
-model_path:
-  mlflow_run_id:      null
-  artifact_path:      null
-
+model_path:           null
 pretrain_img_size:    336

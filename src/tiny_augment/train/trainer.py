@@ -143,10 +143,6 @@ class Trainer:
         Load a full training checkpoint including model, optimizer, scheduler,
         current epoch, and best validation loss.
 
-        **Note:** This method must be called **before** starting training.
-        Calling it after training has begun may overwrite current state and
-        lead to incorrect behavior.
-
         Parameters
         ----------
         checkpoint_path : str | Path | None, default=None
@@ -171,10 +167,6 @@ class Trainer:
     def load_model_weights(self, checkpoint_path: str | Path | None = None) -> None:
         """
         Load only the model weights from a checkpoint.
-
-        **Note:** This method must be called **before** starting training.
-        Calling it after training has begun may not correctly restore the checkpointed weights
-        relative to the current training state.
 
         Parameters
         ----------
@@ -224,6 +216,9 @@ class Trainer:
 
             if (self.current_epoch % self.save_every_n_epochs) == 0:
                 self._save_checkpoint(f"epoch_{self.current_epoch + 1}")
+
+            if (self.current_epoch + 1) == max_epochs:
+                self._save_checkpoint(f"last_checkpoint_{max_epochs}")
 
             if self.patience_counter > self.patience:
                 self._save_checkpoint(f"early_stopping_epoch_{self.current_epoch + 1}")

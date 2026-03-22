@@ -12,7 +12,7 @@ def make_balanced_sampler(dataset: ISICDataset) -> WeightedRandomSampler:
 
     Parameters
     ----------
-    dataset : ISICDataset
+    dataset : tiny_augment.dataset.ISICDataset
         Dataset where images are stored with labels.
 
     Returns
@@ -21,6 +21,7 @@ def make_balanced_sampler(dataset: ISICDataset) -> WeightedRandomSampler:
         Sampler that can be passed to a DataLoader to perform balanced sampling,
         giving equal probability to each class regardless of its frequency.
     """
+
     targets = torch.tensor(dataset.targets, dtype=torch.long)
 
     class_counts = torch.bincount(targets)
@@ -42,7 +43,7 @@ def make_weighted_sampler(dataset: WeightedDataset) -> WeightedRandomSampler:
 
     Parameters
     ----------
-    dataset : WeightedDataset
+    dataset : tiny_augment.dataset.WeightedDataset
         The same as torch.utils.data.Dataset, but also stores weights of each sample.
 
     Returns

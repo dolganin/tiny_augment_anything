@@ -46,7 +46,7 @@ def build_model(
 
     Returns
     -------
-    nn.Module
+    torch.nn.Module
         Model moved to the specified device.
     """
 

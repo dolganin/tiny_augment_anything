@@ -11,7 +11,7 @@ def log_config(cfg: DictConfig) -> None:
 
     Parameters
     ----------
-    cfg : DictConfig
+    cfg : omegaconf.DictConfig
         Hydra configuration object to log.
     """
     config_path = Path(cfg.train.config_path)
@@ -30,7 +30,7 @@ def extract_mlflow_kwargs(logger: DictConfig) -> dict:
 
     Parameters
     ----------
-    logger : DictConfig
+    logger : omegaconf.DictConfig
         Hydra configuration object containing a 'mlflow' section with
         parameters (experiment_name, run_name, description, nested, tags).
 
@@ -68,6 +68,7 @@ def get_device(device_type: str) -> torch.device:
 def extract_weights(loader: torch.utils.data.DataLoader) -> list[float]:
     """
     Compute class weights from a dataset based on class frequencies.
+
     Weights calculated using inverse frequency formula.
 
     Parameters
@@ -79,7 +80,7 @@ def extract_weights(loader: torch.utils.data.DataLoader) -> list[float]:
 
     Returns
     -------
-    list of float
+    list[float]
         A list of class weights, where each index corresponds to a class.
     """
 

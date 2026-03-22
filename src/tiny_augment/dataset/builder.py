@@ -83,7 +83,7 @@ def build_dataloaders(
 
     Returns
     -------
-    tuple[DataLoader, DataLoader]
+    tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]
         A tuple containing:
         - train_loader : DataLoader
         - valid_loader : DataLoader
