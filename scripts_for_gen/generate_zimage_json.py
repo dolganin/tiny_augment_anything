@@ -86,6 +86,11 @@ def parse_args():
         type=float,
         default=1.0,
     )
+    p.add_argument(
+        "--offload",
+        default="none",
+        choices=["none", "model", "sequential"],
+    )
     return p.parse_args()
 
 
@@ -117,7 +122,7 @@ def resize_pair(image, mask, size):
 
 
 class ZImageGenerator:
-    def __init__(self, model_id, device, dtype, lora_path, lora_scale):
+    def __init__(self, model_id, device, dtype, lora_path, lora_scale, offload="none"):
         self.torch = torch
         self.device = device
         self.dtype = dtype
@@ -126,6 +131,7 @@ class ZImageGenerator:
         self.lora_scale = lora_scale
         self.pipe = None
         self.pipe_kind = None
+        self.offload = offload
 
     def _clear_pipe(self):
         if self.pipe is not None:
@@ -148,19 +154,32 @@ class ZImageGenerator:
         if kind == "inpaint":
             pipe = ZImageInpaintPipeline.from_pretrained(
                 self.model_id,
-                torch_dtype=self.dtype,
-            ).to(self.device)
+                torch_dtype=self.dtype)
         else:
             pipe = ZImageImg2ImgPipeline.from_pretrained(
                 self.model_id,
-                torch_dtype=self.dtype,
-            ).to(self.device)
+                torch_dtype=self.dtype)
+
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+        if hasattr(pipe, "enable_vae_tiling"):
+            pipe.enable_vae_tiling()
 
         if self.lora_path:
             p = Path(self.lora_path)
             adapter_dir = str(p.parent)
             weight_name = p.name
             pipe.load_lora_weights(adapter_dir, weight_name=weight_name)
+        
+        if self.device.startswith("cuda"):
+            if self.offload == "model":
+                pipe.enable_model_cpu_offload()
+            elif self.offload == "sequential":
+                pipe.enable_sequential_cpu_offload()
+            else:
+                pipe.to(self.device)
+        else:
+            pipe.to(self.device)
 
         self.pipe = pipe
         self.pipe_kind = kind
@@ -229,7 +248,7 @@ def main():
     items = json.loads(input_json.read_text(encoding="utf-8"))
     device = utils.choose_device(args.device)
     dtype = utils.choose_dtype(device, args.precision)
-    generator = ZImageGenerator(args.model_id, device=device, dtype=dtype, lora_path=args.lora_path, lora_scale=args.lora_scale)
+    generator = ZImageGenerator(args.model_id, device=device, dtype=dtype, lora_path=args.lora_path, lora_scale=args.lora_scale, offload = args.offload)
 
     out_items = []
     for idx, record in enumerate(items):
