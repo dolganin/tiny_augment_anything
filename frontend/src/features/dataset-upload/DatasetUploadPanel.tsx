@@ -353,6 +353,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         : uploadSession?.phase === 'uploading'
           ? 'Пауза. Продолжу после возврата во вкладку'
           : 'Ожидание'
+  const showCompactMeta = Boolean(selectedFileName) || isBusy || uploadSession?.phase === 'uploading' || Boolean(pendingImport)
 
   return (
     <>
@@ -414,9 +415,9 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
           </div>
         ) : null}
 
-        <div className={compact ? 'info-card upload-stage__meta-card' : 'info-card'}>
-          {compact ? (
-            <>
+        {compact ? (
+          showCompactMeta ? (
+            <div className="info-card upload-stage__meta-card">
               {selectedFileName ? (
                 <p className="info-card__text">
                   <strong>{selectedFileName}</strong>
@@ -425,19 +426,19 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
               {isBusy || uploadSession?.phase === 'uploading' || pendingImport ? (
                 <p className="info-card__text">{uploadStatusLabel}</p>
               ) : null}
-            </>
-          ) : (
-            <>
-              <p className="info-card__text">Поддерживается один zip-архив датасета.</p>
-              <p className="info-card__text">
-                Выбранный файл: <strong>{selectedFileName ?? 'ещё не выбран'}</strong>
-              </p>
-              <p className="info-card__text">
-                Статус: <strong>{uploadStatusLabel}</strong>
-              </p>
-            </>
-          )}
-        </div>
+            </div>
+          ) : null
+        ) : (
+          <div className="info-card">
+            <p className="info-card__text">Поддерживается один zip-архив датасета.</p>
+            <p className="info-card__text">
+              Выбранный файл: <strong>{selectedFileName ?? 'ещё не выбран'}</strong>
+            </p>
+            <p className="info-card__text">
+              Статус: <strong>{uploadStatusLabel}</strong>
+            </p>
+          </div>
+        )}
       </div>
 
       <Modal onClose={() => setErrorMessage(null)} open={Boolean(errorMessage)} title="Ошибка загрузки" tone="error">
