@@ -7,7 +7,9 @@ type ModificationCanvasProps = {
   imageUrl: string
   className: string
   areaPoints: AreaPoint[]
+  areaConfirmed: boolean
   onAreaPointsChange: (value: AreaPoint[]) => void
+  onConfirmArea: () => void
 }
 
 type Size = {
@@ -38,7 +40,9 @@ export function ModificationCanvas({
   imageUrl,
   className,
   areaPoints,
+  areaConfirmed,
   onAreaPointsChange,
+  onConfirmArea,
 }: ModificationCanvasProps) {
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [naturalSize, setNaturalSize] = useState<Size | null>(null)
@@ -86,7 +90,12 @@ export function ModificationCanvas({
     return `${toSvgPath(activePoints)} Z`
   }, [activePoints])
 
-  const selectionLabel = areaPoints.length >= 3 ? `${areaPoints.length} вершин` : 'Полигон не замкнут'
+  const selectionLabel =
+    areaPoints.length < 3
+      ? 'Полигон не замкнут'
+      : areaConfirmed
+        ? 'Область применена'
+        : 'Полигон готов к применению'
 
   const handleAddPoint = (event: MouseEvent<SVGSVGElement>) => {
     if (!naturalSize) {
@@ -153,7 +162,12 @@ export function ModificationCanvas({
             >
               <rect className="modify-canvas__veil" height={renderSize.height} width={renderSize.width} x={0} y={0} />
               {previewPath ? <path className="modify-canvas__line" d={previewPath} /> : null}
-              {polygonPath ? <path className="modify-canvas__polygon" d={polygonPath} /> : null}
+              {polygonPath ? (
+                <path
+                  className={areaConfirmed ? 'modify-canvas__polygon modify-canvas__polygon--confirmed' : 'modify-canvas__polygon'}
+                  d={polygonPath}
+                />
+              ) : null}
               {activePoints.map((point, index) => (
                 <g className="modify-canvas__vertex" key={`${point[0]}-${point[1]}-${index}`}>
                   <circle cx={point[0]} cy={point[1]} r={11} />
@@ -170,6 +184,13 @@ export function ModificationCanvas({
       <div className="modify-stage__actions">
         <p className="modify-stage__hint">Щёлкай по изображению, чтобы поставить вершины полигона для inpaint.</p>
         <div className="modify-stage__buttons">
+          <Button
+            disabled={areaPoints.length < 3 || areaConfirmed}
+            onClick={onConfirmArea}
+            type="button"
+          >
+            Применить область
+          </Button>
           <Button disabled={areaPoints.length === 0} onClick={removeLastPoint} type="button" variant="ghost">
             Удалить вершину
           </Button>

@@ -34,6 +34,7 @@ export function ModifyPage() {
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
   const [areaPoints, setAreaPoints] = useState<AreaPoint[]>([])
+  const [areaConfirmed, setAreaConfirmed] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
@@ -123,7 +124,13 @@ export function ModifyPage() {
 
   useEffect(() => {
     setAreaPoints([])
+    setAreaConfirmed(false)
   }, [source?.assetId])
+
+  const updateAreaPoints = (value: AreaPoint[]) => {
+    setAreaPoints(value)
+    setAreaConfirmed(false)
+  }
 
   const updateFieldValue = (key: string, value: string) => {
     const nextValues = { ...fieldValues, [key]: value }
@@ -142,7 +149,7 @@ export function ModifyPage() {
         sourceAssetId: source.assetId,
         sampleCount: Number(values.sampleCount),
         config: fieldValues,
-        areaPoints: areaPoints.length >= 3 ? areaPoints : undefined,
+        areaPoints: areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
       })
       setSession({ generationJobId: response.jobId })
       setLogs(['Запуск модификации отправлен на бэкенд.'])
@@ -166,10 +173,12 @@ export function ModifyPage() {
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
           <div className="modify-layout">
             <ModificationCanvas
+              areaConfirmed={areaConfirmed}
               areaPoints={areaPoints}
               className={source.className}
               imageUrl={source.assetUrl}
-              onAreaPointsChange={setAreaPoints}
+              onAreaPointsChange={updateAreaPoints}
+              onConfirmArea={() => setAreaConfirmed(true)}
             />
 
             <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
