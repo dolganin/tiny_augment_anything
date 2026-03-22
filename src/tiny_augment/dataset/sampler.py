@@ -21,11 +21,11 @@ def make_balanced_sampler(dataset: ISICDataset) -> WeightedRandomSampler:
         Sampler that can be passed to a DataLoader to perform balanced sampling,
         giving equal probability to each class regardless of its frequency.
     """
-    labels = torch.tensor(dataset.labels, dtype=torch.long)
+    targets = torch.tensor(dataset.targets, dtype=torch.long)
 
-    class_counts = torch.bincount(labels)
+    class_counts = torch.bincount(targets)
     class_weights = 1.0 / class_counts.float()
-    sample_weights = class_weights[labels].tolist()
+    sample_weights = class_weights[targets].tolist()
 
     sampler = WeightedRandomSampler(
         weights=sample_weights,

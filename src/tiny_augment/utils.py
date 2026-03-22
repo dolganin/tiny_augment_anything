@@ -21,7 +21,7 @@ def log_config(cfg: DictConfig) -> None:
     save_path = config_path / "hydra_config"
 
     OmegaConf.save(cfg, save_path)
-    mlflow.log_artifact(str(save_path), artifact_path="hydra_config")
+    mlflow.log_artifact(str(save_path), artifact_path="hydra_config.yaml")
 
 
 def extract_mlflow_kwargs(logger: DictConfig) -> dict:
@@ -63,3 +63,27 @@ def get_device(device_type: str) -> torch.device:
         )
 
     return torch.device(device_type)
+
+
+def extract_weights(loader: torch.utils.data.DataLoader) -> list[float]:
+    """
+    Compute class weights from a dataset based on class frequencies.
+    Weights calculated using inverse frequency formula.
+
+    Parameters
+    ----------
+    loader : torch.utils.data.DataLoader
+        DataLoader providing access to the dataset. The underlying dataset
+        must expose a `targets` attribute containing class labels for all
+        samples.
+
+    Returns
+    -------
+    list of float
+        A list of class weights, where each index corresponds to a class.
+    """
+
+    targets = torch.tensor(loader.dataset.targets)  # type: ignore
+    class_count = torch.bincount(targets)
+    weights = (len(targets) / len(class_count) * class_count.float()).tolist()
+    return weights

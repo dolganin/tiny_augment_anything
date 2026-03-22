@@ -1,18 +1,13 @@
+defaults:
+  - base
+
 object:
-  _target_:           tiny_augment.model.build_model
   backbone:           edgenext_base.in21k_ft_in1k
-  num_classes:        2
   pretrained:         false
-  finetune_mode:      partial
   trainable_prefixes: 
                       - head
-
                       - stages.3
-  device_type:        cuda:0
 
 model_path:
   mlflow_run_id:      null
   artifact_path:      null
-
-pretrain_img_size:    256
-compile_mode:         reduce-overhead

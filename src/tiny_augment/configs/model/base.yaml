@@ -1,0 +1,10 @@
+object:
+  _target_:        tiny_augment.model.build_model
+  num_classes:     2
+  pretrained:      true
+  finetune_mode:   partial
+  device_type:     cuda
+
+pretrain_img_size: 256
+last_checkpoint:   null
+compile_mode:      reduce-overhead

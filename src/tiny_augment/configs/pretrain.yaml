@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - model:        EdgeNeXt_pretrain
+  - criterion:    focal_loss
   - dataloader:   pretrain
   - optimizer:    AdamW
   - scheduler:    CosineAnnealingLR
