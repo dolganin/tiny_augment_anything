@@ -1,0 +1,41 @@
+model:
+  id: ostris/Z-Image-De-Turbo
+
+system:
+  device: null
+  precision: bf16
+  seed: 42
+
+imagedataset:
+  path: train.json
+  src_key: src_img
+  tgt_key: tgt_img
+  prompt_key: gen_prompt
+  resolution: 1024
+  num_workers: 0
+
+train:
+  output_dir: zimage_lora_out
+  batch_size: 1
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0001
+  max_train_steps: 3000
+  save_every: 500
+  strength_min: 0.4
+  strength_max: 0.8
+
+lora:
+  rank: 16
+  alpha: 16
+  dropout: 0.0
+  target_modules: all-linear
+
+eval:
+  path: null
+  num_items: 8
+  every: 500
+  num_inference_steps: 9
+  guidance_scale: 0.0
+  strength: 0.6
+  #clip_model: openai/clip-vit-large-patch14
+  lpips_backbone: alex

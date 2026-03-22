@@ -1,15 +1,12 @@
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
-from typing import Any, Dict, List
-
+import json 
 from PIL import Image, ImageFilter
-
+import torch
+from diffusers import ZImageImg2ImgPipeline, ZImageInpaintPipeline
 import utils
 
-
-def parse_args() -> argparse.Namespace:
+def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument(
         "--input-json",
@@ -80,18 +77,27 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=42,
     )
+    p.add_argument(
+        "--lora-path",
+        default=None,
+    )
+    p.add_argument(
+        "--lora-scale",
+        type=float,
+        default=1.0,
+    )
     return p.parse_args()
 
 
-def load_rgb(path: Path) -> Image.Image:
+def load_rgb(path):
     return Image.open(path).convert("RGB")
 
 
-def load_mask(path: Path) -> Image.Image:
+def load_mask(path):
     return Image.open(path).convert("L")
 
 
-def feather_mask(mask: Image.Image, dilate_size: int, blur_radius: float) -> Image.Image:
+def feather_mask(mask, dilate_size, blur_radius):
     out = mask.convert("L")
     if dilate_size and dilate_size > 1:
         if dilate_size % 2 == 0:
@@ -102,7 +108,7 @@ def feather_mask(mask: Image.Image, dilate_size: int, blur_radius: float) -> Ima
     return out
 
 
-def resize_pair(image: Image.Image, mask: Image.Image | None, size: int):
+def resize_pair(image, mask, size):
     image_resized = image.resize((size, size), Image.LANCZOS)
     if mask is None:
         return image_resized, None
@@ -111,14 +117,27 @@ def resize_pair(image: Image.Image, mask: Image.Image | None, size: int):
 
 
 class ZImageGenerator:
-    def __init__(self, model_id: str, device: str, dtype) -> None:
-        import torch
-        from diffusers import ZImageImg2ImgPipeline, ZImageInpaintPipeline
+    def __init__(self, model_id, device, dtype, lora_path, lora_scale):
 
         self.torch = torch
         self.device = device
         self.img2img = ZImageImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype).to(device)
         self.inpaint = ZImageInpaintPipeline.from_pretrained(model_id, torch_dtype=dtype).to(device)
+        
+        self.lora_scale = lora_scale
+        if lora_path:
+            p = Path(lora_path)
+            adapter_dir = str(p.parent)
+            weight_name = p.name
+
+            self.img2img.load_lora_weights(
+                adapter_dir,
+                weight_name=weight_name,
+            )
+            self.inpaint.load_lora_weights(
+                adapter_dir,
+                weight_name=weight_name,
+            )
 
     def _generator(self, seed: int):
         if self.device.startswith("cuda"):
@@ -127,14 +146,13 @@ class ZImageGenerator:
 
     def generate_img2img(
         self,
-        prompt: str,
-        image: Image.Image,
-        negative_prompt: str | None,
-        strength: float,
-        steps: int,
-        guidance_scale: float,
-        seed: int,
-    ) -> Image.Image:
+        prompt,
+        image,
+        negative_prompt,
+        strength,
+        steps,
+        guidance_scale,
+        seed):
         return self.img2img(
             prompt=prompt,
             image=image,
@@ -143,19 +161,19 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
+            cross_attention_kwargs={"scale": self.lora_scale}
         ).images[0]
 
     def generate_inpaint(
         self,
-        prompt: str,
-        image: Image.Image,
-        mask_image: Image.Image,
-        negative_prompt: str | None,
-        strength: float,
-        steps: int,
-        guidance_scale: float,
-        seed: int,
-    ) -> Image.Image:
+        prompt,
+        image,
+        mask_image,
+        negative_prompt,
+        strength,
+        steps,
+        guidance_scale,
+        seed):
         return self.inpaint(
             prompt=prompt,
             image=image,
@@ -165,10 +183,11 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
+            cross_attention_kwargs={"scale": self.lora_scale}
         ).images[0]
 
 
-def main() -> None:
+def main():
     args = parse_args()
     input_json = Path(args.input_json).resolve()
     output_json = Path(args.output_json).resolve()
@@ -176,12 +195,12 @@ def main() -> None:
     output_dir = Path(args.output_dir).resolve() if args.output_dir else output_json.parent / "generated"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    meta, items = utils.load_json_container(input_json)
+    items = json.loads(input_json.read_text(encoding="utf-8"))
     device = utils.choose_device(args.device)
     dtype = utils.choose_dtype(device, args.precision)
-    generator = ZImageGenerator(args.model_id, device=device, dtype=dtype)
+    generator = ZImageGenerator(args.model_id, device=device, dtype=dtype, lora_path=args.lora_path, lora_scale=args.lora_scale)
 
-    out_items: List[Dict[str, Any]] = []
+    out_items = []
     for idx, record in enumerate(items):
         rec = dict(record)
         rec.setdefault("result_path", None)
@@ -202,81 +221,61 @@ def main() -> None:
             out_items.append(rec)
             continue
 
-        mask_candidates: List[Path] = []
+        mask_candidates = []
         if isinstance(rec.get("mask_paths"), list) and rec["mask_paths"]:
             raw_list = rec["mask_paths"] if args.use_all_masks else rec["mask_paths"][:1]
             mask_candidates = [utils.resolve_path(str(x), json_dir) for x in raw_list]
         elif rec.get("mask_path"):
             mask_candidates = [utils.resolve_path(str(rec["mask_path"]), json_dir)]
 
-        try:
-            image = load_rgb(image_path)
-            seed = int(rec.get("seed", args.seed))
-            steps = int(rec.get("num_inference_steps", args.default_steps))
-            guidance_scale = float(rec.get("guidance_scale", args.default_guidance_scale))
-            stem = utils.sanitize_stem(str(rec.get("id", idx)))
-            results: List[str] = []
+        image = load_rgb(image_path)
+        seed = int(rec.get("seed", args.seed))
+        steps = int(rec.get("num_inference_steps", args.default_steps))
+        guidance_scale = float(rec.get("guidance_scale", args.default_guidance_scale))
+        stem = utils.sanitize_stem(str(rec.get("id", idx)))
+        results = []
 
-            if mask_candidates:
-                for m_idx, mask_path in enumerate(mask_candidates):
-                    if not mask_path.exists():
-                        continue
-                    mask = feather_mask(load_mask(mask_path), args.mask_dilate, args.mask_blur)
-                    z_image, z_mask = resize_pair(image, mask, args.size)
-                    out_img = generator.generate_inpaint(
-                        prompt=str(prompt),
-                        image=z_image,
-                        mask_image=z_mask,
-                        negative_prompt=str(negative_prompt) if negative_prompt else None,
-                        strength=float(rec.get("inpaint_strength", rec.get("strength", args.default_inpaint_strength))),
-                        steps=steps,
-                        guidance_scale=guidance_scale,
-                        seed=seed + m_idx,
-                    )
-                    out_path = output_dir / f"{stem}__gen_mask_{m_idx:02d}.png"
-                    out_img.save(out_path)
-                    results.append(str(out_path.resolve()))
-            else:
-                z_image, _ = resize_pair(image, None, args.size)
-                out_img = generator.generate_img2img(
+        if mask_candidates:
+            for m_idx, mask_path in enumerate(mask_candidates):
+                if not mask_path.exists():
+                    continue
+                mask = feather_mask(load_mask(mask_path), args.mask_dilate, args.mask_blur)
+                z_image, z_mask = resize_pair(image, mask, args.size)
+                out_img = generator.generate_inpaint(
                     prompt=str(prompt),
                     image=z_image,
+                    mask_image=z_mask,
                     negative_prompt=str(negative_prompt) if negative_prompt else None,
-                    strength=float(rec.get("strength", args.default_strength)),
+                    strength=float(rec.get("inpaint_strength", rec.get("strength", args.default_inpaint_strength))),
                     steps=steps,
                     guidance_scale=guidance_scale,
-                    seed=seed,
+                    seed=seed + m_idx,
                 )
-                out_path = output_dir / f"{stem}__gen_nomask.png"
+                out_path = output_dir / f"{stem}__gen_mask_{m_idx:02d}.png"
                 out_img.save(out_path)
                 results.append(str(out_path.resolve()))
+        else:
+            z_image, _ = resize_pair(image, None, args.size)
+            out_img = generator.generate_img2img(
+                prompt=str(prompt),
+                image=z_image,
+                negative_prompt=str(negative_prompt) if negative_prompt else None,
+                strength=float(rec.get("strength", args.default_strength)),
+                steps=steps,
+                guidance_scale=guidance_scale,
+                seed=seed,
+            )
+            out_path = output_dir / f"{stem}__gen_nomask.png"
+            out_img.save(out_path)
+            results.append(str(out_path.resolve()))
 
-            rec["result_paths"] = results
-            rec["result_path"] = results[0] if results else None
-        except Exception:
-            pass
+        rec["result_paths"] = results
+        rec["result_path"] = results[0] if results else None
 
         out_items.append(rec)
 
-    if meta is None:
-        meta_out = {
-            "generated_by": "generate_zimage_json.py",
-            "input_json": str(input_json),
-            "generation_model": args.model_id,
-            "device": device,
-        }
-    else:
-        meta_out = dict(meta)
-        meta_out.update(
-            {
-                "generated_by": "generate_zimage_json.py",
-                "input_json": str(input_json),
-                "generation_model": args.model_id,
-                "device": device,
-            }
-        )
-    utils.save_json_container(output_json, meta_out, out_items)
-    print(f"Saved generation JSON to: {output_json}")
+    output_json.write_text(json.dumps(out_items, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Saved generation json to: {output_json}")
 
 
 if __name__ == "__main__":
