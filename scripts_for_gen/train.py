@@ -53,13 +53,17 @@ class ImageDataset(Dataset):
         item = self.items[idx]
         src_path = resolve_path(str(item[self.src_key]), self.root)
         tgt_path = resolve_path(str(item[self.tgt_key]), self.root)
-        prompt = item.get(self.prompt_key) or item.get("prompt") or item.get("caption") or ""
+        prompt = item.get(self.prompt_key)
+        if prompt is None:
+            prompt = item.get("prompt")
+        if prompt is None:
+            prompt = item.get("caption")
         src_image = Image.open(src_path).convert("RGB")
         tgt_image = Image.open(tgt_path).convert("RGB")
         return {
             "src_pixel_values": self.transform(src_image),
             "tgt_pixel_values": self.transform(tgt_image),
-            "prompt": str(prompt),
+            "prompt": None if prompt is None else str(prompt),
         }
 
 
@@ -119,7 +123,12 @@ def evaluate(
     psnr_metric.reset()
     pipe.transformer.eval()
     for i, item in enumerate(items):
-        prompt = str(item.get(prompt_key) or item.get("prompt") or item.get("caption") or "")
+        prompt = item.get(prompt_key)
+        if prompt is None:
+            prompt = item.get("prompt")
+        if prompt is None:
+            prompt = item.get("caption")
+        prompt = "" if prompt is None else str(prompt)
         src_path = resolve_path(str(item[src_key]), root)
         tgt_path = resolve_path(str(item[tgt_key]), root)
         src_pil = load_eval_image(src_path, resolution)
@@ -185,13 +194,13 @@ def main():
     src_key = str(imagedataset.get("src_key", "src_img"))
     tgt_key = str(imagedataset.get("tgt_key", "tgt_img"))
     prompt_key = str(imagedataset.get("prompt_key", "gen_prompt"))
-    items = [x for x in items if x.get(src_key) and x.get(tgt_key) and (x.get(prompt_key) or x.get("prompt") or x.get("caption"))]
+    items = [x for x in items if x.get(src_key) and x.get(tgt_key)]
 
     eval_path_raw = eval_cfg.get("path")
     eval_path = resolve_path(str(eval_path_raw), config_path.parent) if eval_path_raw else dataset_path
     eval_items = json.loads(eval_path.read_text(encoding="utf-8"))
     eval_root = eval_path.parent
-    eval_items = [x for x in eval_items if x.get(src_key) and x.get(tgt_key) and (x.get(prompt_key) or x.get("prompt") or x.get("caption"))]
+    eval_items = [x for x in eval_items if x.get(src_key) and x.get(tgt_key)]
     eval_items = eval_items[: int(eval_cfg.get("num_items", 8))]
 
     device = choose_device(system_cfg.get("device"))
@@ -295,8 +304,9 @@ def main():
                 tgt_latents = pipe.vae.encode(tgt_pixel_values).latent_dist.sample()
                 tgt_latents = tgt_latents * pipe.vae.config.scaling_factor
 
+                prompt_batch = ["" if x is None else str(x) for x in batch["prompt"]]
                 tokenized = pipe.tokenizer(
-                    batch["prompt"],
+                    prompt_batch,
                     padding="max_length",
                     truncation=True,
                     max_length=pipe.tokenizer.model_max_length,
