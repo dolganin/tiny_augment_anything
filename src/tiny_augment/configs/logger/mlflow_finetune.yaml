@@ -1,7 +1,7 @@
 mlflow:
-  experiment_name: "ISIC_classification"
+  experiment_name: AAA-pretrain
   run_name:        null
-  description:     "Fine-tuning on ISIC-like dataset"
+  description:     Fine-tuning on ISIC-like dataset
   nested:          false
   tags:
     stage:         finetune

@@ -1,9 +1,9 @@
 mlflow:
-  experiment_name: "ISIC_classification"
+  experiment_name: "AAA-pretrain"
   run_name:        null
   description:     "Pretraining on ISIC dataset"
   nested:          false
-  tags:
+  tags: 
     stage:         pretrain
     dataset:       ISIC
     backbone:      ${model.object.backbone}

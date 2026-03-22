@@ -1,12 +1,8 @@
-import torch
-
 from torch import nn
 from typing import Literal
 
 from .base_classifier import ISICClassifier
-
-
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+from tiny_augment.utils import get_device
 
 
 def build_model(
@@ -17,6 +13,7 @@ def build_model(
     drop_path_rate: float = 0.0,
     finetune_mode: Literal["all", "partial", "head"] = "head",
     trainable_prefixes: list[str] | None = None,
+    device_type: str = "cpu",
 ) -> nn.Module:
     """
     Factory function for creating an ISIC classification model.
@@ -24,25 +21,36 @@ def build_model(
     Parameters
     ----------
     backbone : str
-        Name of the timm architecture.
+        Name of the timm model.
+
     num_classes : int, default=1
         Number of output classes.
+
     pretrained : bool, default=True
-        Load pretrained ImageNet weights.
+        Load pretrained weights.
+
     drop_rate : float
         Dropout probability.
+
     drop_path_rate : float
         Stochastic depth probability.
+
     finetune_mode: {"all", "partial", "head"}, default=head
         Strategy for fine-tuning.
+
     trainable_prefixes : list[str] | None, default=None
         Prefixes of parameter names to keep trainable when finetune_mode is "partial".
+
+    device_type: str, default=cpu
+        The device type on which to run the model (e.g., 'cuda' or 'cpu').
 
     Returns
     -------
     nn.Module
         Model moved to the specified device.
     """
+
+    device = get_device(device_type)
 
     model = ISICClassifier(
         backbone=backbone,

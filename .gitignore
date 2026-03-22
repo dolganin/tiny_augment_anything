@@ -12,6 +12,8 @@ wheels/
 # Local
 .python-version
 data/
+outputs/
+data.tar.gz
 checkpoints/
 .ipynb_checkpoints/
 consumables/

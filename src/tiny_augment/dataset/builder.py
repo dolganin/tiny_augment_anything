@@ -23,7 +23,8 @@ def build_dataloaders(
     val_root: str | Path,
     transforms: Mapping[str, Callable],
     train_batch_size: int = 32,
-    valid_batch_size: int = 64,
+    val_batch_size: int = 64,
+    prefetch_factor: int = 2,
     sampler_type: Literal["balanced", "weighted"] | None = None,
     num_workers: int = 8,
     weights_root: str | Path | None = None,
@@ -61,8 +62,11 @@ def build_dataloaders(
     train_batch_size : int, default=32
         Batch size for the training dataloader.
 
-    valid_batch_size : int, default=64
+    val_batch_size : int, default=64
         Batch size for the validation dataloader.
+
+    prefetch_factor : int, default=2
+        Number of batch loaded by each worker.
 
     sampler_type : {"balanced", "weighted"} | None, default=None
         Sampling strategy for the training dataloader:
@@ -86,7 +90,7 @@ def build_dataloaders(
     """
 
     train_dataset = ISICDataset(train_root, transforms["train"])
-    valid_dataset = ISICDataset(val_root, transforms["valid"])
+    valid_dataset = ISICDataset(val_root, transforms["val"])
 
     sampler = None
     if sampler_type == "balanced":
@@ -104,14 +108,18 @@ def build_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
+        persistent_workers=True,
+        prefetch_factor=prefetch_factor,
     )
 
     valid_loader = DataLoader(
         valid_dataset,
-        batch_size=valid_batch_size,
+        batch_size=val_batch_size,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
+        persistent_workers=True,
+        prefetch_factor=prefetch_factor,
     )
 
     return train_loader, valid_loader

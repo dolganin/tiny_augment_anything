@@ -69,4 +69,10 @@ or
 uv run do-finetune
 ```
 
+**Note:** Always execute this command from the project root. The configuration uses
+relative paths to locate datasets and other resources, which are resolved
+relative to the current working directory. Running the script from elsewhere
+can lead to FileNotFoundError or incorrect data loading due to the fixed
+project directory layout.
+
 

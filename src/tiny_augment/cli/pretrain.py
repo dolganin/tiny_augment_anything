@@ -1,65 +1,46 @@
 import hydra
 import mlflow
 
-from tqdm import tqdm
 from omegaconf import DictConfig
 
-from tiny_augment.train import train_model
-from tiny_augment.utils import (
-    log_config,
-    log_metrics,
-    save_checkpoint,
-    extract_logger_kwargs,
-)
+from tiny_augment.train import Trainer
+from tiny_augment.utils import log_config, extract_mlflow_kwargs, get_device
 
 
-@hydra.main(config_path="../configs", config_name="pretrain")
+mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
+
+
+@hydra.main(version_base="1.3", config_path="../configs", config_name="pretrain")
 def pretrain(cfg: DictConfig) -> None:
     train_loader, val_loader = hydra.utils.call(cfg.dataloader)
     model = hydra.utils.call(cfg.model.object)
+    device = get_device(cfg.model.object.device_type)
 
     optimizer_init = hydra.utils.instantiate(cfg.optimizer)
     optimizer = optimizer_init(model.parameters())
 
-    scheduler_init = hydra.utils.instantiate(cfg.scheduler)
+    total_steps = len(train_loader) * cfg.train.epochs
+    scheduler_init = hydra.utils.instantiate(cfg.scheduler, T_max=total_steps)
     scheduler = scheduler_init(optimizer)
 
-    best_val_loss = float("inf")
+    trainer = Trainer(
+        model,
+        optimizer,
+        scheduler,
+        train_loader,
+        val_loader,
+        device,
+        cfg.train.checkpoint_path,
+        cfg.model.compile_mode,
+    )
 
-    logger_kwargs = extract_logger_kwargs(cfg)
+    trainer.load_checkpoint(cfg.model.last_checkpoint)
+
+    logger_kwargs = extract_mlflow_kwargs(cfg.logger)
 
     with mlflow.start_run(**logger_kwargs):
         log_config(cfg)
-
-        for epoch, train_metrics, val_metrics in tqdm(
-            train_model(
-                model,
-                train_loader,
-                val_loader,
-                optimizer,
-                scheduler,
-                cfg.train.epochs,
-            )
-        ):
-            log_metrics(epoch, train_metrics, val_metrics)
-
-            print(
-                f"Epoch {epoch} | "
-                f"Val Loss: {val_metrics['mean_loss']:.4f} | "
-                f"Val F1 Macro: {val_metrics['f1_macro']:.4f}"
-            )
-
-            if val_metrics["mean_loss"] < best_val_loss:
-                best_val_loss = val_metrics["mean_loss"]
-
-                save_checkpoint(
-                    model,
-                    optimizer,
-                    scheduler,
-                    epoch,
-                    best_val_loss,
-                    cfg.train.checkpoint_dir,
-                )
+        trainer.train(cfg.train.epochs)
 
 
 if __name__ == "__main__":
