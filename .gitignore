@@ -16,3 +16,5 @@ checkpoints/
 .ipynb_checkpoints/
 consumables/
 storage/
+codex
+claude
