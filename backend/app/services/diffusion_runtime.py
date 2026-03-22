@@ -47,6 +47,7 @@ class GenerateModule(Protocol):
             dtype,
             lora_path: str | None,
             lora_scale: float,
+            offload: str = "none",
         ) -> DiffusionGenerator:
             ...
 
@@ -96,6 +97,7 @@ class DiffusionRuntimeKey:
     precision: str
     lora_path: str | None
     lora_scale: float
+    offload: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +111,87 @@ class WarmedDiffusionRuntime:
 _module_cache: dict[Path, ModuleType] = {}
 _runtime_cache: dict[DiffusionRuntimeKey, WarmedDiffusionRuntime] = {}
 logger = get_logger(__name__)
+
+
+class CompatibleDiffusionGenerator:
+    def __init__(self, inner) -> None:
+        self._inner = inner
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+    def generate_img2img(
+        self,
+        prompt: str,
+        image,
+        negative_prompt: str | None,
+        strength: float,
+        steps: int,
+        guidance_scale: float,
+        seed: int,
+    ):
+        try:
+            return self._inner.generate_img2img(
+                prompt,
+                image,
+                negative_prompt,
+                strength,
+                steps,
+                guidance_scale,
+                seed,
+            )
+        except TypeError as error:
+            if not _is_cross_attention_kwargs_error(error):
+                raise
+            log_event(logger, 30, "diffusion_runtime.cross_attention_kwargs.unsupported", pipe_kind="img2img")
+            pipe = self._inner._load_pipe("img2img")
+            return pipe(
+                prompt=prompt,
+                image=image,
+                negative_prompt=negative_prompt,
+                strength=strength,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                generator=self._inner._generator(seed),
+            ).images[0]
+
+    def generate_inpaint(
+        self,
+        prompt: str,
+        image,
+        mask_image,
+        negative_prompt: str | None,
+        strength: float,
+        steps: int,
+        guidance_scale: float,
+        seed: int,
+    ):
+        try:
+            return self._inner.generate_inpaint(
+                prompt,
+                image,
+                mask_image,
+                negative_prompt,
+                strength,
+                steps,
+                guidance_scale,
+                seed,
+            )
+        except TypeError as error:
+            if not _is_cross_attention_kwargs_error(error):
+                raise
+            log_event(logger, 30, "diffusion_runtime.cross_attention_kwargs.unsupported", pipe_kind="inpaint")
+            pipe = self._inner._load_pipe("inpaint")
+            return pipe(
+                prompt=prompt,
+                image=image,
+                mask_image=mask_image,
+                negative_prompt=negative_prompt,
+                strength=strength,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                generator=self._inner._generator(seed),
+            ).images[0]
 
 
 def warm_diffusion_runtime(
@@ -130,12 +213,14 @@ def warm_diffusion_runtime(
     dtype = module.utils.choose_dtype(device, precision)
     resolved_lora_path = str(lora_path.resolve()) if lora_path is not None else None
     lora_scale = _as_float(config.get("lora_scale"), 1.0)
+    offload = _as_offload(config.get("offload"))
     key = DiffusionRuntimeKey(
         model_id=model_id,
         device=device,
         precision=precision,
         lora_path=resolved_lora_path,
         lora_scale=lora_scale,
+        offload=offload,
     )
     cached = _runtime_cache.get(key)
     if cached is not None:
@@ -147,6 +232,7 @@ def warm_diffusion_runtime(
             device=key.device,
             precision=key.precision,
             lora_path=key.lora_path,
+            offload=key.offload,
         )
         return WarmedDiffusionRuntime(
             key=cached.key,
@@ -163,6 +249,7 @@ def warm_diffusion_runtime(
         precision=key.precision,
         lora_path=key.lora_path,
         lora_scale=key.lora_scale,
+        offload=key.offload,
     )
     generator = module.ZImageGenerator(
         model_id=model_id,
@@ -170,11 +257,13 @@ def warm_diffusion_runtime(
         dtype=dtype,
         lora_path=resolved_lora_path,
         lora_scale=lora_scale,
+        offload=offload,
     )
+    compatible_generator = CompatibleDiffusionGenerator(generator)
     warmed = WarmedDiffusionRuntime(
         key=key,
         module=module,
-        generator=generator,
+        generator=cast(DiffusionGenerator, compatible_generator),
         cache_hit=False,
     )
     _runtime_cache[key] = warmed
@@ -186,8 +275,16 @@ def warm_diffusion_runtime(
         device=key.device,
         precision=key.precision,
         lora_path=key.lora_path,
+        offload=key.offload,
     )
     return warmed
+
+
+def preload_diffusion_pipe(warmed: WarmedDiffusionRuntime, kind: str = "img2img") -> None:
+    generator = warmed.generator
+    load_pipe = getattr(generator, "_load_pipe", None)
+    if callable(load_pipe):
+        load_pipe(kind)
 
 
 def load_generate_module(settings: Settings) -> GenerateModule:
@@ -222,3 +319,15 @@ def _as_float(value: object, default: float) -> float:
     if isinstance(value, str) and value:
         return float(value)
     return float(default)
+
+
+def _as_offload(value: object) -> str:
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"none", "model", "sequential"}:
+            return normalized
+    return "none"
+
+
+def _is_cross_attention_kwargs_error(error: TypeError) -> bool:
+    return "cross_attention_kwargs" in str(error)

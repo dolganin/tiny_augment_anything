@@ -16,6 +16,24 @@ from backend.app.workers.ml_generation import execute_ml_generation
 logger = get_logger(__name__)
 
 
+def _write_crash_state(task_payload: dict, task_type: object, message: str) -> None:
+    run_dir_value = task_payload.get("runDir")
+    if not isinstance(run_dir_value, str) or not run_dir_value:
+        return
+
+    run_dir = Path(run_dir_value)
+    payload = {
+        "status": "error",
+        "phase": "failed",
+        "progress": 1.0,
+        "message": message,
+    }
+    if task_type == "classifier.train":
+        write_classifier_state(build_classifier_bundle_from_dir(run_dir), payload)
+        return
+    write_zimage_state(build_run_bundle_from_dir(run_dir), payload)
+
+
 async def main() -> None:
     settings = load_settings()
     configure_logging(settings.app_log_level)
@@ -60,21 +78,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-def _write_crash_state(task_payload: dict, task_type: object, message: str) -> None:
-    run_dir_value = task_payload.get("runDir")
-    if not isinstance(run_dir_value, str) or not run_dir_value:
-        return
-
-    run_dir = Path(run_dir_value)
-    payload = {
-        "status": "error",
-        "phase": "failed",
-        "progress": 1.0,
-        "message": message,
-    }
-    if task_type == "classifier.train":
-        write_classifier_state(build_classifier_bundle_from_dir(run_dir), payload)
-        return
-    write_zimage_state(build_run_bundle_from_dir(run_dir), payload)

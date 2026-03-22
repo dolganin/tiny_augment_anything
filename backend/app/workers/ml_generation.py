@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.diffusion_runtime import warm_diffusion_runtime
+from backend.app.services.diffusion_runtime import preload_diffusion_pipe, warm_diffusion_runtime
 from backend.app.services.zimage import (
     build_run_bundle_from_dir,
     has_mask_records,
@@ -72,14 +72,15 @@ async def _prepare_diffusion_runtime(runtime_state, bundle) -> None:
     )
     try:
         warmed = warm_diffusion_runtime(runtime_state.settings, config)
+        preload_diffusion_pipe(warmed, "img2img")
     except Exception as error:
         _write_terminal_state(bundle, RuntimeError(str(error)))
         return
 
     message = (
-        f"Модель уже была загружена на {warmed.key.device}."
+        f"img2img runtime уже был прогрет на {warmed.key.device}."
         if warmed.cache_hit
-        else f"Модель загружена на {warmed.key.device} и готова к генерации."
+        else f"img2img runtime загружен на {warmed.key.device} и готов к генерации."
     )
     log_event(
         logger,
@@ -89,6 +90,7 @@ async def _prepare_diffusion_runtime(runtime_state, bundle) -> None:
         cache_hit=warmed.cache_hit,
         model_id=warmed.key.model_id,
         device=warmed.key.device,
+        offload=warmed.key.offload,
     )
     write_state(
         bundle,
@@ -100,6 +102,7 @@ async def _prepare_diffusion_runtime(runtime_state, bundle) -> None:
             "cacheHit": warmed.cache_hit,
             "modelId": warmed.key.model_id,
             "device": warmed.key.device,
+            "offload": warmed.key.offload,
         },
     )
 
@@ -203,14 +206,15 @@ async def _run_generation(runtime_state, bundle) -> None:
     )
     try:
         warmed = warm_diffusion_runtime(runtime_state.settings, config)
+        preload_diffusion_pipe(warmed, "img2img")
     except Exception as error:
         _write_terminal_state(bundle, RuntimeError(str(error)))
         return
 
     ready_message = (
-        f"Модель уже была загружена на {warmed.key.device}, начинаю генерацию."
+        f"img2img runtime уже был прогрет на {warmed.key.device}, начинаю генерацию."
         if warmed.cache_hit
-        else f"Модель загружена на {warmed.key.device}, начинаю генерацию."
+        else f"img2img runtime загружен на {warmed.key.device}, начинаю генерацию."
     )
     log_event(
         logger,
@@ -220,6 +224,7 @@ async def _run_generation(runtime_state, bundle) -> None:
         cache_hit=warmed.cache_hit,
         model_id=warmed.key.model_id,
         device=warmed.key.device,
+        offload=warmed.key.offload,
     )
     write_state(
         bundle,
@@ -231,6 +236,7 @@ async def _run_generation(runtime_state, bundle) -> None:
             "cacheHit": warmed.cache_hit,
             "modelId": warmed.key.model_id,
             "device": warmed.key.device,
+            "offload": warmed.key.offload,
             "generatedCount": 0,
         },
     )
@@ -273,6 +279,7 @@ async def _run_generation(runtime_state, bundle) -> None:
             "cacheHit": warmed.cache_hit,
             "modelId": warmed.key.model_id,
             "device": warmed.key.device,
+            "offload": warmed.key.offload,
         },
     )
 
