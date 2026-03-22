@@ -18,6 +18,7 @@ type DatasetUploadPanelProps = {
   navigateTo?: string
   openOnImportComplete?: boolean
   onProjectChange?: (project: DatasetCatalogItem | null) => void
+  compact?: boolean
 }
 
 type PendingImportState = {
@@ -28,7 +29,7 @@ type PendingImportState = {
 }
 
 export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
-  const { navigateTo = '/dataset/stats', openOnImportComplete = false, onProjectChange } = props
+  const { navigateTo = '/dataset/stats', openOnImportComplete = false, onProjectChange, compact = false } = props
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -355,7 +356,7 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
 
   return (
     <>
-      <div className="upload-stage">
+      <div className={compact ? 'upload-stage upload-stage--compact' : 'upload-stage'}>
         <input
           accept=".zip,application/zip"
           className="upload-stage__input"
@@ -367,7 +368,9 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
 
         <button className="upload-stage__dropzone" disabled={isBusy} onClick={openFileDialog} type="button">
           <UploadIcon />
-          <span className="upload-stage__title">{isBusy ? 'Загрузка датасета' : 'Выбрать архив датасета'}</span>
+          <span className="upload-stage__title">
+            {isBusy ? 'Загрузка датасета' : compact ? 'Загрузить архив' : 'Выбрать архив датасета'}
+          </span>
           <span className="upload-stage__hint">
             {isUploading
               ? `Передача файла: ${uploadProgress}%`
@@ -403,20 +406,33 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
           </div>
         ) : null}
 
-        <div className="upload-stage__actions">
-          <Button disabled={isBusy} onClick={openFileDialog}>
-            {isBusy ? 'Идёт обработка' : 'Открыть проводник'}
-          </Button>
-        </div>
+        {!compact ? (
+          <div className="upload-stage__actions">
+            <Button disabled={isBusy} onClick={openFileDialog}>
+              {isBusy ? 'Идёт обработка' : 'Открыть проводник'}
+            </Button>
+          </div>
+        ) : null}
 
-        <div className="info-card">
-          <p className="info-card__text">Поддерживается один zip-архив датасета.</p>
-          <p className="info-card__text">
-            Выбранный файл: <strong>{selectedFileName ?? 'ещё не выбран'}</strong>
-          </p>
-          <p className="info-card__text">
-            Статус: <strong>{uploadStatusLabel}</strong>
-          </p>
+        <div className={compact ? 'info-card upload-stage__meta-card' : 'info-card'}>
+          {compact ? (
+            <>
+              <p className="info-card__text">
+                <strong>{selectedFileName ?? 'Один zip-архив датасета'}</strong>
+              </p>
+              <p className="info-card__text">{uploadStatusLabel}</p>
+            </>
+          ) : (
+            <>
+              <p className="info-card__text">Поддерживается один zip-архив датасета.</p>
+              <p className="info-card__text">
+                Выбранный файл: <strong>{selectedFileName ?? 'ещё не выбран'}</strong>
+              </p>
+              <p className="info-card__text">
+                Статус: <strong>{uploadStatusLabel}</strong>
+              </p>
+            </>
+          )}
         </div>
       </div>
 

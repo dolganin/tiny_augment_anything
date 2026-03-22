@@ -4,6 +4,30 @@
   gap: 20px;
 }
 
+.modify-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.modify-stage {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 26px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+}
+
+.modify-stage__class {
+  justify-self: start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #1d2967;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .mode-card,
 .generation-form {
   display: grid;
@@ -12,6 +36,10 @@
   border-radius: 26px;
   background: #ffffff;
   border: 1px solid var(--color-border);
+}
+
+.generation-form--stacked {
+  gap: 16px;
 }
 
 .mode-card__title {
@@ -72,6 +100,10 @@
   object-fit: cover;
   border-radius: 24px;
   border: 1px solid rgba(114, 183, 224, 0.24);
+}
+
+.modify-preview--hero {
+  max-height: min(72vh, 720px);
 }
 
 @media (max-width: 900px) {

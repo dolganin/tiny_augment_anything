@@ -137,9 +137,8 @@ export function ModifyPage() {
   return (
     <>
       <PageFrame
-        title="Модификация изображения"
-        description="Бэкенд выбирает изображение из нужных классов, а фронтенд отправляет число требуемых модификаций и изменённые параметры пайплайна."
-        aside={<ModifyAside className={sourceQuery.data?.className ?? null} />}
+        title="Модификация"
+        description="В центре выбранный исходный кадр, ниже параметры новой партии изображений."
       >
         {(configQuery.isLoading || sourceQuery.isLoading) && (
           <div className="upload-stage__loading">
@@ -148,15 +147,13 @@ export function ModifyPage() {
         )}
 
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
-          <div className="mode-grid">
-            <section className="generation-form">
-              <div className="generation-form__group">
-                <span className="generation-form__label">Исходное изображение</span>
-                <img alt="Источник для модификации" className="modify-preview" src={source.assetUrl} />
-              </div>
+          <div className="modify-layout">
+            <section className="modify-stage">
+              <span className="modify-stage__class">{sourceQuery.data?.className ?? 'Класс не найден'}</span>
+              <img alt="Источник для модификации" className="modify-preview modify-preview--hero" src={source.assetUrl} />
             </section>
 
-            <form className="generation-form" onSubmit={submitForm}>
+            <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
               <label className="generation-form__group">
                 <span className="generation-form__label">Количество новых изображений</span>
                 <input
@@ -202,18 +199,5 @@ export function ModifyPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
-  )
-}
-
-function ModifyAside({ className }: { className: string | null }) {
-  return (
-    <div className="info-card">
-      <p className="info-card__text">
-        Выбранный класс: <strong>{className ?? 'ожидание ответа бэкенда'}</strong>
-      </p>
-      <p className="info-card__text">
-        Изображение запрашивается с бэкенда по пути внутри контейнера и преобразуется во frontend URL.
-      </p>
-    </div>
   )
 }

@@ -116,6 +116,10 @@ a {
   gap: 20px;
 }
 
+.upload-stage--compact {
+  gap: 14px;
+}
+
 .upload-stage__input {
   display: none;
 }
@@ -134,6 +138,13 @@ a {
     border-color var(--transition-base),
     box-shadow var(--transition-base);
   text-align: center;
+}
+
+.upload-stage--compact .upload-stage__dropzone {
+  gap: 12px;
+  min-height: 220px;
+  padding: 22px;
+  border-radius: 24px;
 }
 
 .upload-stage__dropzone:hover {
@@ -155,10 +166,19 @@ a {
   color: var(--color-accent);
 }
 
+.upload-stage--compact .upload-stage__icon {
+  width: 88px;
+  height: 88px;
+}
+
 .upload-stage__title {
   font-size: clamp(24px, 4vw, 42px);
   line-height: 1;
   letter-spacing: -0.04em;
+}
+
+.upload-stage--compact .upload-stage__title {
+  font-size: clamp(20px, 2.6vw, 28px);
 }
 
 .upload-stage__hint,
@@ -221,4 +241,9 @@ a {
 .upload-stage__actions {
   display: flex;
   justify-content: center;
+}
+
+.upload-stage__meta-card {
+  gap: 8px;
+  padding: 16px;
 }

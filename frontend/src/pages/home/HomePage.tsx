@@ -110,7 +110,7 @@ export function HomePage() {
           openingDatasetId={openingDatasetId}
           renamingDatasetId={renameDatasetMutation.isPending ? renameDatasetMutation.variables?.datasetId ?? null : null}
         />
-        <DatasetUploadPanel onProjectChange={setPendingProject} />
+        <DatasetUploadPanel compact onProjectChange={setPendingProject} />
       </PageFrame>
 
       <Modal onClose={() => setErrorMessage(null)} open={Boolean(errorMessage)} title="Ошибка каталога" tone="error">

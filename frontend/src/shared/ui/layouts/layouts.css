@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-columns: 244px minmax(0, 1fr);
   min-height: 100vh;
   padding: 20px;
   gap: 20px;
@@ -209,6 +209,17 @@
   background: #ebf9f1;
 }
 
+.shell__nav-item--skipped {
+  border-style: dashed;
+  border-color: rgba(128, 146, 173, 0.28);
+  background: #fbfcfe;
+}
+
+.shell__nav-item--skipped .shell__nav-label,
+.shell__nav-item--skipped .shell__nav-state {
+  color: #758399;
+}
+
 .shell__nav-label {
   font-size: 14px;
   font-weight: 700;
@@ -267,9 +278,9 @@
 
 .page-frame {
   display: grid;
-  gap: 24px;
+  gap: 20px;
   min-height: calc(100vh - 40px);
-  padding: 28px;
+  padding: 24px;
 }
 
 .page-frame__header {
@@ -295,7 +306,7 @@
 .page-frame__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 20px;
+  gap: 18px;
 }
 
 .page-frame__body--single {
@@ -305,11 +316,13 @@
 .page-frame__main,
 .page-frame__aside,
 .info-card {
-  padding: 24px;
+  padding: 20px;
 }
 
 .page-frame__main,
 .page-frame__aside {
+  display: grid;
+  gap: 16px;
   border-radius: 24px;
   background: var(--color-surface-strong);
   border: 1px solid var(--color-border);

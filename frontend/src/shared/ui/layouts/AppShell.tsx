@@ -1,5 +1,5 @@
 import { PropsWithChildren, useMemo } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { adaptJobs } from '@/shared/api/adapters'
 import { useCancelJobMutation, useJobsQuery } from '@/shared/api/workflow.hooks'
@@ -9,11 +9,15 @@ import { useWorkspaceStore } from '@/store/workspace/workspace.store'
 import '@/shared/ui/layouts/layouts.css'
 
 export function AppShell({ children }: PropsWithChildren) {
+  const location = useLocation()
   const queryClient = useQueryClient()
   const workflowStage = useSessionStore((state) => state.workflowStage)
   const sessionId = useSessionStore((state) => state.sessionId)
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
+  const currentMode = useSessionStore((state) => state.currentMode)
+  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
+  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const jobsPanelOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
   const toggleJobsPanel = useWorkspaceStore((state) => state.toggleJobsDrawer)
   const jobsQuery = useJobsQuery()
@@ -22,6 +26,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const jobs = useMemo(() => (jobsQuery.data ? adaptJobs(jobsQuery.data) : []), [jobsQuery.data])
   const activeJobsCount = jobs.filter((item) => item.status === 'pending' || item.status === 'running').length
   const currentStageIndex = workflowStages.indexOf(workflowStage)
+  const showWorkflowSidebar = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
 
   const handleCancelJob = async (jobId: string) => {
     await cancelJobMutation.mutateAsync(jobId)
@@ -84,7 +89,7 @@ export function AppShell({ children }: PropsWithChildren) {
           </div>
         </section>
 
-        {datasetId ? (
+        {showWorkflowSidebar ? (
           <>
             <div className="shell__dataset">
               <span className="shell__session-label">Активный датасет</span>
@@ -94,7 +99,8 @@ export function AppShell({ children }: PropsWithChildren) {
 
             <nav className="shell__nav">
               {workflowStages.map((stage) => {
-                const isCompleted = currentStageIndex > workflowStages.indexOf(stage)
+                const isSkipped = isStageSkipped(stage, workflowStage, currentMode, fineTuneEnabled, fineTuneResolved)
+                const isCompleted = !isSkipped && currentStageIndex > workflowStages.indexOf(stage)
                 return (
                   <NavLink
                     className={({ isActive }) =>
@@ -102,6 +108,7 @@ export function AppShell({ children }: PropsWithChildren) {
                         'shell__nav-item',
                         isActive ? 'shell__nav-item--active' : '',
                         isCompleted ? 'shell__nav-item--completed' : '',
+                        isSkipped ? 'shell__nav-item--skipped' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')
@@ -113,7 +120,9 @@ export function AppShell({ children }: PropsWithChildren) {
                       <span className="shell__nav-label">{workflowStageLabels[stage]}</span>
                       {isCompleted ? <StepDoneIcon /> : null}
                     </div>
-                    <span className="shell__nav-state">{resolveStageState(stage, workflowStage, isCompleted)}</span>
+                    <span className="shell__nav-state">
+                      {resolveStageState(stage, workflowStage, isCompleted, isSkipped)}
+                    </span>
                   </NavLink>
                 )
               })}
@@ -127,7 +136,31 @@ export function AppShell({ children }: PropsWithChildren) {
   )
 }
 
-function resolveStageState(stage: WorkflowStage, currentStage: WorkflowStage, isCompleted: boolean) {
+function isStageSkipped(
+  stage: WorkflowStage,
+  currentStage: WorkflowStage,
+  currentMode: ReturnType<typeof useSessionStore.getState>['currentMode'],
+  fineTuneEnabled: boolean,
+  fineTuneResolved: boolean,
+) {
+  const modeStageIndex = workflowStages.indexOf('mode-select')
+  const currentStageIndex = workflowStages.indexOf(currentStage)
+  if (stage === 'fine-tune' && fineTuneResolved && !fineTuneEnabled && currentStageIndex >= workflowStages.indexOf('fine-tune')) {
+    return true
+  }
+  if (stage === 'generate' && currentMode === 'modify' && currentStageIndex >= modeStageIndex) {
+    return true
+  }
+  if (stage === 'modify' && currentMode === 'generate' && currentStageIndex >= modeStageIndex) {
+    return true
+  }
+  return false
+}
+
+function resolveStageState(stage: WorkflowStage, currentStage: WorkflowStage, isCompleted: boolean, isSkipped: boolean) {
+  if (isSkipped) {
+    return 'Пропущено'
+  }
   if (isCompleted) {
     return 'Этап закрыт'
   }
