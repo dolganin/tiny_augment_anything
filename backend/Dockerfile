@@ -13,7 +13,7 @@ COPY backend ./backend
 COPY config ./config
 COPY scripts_for_gen ./scripts_for_gen
 
-RUN uv sync --frozen && pip install --no-cache-dir torch torchvision -r scripts_for_gen/requirements.inference.txt
+RUN uv sync --frozen && pip install --no-cache-dir torch torchvision -r scripts_for_gen/requirements.generate.txt
 
 EXPOSE 8000
 

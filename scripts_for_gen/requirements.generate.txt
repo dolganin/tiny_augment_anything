@@ -1,0 +1,10 @@
+transformers==4.57.1
+huggingface_hub==0.36.0
+diffusers==0.37.0
+accelerate==1.13.0
+safetensors==0.7.0
+sentencepiece==0.2.0
+numpy==1.26.4
+Pillow==10.4.0
+ftfy==6.3.1
+blobfile==3.0.0
