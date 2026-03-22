@@ -65,9 +65,10 @@ export const adaptGenerationResults = (response: GenerationResultsResponse) => (
   })),
 })
 
-export const adaptModificationSource = (assetPath: string) => ({
-  assetPath,
-  assetUrl: toFileUrl(assetPath),
+export const adaptModificationSource = (assetId: string, previewPath: string, className: string) => ({
+  assetId,
+  assetUrl: toFileUrl(previewPath),
+  className,
 })
 
 export const adaptMetrics = (response: MetricsResponse): WorkflowMetrics => ({

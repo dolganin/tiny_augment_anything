@@ -178,15 +178,24 @@ export const generationStartPayloadSchema = z.object({
 })
 
 export const modificationSourceResponseSchema = z.object({
-  assetPath: z.string(),
+  assetId: z.string(),
+  previewPath: z.string(),
   className: z.string(),
 })
 
+export const modificationAreaBoxSchema = z.tuple([
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+])
+
 export const modificationStartPayloadSchema = z.object({
   prompt: z.string().min(1),
-  sourcePath: z.string(),
+  sourceAssetId: z.string().min(1),
   sampleCount: z.number().int().positive(),
   config: z.record(z.string()),
+  areaBox: modificationAreaBoxSchema.optional(),
 })
 
 export const generationResultsResponseSchema = z.object({

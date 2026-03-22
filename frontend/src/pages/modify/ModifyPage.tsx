@@ -16,12 +16,15 @@ import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { useSessionStore } from '@/store/session/session.store'
 import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
 import { GenerationConfigFields } from '@/features/generation-config/GenerationConfigFields'
+import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
 import '@/features/generation-config/generation-config.css'
 
 type ModifyFormValues = {
   prompt: string
   sampleCount: number
 }
+
+type AreaBox = [number, number, number, number]
 
 export function ModifyPage() {
   const navigate = useNavigate()
@@ -30,6 +33,7 @@ export function ModifyPage() {
   const generationConfig = useSessionStore((state) => state.generationConfig)
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
+  const [areaBox, setAreaBox] = useState<AreaBox | null>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
@@ -110,8 +114,16 @@ export function ModifyPage() {
       return null
     }
 
-    return adaptModificationSource(sourceQuery.data.assetPath)
+    return adaptModificationSource(
+      sourceQuery.data.assetId,
+      sourceQuery.data.previewPath,
+      sourceQuery.data.className,
+    )
   }, [sourceQuery.data])
+
+  useEffect(() => {
+    setAreaBox(null)
+  }, [source?.assetId])
 
   const updateFieldValue = (key: string, value: string) => {
     const nextValues = { ...fieldValues, [key]: value }
@@ -127,9 +139,10 @@ export function ModifyPage() {
     try {
       const response = await modificationMutation.mutateAsync({
         prompt: values.prompt,
-        sourcePath: source.assetPath,
+        sourceAssetId: source.assetId,
         sampleCount: Number(values.sampleCount),
         config: fieldValues,
+        areaBox: areaBox ?? undefined,
       })
       setSession({ generationJobId: response.jobId })
       setLogs(['Запуск модификации отправлен на бэкенд.'])
@@ -152,10 +165,12 @@ export function ModifyPage() {
 
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
           <div className="modify-layout">
-            <section className="modify-stage">
-              <span className="modify-stage__class">{sourceQuery.data?.className ?? 'Класс не найден'}</span>
-              <img alt="Источник для модификации" className="modify-preview modify-preview--hero" src={source.assetUrl} />
-            </section>
+            <ModificationCanvas
+              areaBox={areaBox}
+              className={source.className}
+              imageUrl={source.assetUrl}
+              onAreaBoxChange={setAreaBox}
+            />
 
             <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
               <label className="generation-form__group">
