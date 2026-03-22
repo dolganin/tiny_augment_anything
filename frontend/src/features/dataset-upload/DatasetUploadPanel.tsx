@@ -417,10 +417,14 @@ export function DatasetUploadPanel(props: DatasetUploadPanelProps) {
         <div className={compact ? 'info-card upload-stage__meta-card' : 'info-card'}>
           {compact ? (
             <>
-              <p className="info-card__text">
-                <strong>{selectedFileName ?? 'Один zip-архив датасета'}</strong>
-              </p>
-              <p className="info-card__text">{uploadStatusLabel}</p>
+              {selectedFileName ? (
+                <p className="info-card__text">
+                  <strong>{selectedFileName}</strong>
+                </p>
+              ) : null}
+              {isBusy || uploadSession?.phase === 'uploading' || pendingImport ? (
+                <p className="info-card__text">{uploadStatusLabel}</p>
+              ) : null}
             </>
           ) : (
             <>
