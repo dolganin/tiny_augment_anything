@@ -90,7 +90,7 @@ class Trainer:
         save_every_n_epochs: int = 5,
     ) -> None:
         self.model = model
-        self.criterion = criterion
+        self.criterion = criterion.to(device)
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
