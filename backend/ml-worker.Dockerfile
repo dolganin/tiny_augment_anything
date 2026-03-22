@@ -11,6 +11,7 @@ COPY backend/requirements.ml.txt /tmp/requirements.ml.txt
 COPY scripts_for_gen/requirements.generate.txt /tmp/requirements.generate.txt
 
 RUN pip install --no-cache-dir -r /tmp/requirements.ml.txt \
+    && pip install --no-cache-dir uv \
     && pip install --no-cache-dir torch torchvision \
     && pip install --no-cache-dir -r /tmp/requirements.generate.txt
 

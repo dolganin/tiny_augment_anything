@@ -1,13 +1,17 @@
 import hydra
 import mlflow
+import os
 
 from omegaconf import DictConfig
+from pathlib import Path
 
 from tiny_augment.train import Trainer
 from tiny_augment.utils import log_config, extract_mlflow_kwargs, get_device
 
 
-mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
+mlflow.set_tracking_uri(
+    os.getenv("MLFLOW_TRACKING_URI", f"file:{(Path.cwd() / 'mlruns').resolve()}")
+)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="pretrain")

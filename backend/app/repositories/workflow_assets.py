@@ -262,6 +262,31 @@ async def list_active_assets(connection, dataset_id: UUID, version_id: UUID) -> 
         return await cursor.fetchall()
 
 
+async def list_active_assets_with_origin(
+    connection,
+    dataset_id: UUID,
+    version_id: UUID,
+) -> list[dict[str, Any]]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT
+                a.id,
+                a.storage_path,
+                a.class_name,
+                a.origin_type,
+                a.created_at
+            FROM dataset_assets a
+            WHERE a.dataset_id = %s
+              AND a.approved_in_version_id = %s
+              AND a.deleted_at IS NULL
+            ORDER BY a.class_name, a.created_at
+            """,
+            (dataset_id, version_id),
+        )
+        return await cursor.fetchall()
+
+
 async def update_version_manifest_path(connection, version_id: UUID, manifest_path: str, summary: dict[str, Any]) -> None:
     await connection.execute(
         """

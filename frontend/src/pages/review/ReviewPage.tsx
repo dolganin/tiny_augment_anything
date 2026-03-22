@@ -5,7 +5,6 @@ import {
   useApproveAssetMutation,
   useGenerationResultsQuery,
   useRejectAssetMutation,
-  useStartClassifierTrainingMutation,
 } from '@/shared/api/workflow.hooks'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
@@ -23,7 +22,6 @@ export function ReviewPage() {
   const resultsQuery = useGenerationResultsQuery(sessionId)
   const approveMutation = useApproveAssetMutation(sessionId ?? '')
   const rejectMutation = useRejectAssetMutation(sessionId ?? '')
-  const classifierMutation = useStartClassifierTrainingMutation(sessionId ?? '')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -80,21 +78,12 @@ export function ReviewPage() {
     }
   }
 
-  const handleClassifierStart = async () => {
-    if (!sessionId) {
-      return
-    }
-
-    try {
-      const response = await classifierMutation.mutateAsync()
-      setSession({
-        classifierJobId: response.jobId,
-        workflowStage: 'classifier-train',
-      })
-      navigate('/classifier/train')
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
+  const handleClassifierStart = () => {
+    setSession({
+      classifierJobId: null,
+      workflowStage: 'classifier-train',
+    })
+    navigate('/classifier/train')
   }
 
   return (
@@ -124,12 +113,7 @@ export function ReviewPage() {
               <p className="info-card__text">
                 Ещё нужно добрать изображений: <strong>{queue?.remainingCount ?? 0}</strong>
               </p>
-              <Button
-                disabled={classifierMutation.isPending}
-                onClick={handleClassifierStart}
-              >
-                Запустить обучение классификатора
-              </Button>
+              <Button onClick={handleClassifierStart}>Перейти к настройке классификатора</Button>
             </div>
           </>
         ) : null}

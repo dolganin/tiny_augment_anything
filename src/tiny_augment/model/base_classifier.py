@@ -85,7 +85,13 @@ class ISICClassifier(nn.Module):
         if (state_dict := checkpoint.get("model_state_dict", None)) is None:
             raise RuntimeError("No checkpoint.")
 
-        self.model.load_state_dict(state_dict, strict=False)
+        current_state = self.model.state_dict()
+        compatible_state = {
+            key: value
+            for key, value in state_dict.items()
+            if key in current_state and current_state[key].shape == value.shape
+        }
+        self.model.load_state_dict(compatible_state, strict=False)
 
     def _apply_finetune_strategy(self, trainable_prefixes: list[str] | None) -> None:
         """

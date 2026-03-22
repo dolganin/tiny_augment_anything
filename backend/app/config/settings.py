@@ -20,9 +20,13 @@ class Settings:
     redis_events_prefix: str
     executor_mode: str
     executor_python_bin: str
+    executor_default_device: str
     executor_script_path: Path
     executor_segment_script_path: Path
     executor_segment_model_id: str
+    classifier_pipeline_root: Path
+    classifier_uv_bin: str
+    classifier_val_ratio: float
 
 
 def load_settings() -> Settings:
@@ -59,6 +63,9 @@ def load_settings() -> Settings:
         ),
         executor_mode=str(os.getenv("EXECUTOR_MODE") or _get_config_value(config, ("executor", "mode"), "stub")),
         executor_python_bin=str(os.getenv("EXECUTOR_PYTHON_BIN") or _get_config_value(config, ("executor", "python_bin"), "python")),
+        executor_default_device=str(
+            os.getenv("EXECUTOR_DEFAULT_DEVICE") or _get_config_value(config, ("executor", "default_device"), "cuda:0")
+        ),
         executor_script_path=_resolve_path(
             os.getenv("EXECUTOR_SCRIPT_PATH") or _get_config_value(config, ("executor", "script_path"), "../scripts_for_gen/generate_zimage_json.py"),
             config_path.parent,
@@ -70,6 +77,19 @@ def load_settings() -> Settings:
         executor_segment_model_id=str(
             os.getenv("EXECUTOR_SEGMENT_MODEL_ID")
             or _get_config_value(config, ("executor", "segment_model_id"), "facebook/sam2.1-hiera-small")
+        ),
+        classifier_pipeline_root=_resolve_path(
+            os.getenv("CLASSIFIER_PIPELINE_ROOT")
+            or _get_config_value(config, ("classifier", "pipeline_root"), ".."),
+            config_path.parent,
+        ),
+        classifier_uv_bin=str(
+            os.getenv("CLASSIFIER_UV_BIN")
+            or _get_config_value(config, ("classifier", "uv_bin"), "uv")
+        ),
+        classifier_val_ratio=float(
+            os.getenv("CLASSIFIER_VAL_RATIO")
+            or _get_config_value(config, ("classifier", "val_ratio"), 0.2)
         ),
     )
 

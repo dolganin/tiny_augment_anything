@@ -165,6 +165,6 @@ export function useRejectAssetMutation(sessionId: string) {
 
 export function useStartClassifierTrainingMutation(sessionId: string) {
   return useMutation({
-    mutationFn: () => workflowApi.startClassifierTraining(sessionId),
+    mutationFn: (payload: FormData) => workflowApi.startClassifierTraining(sessionId, payload),
   })
 }

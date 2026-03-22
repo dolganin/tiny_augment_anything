@@ -154,8 +154,8 @@ export const workflowApi = {
     const response = await http.post(endpoints.rejectAsset(sessionId, assetId))
     return taskStartedResponseSchema.parse(response.data)
   },
-  async startClassifierTraining(sessionId: string) {
-    const response = await http.post(endpoints.startClassifierTraining(sessionId))
+  async startClassifierTraining(sessionId: string, payload: FormData) {
+    const response = await http.post(endpoints.startClassifierTraining(sessionId), payload, { timeout: 0 })
     return taskStartedResponseSchema.parse(response.data)
   },
   async getMetrics(sessionId: string) {

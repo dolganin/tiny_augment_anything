@@ -1,14 +1,18 @@
 import hydra
 import mlflow
+import os
 
 from mlflow import artifacts
 from omegaconf import DictConfig
+from pathlib import Path
 
 from tiny_augment.train import Trainer
 from tiny_augment.utils import log_config, extract_mlflow_kwargs, get_device
 
 
-mlflow.set_tracking_uri("http://swagstation.netcraze.pro:4249/")
+mlflow.set_tracking_uri(
+    os.getenv("MLFLOW_TRACKING_URI", f"file:{(Path.cwd() / 'mlruns').resolve()}")
+)
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="fine_tune")
@@ -35,11 +39,15 @@ def fine_tune(cfg: DictConfig) -> None:
         cfg.model.compile_mode,
     )
 
-    model_path = artifacts.download_artifacts(
-        run_id=cfg.model.model_path.mlflow_run_id,
-        artifact_path=cfg.model.model_path.artifact_path,
-    )
-    trainer.load_model_weights(model_path)
+    local_checkpoint_path = cfg.model.model_path.get("local_checkpoint_path")
+    if local_checkpoint_path:
+        trainer.load_model_weights(local_checkpoint_path)
+    elif cfg.model.model_path.mlflow_run_id and cfg.model.model_path.artifact_path:
+        model_path = artifacts.download_artifacts(
+            run_id=cfg.model.model_path.mlflow_run_id,
+            artifact_path=cfg.model.model_path.artifact_path,
+        )
+        trainer.load_model_weights(model_path)
 
     logger_kwargs = extract_mlflow_kwargs(cfg.logger)
 

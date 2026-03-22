@@ -6,13 +6,21 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "albumentations>=2.0.8",
+    "numpy",
     "opencv-python-headless",
     "hydra-core>=1.3.2",
     "mlflow>=3.10.1",
     "opencv-python>=4.13.0.92",
+    "omegaconf>=2.3.0",
+    "pandas",
+    "pillow",
     "psycopg[binary]>=3.2.9",
     "redis>=6.4.0",
+    "scikit-learn",
     "timm>=1.0.25",
+    "torch",
+    "torchvision",
+    "tqdm",
     "uvicorn>=0.38.0",
 ]
 

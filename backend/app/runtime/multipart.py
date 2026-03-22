@@ -13,13 +13,27 @@ class UploadedFile:
     data: bytes
 
 
+@dataclass(frozen=True, slots=True)
+class MultipartForm:
+    files: list[UploadedFile]
+    fields: dict[str, str]
+
+
 def parse_multipart(body: bytes, content_type: str) -> list[UploadedFile]:
+    form = parse_multipart_form(body, content_type)
+    if not form.files:
+        raise AppError(400, "Multipart payload does not contain files")
+    return form.files
+
+
+def parse_multipart_form(body: bytes, content_type: str) -> MultipartForm:
     boundary_marker = "boundary="
     if boundary_marker not in content_type:
         raise AppError(400, "Multipart boundary is missing")
     boundary = content_type.split(boundary_marker, maxsplit=1)[1].strip().strip('"')
     delimiter = f"--{boundary}".encode("utf-8")
     files: list[UploadedFile] = []
+    fields: dict[str, str] = {}
     for chunk in body.split(delimiter):
         part = chunk.strip()
         if not part or part == b"--":
@@ -29,9 +43,11 @@ def parse_multipart(body: bytes, content_type: str) -> list[UploadedFile]:
             continue
         headers = _parse_headers(headers_blob)
         disposition = headers.get("content-disposition", "")
-        if "filename=" not in disposition:
-            continue
         field_name = _extract_disposition_value(disposition, "name")
+        if "filename=" not in disposition:
+            if field_name:
+                fields[field_name] = content.rstrip(b"\r\n").decode("utf-8")
+            continue
         file_name = _extract_disposition_value(disposition, "filename")
         files.append(
             UploadedFile(
@@ -41,9 +57,7 @@ def parse_multipart(body: bytes, content_type: str) -> list[UploadedFile]:
                 data=content.rstrip(b"\r\n"),
             )
         )
-    if not files:
-        raise AppError(400, "Multipart payload does not contain files")
-    return files
+    return MultipartForm(files=files, fields=fields)
 
 
 def _parse_headers(blob: bytes) -> dict[str, str]:

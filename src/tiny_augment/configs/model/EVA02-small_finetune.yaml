@@ -14,6 +14,7 @@ object:
 model_path:
   mlflow_run_id:      null
   artifact_path:      null
+  local_checkpoint_path: null
 
 pretrain_img_size:    336
 compile_mode:         reduce-overhead

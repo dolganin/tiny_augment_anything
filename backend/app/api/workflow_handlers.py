@@ -1,20 +1,27 @@
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import UUID
+from uuid import uuid4
 
 from backend.app.domain.enums import TaskType, WorkflowStage
 from backend.app.repositories.tasks import cancel_task, create_task, get_task_status
 from backend.app.repositories.workflow_assets import get_random_approved_asset, list_class_reference_preview_paths
 from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_pending_results
+from backend.app.runtime.multipart import parse_multipart_form
 from backend.app.repositories.workflow_session import get_session_context, sync_session_state
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.configuration import generation_defaults
+from backend.app.services.filesystem import make_relative_path
 from backend.app.services.queue import enqueue_core_task, remove_core_queued_task, remove_ml_queued_task
 from backend.app.services.sessions import parse_session_id
 from backend.app.services.zimage import build_run_bundle
+
+
+CLASSIFIER_MODEL_KEYS = {"EdgeNeXt_finetune", "EVA02-small_finetune"}
 
 
 async def start_fine_tune(request: Request, params: dict[str, str], state: object):
@@ -40,7 +47,8 @@ async def start_fine_tune(request: Request, params: dict[str, str], state: objec
 
 
 async def generation_config(request: Request, params: dict[str, str], state: object):
-    return json_response(200, generation_defaults())
+    runtime_state = _require_state(state)
+    return json_response(200, generation_defaults(runtime_state.settings))
 
 
 async def start_generation(request: Request, params: dict[str, str], state: object):
@@ -242,6 +250,7 @@ async def cancel_running_task(request: Request, params: dict[str, str], state: o
 async def start_classifier_training(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
+    classifier_payload = _parse_classifier_payload(request, runtime_state, session_id)
     async with runtime_state.database.connection() as connection:
         context = await get_session_context(connection, session_id)
         if context is None or context["current_dataset_version_id"] is None:
@@ -250,7 +259,7 @@ async def start_classifier_training(request: Request, params: dict[str, str], st
             connection,
             session_id=session_id,
             task_type=TaskType.CLASSIFIER,
-            payload={},
+            payload=classifier_payload,
             dataset_version_id=context["current_dataset_version_id"],
         )
     await enqueue_core_task(
@@ -303,3 +312,88 @@ def _require_state(state: object) -> RuntimeState:
     if not isinstance(state, RuntimeState):
         raise RuntimeError("Runtime state is not available")
     return state
+
+
+def _parse_classifier_payload(
+    request: Request,
+    runtime_state: RuntimeState,
+    session_id: UUID,
+) -> dict:
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        form = parse_multipart_form(request.body, content_type)
+        raw_payload = form.fields
+        weights_file = next((item for item in form.files if item.field_name == "weights"), None)
+    else:
+        payload = request.json()
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, dict):
+            raise AppError(400, "Некорректное тело classifier request.")
+        raw_payload = payload
+        weights_file = None
+
+    model_key = str(raw_payload.get("modelKey") or "EdgeNeXt_finetune")
+    if model_key not in CLASSIFIER_MODEL_KEYS:
+        raise AppError(400, "Некорректный modelKey для классификатора.")
+
+    hparams = {
+        "train_batch_size": _parse_positive_int(raw_payload.get("trainBatchSize"), "trainBatchSize", 32),
+        "val_batch_size": _parse_positive_int(raw_payload.get("valBatchSize"), "valBatchSize", 64),
+        "learning_rate": _parse_positive_float(raw_payload.get("learningRate"), "learningRate", 3e-4),
+        "weight_decay": _parse_non_negative_float(raw_payload.get("weightDecay"), "weightDecay", 1e-6),
+        "epochs": _parse_positive_int(raw_payload.get("epochs"), "epochs", 10),
+    }
+
+    pretrained_weights_path = None
+    if weights_file is not None and weights_file.file_name:
+        weights_dir = runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)
+        weights_dir.mkdir(parents=True, exist_ok=True)
+        target_path = weights_dir / f"{uuid4()}_{weights_file.file_name}"
+        target_path.write_bytes(weights_file.data)
+        pretrained_weights_path = make_relative_path(
+            runtime_state.settings.runtime_dir,
+            target_path,
+        )
+
+    return {
+        "modelKey": model_key,
+        "hparams": hparams,
+        "pretrainedWeightsPath": pretrained_weights_path,
+    }
+
+
+def _parse_positive_int(raw_value: object, field_name: str, default: int) -> int:
+    if raw_value is None or raw_value == "":
+        return default
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as error:
+        raise AppError(400, f"Поле {field_name} должно быть целым числом.") from error
+    if value <= 0:
+        raise AppError(400, f"Поле {field_name} должно быть положительным.")
+    return value
+
+
+def _parse_positive_float(raw_value: object, field_name: str, default: float) -> float:
+    if raw_value is None or raw_value == "":
+        return default
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError) as error:
+        raise AppError(400, f"Поле {field_name} должно быть числом.") from error
+    if value <= 0:
+        raise AppError(400, f"Поле {field_name} должно быть положительным.")
+    return value
+
+
+def _parse_non_negative_float(raw_value: object, field_name: str, default: float) -> float:
+    if raw_value is None or raw_value == "":
+        return default
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError) as error:
+        raise AppError(400, f"Поле {field_name} должно быть числом.") from error
+    if value < 0:
+        raise AppError(400, f"Поле {field_name} не должно быть отрицательным.")
+    return value

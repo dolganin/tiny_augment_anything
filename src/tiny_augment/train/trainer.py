@@ -1,6 +1,7 @@
 import torch
 import os
 import mlflow
+import json
 
 import numpy as np
 
@@ -67,6 +68,7 @@ class Trainer:
 
         self.current_epoch = 0
         self.best_val_loss = float("inf")
+        self.best_metrics: dict[str, float] = {}
 
         os.makedirs(self.ckpt_dir, exist_ok=True)
 
@@ -88,6 +90,12 @@ class Trainer:
 
         torch.save(checkpoint, path)
         mlflow.log_artifact(local_path=str(path), artifact_path="model_checkpoints")
+        metrics_path = self.ckpt_dir / "best_metrics.json"
+        metrics_path.write_text(
+            json.dumps(self.best_metrics, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        mlflow.log_artifact(local_path=str(metrics_path), artifact_path="model_checkpoints")
 
     def load_checkpoint(self, checkpoint_path: str | Path | None = None) -> None:
         """
@@ -138,7 +146,14 @@ class Trainer:
             checkpoint_path, map_location=self.device, weights_only=False
         )
 
-        self.model.load_state_dict(checkpoint["model_state_dict"], strict=False)  # type: ignore
+        checkpoint_state = checkpoint["model_state_dict"]
+        current_state = self.model.state_dict()  # type: ignore[attr-defined]
+        compatible_state = {
+            key: value
+            for key, value in checkpoint_state.items()
+            if key in current_state and current_state[key].shape == value.shape
+        }
+        self.model.load_state_dict(compatible_state, strict=False)  # type: ignore
 
     def train(self, max_epochs: int) -> None:
         """
@@ -158,6 +173,7 @@ class Trainer:
 
             if val_metrics["mean_loss"] < self.best_val_loss:
                 self.best_val_loss = val_metrics["mean_loss"]
+                self.best_metrics = {k: float(v) for k, v in val_metrics.items()}
 
                 self._save_checkpoint()
 
@@ -246,6 +262,9 @@ class Trainer:
         precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
             targets, pred_targets, average="macro"
         )
+        precision_per_class, recall_per_class, _, _ = precision_recall_fscore_support(
+            targets, pred_targets, average=None, zero_division=0
+        )
         f1_micro = f1_score(targets, pred_targets, average="micro", zero_division=0)
         f1_per_class = f1_score(targets, pred_targets, average=None, zero_division=0)
         accuracy = accuracy_score(targets, pred_targets)
@@ -260,6 +279,8 @@ class Trainer:
         }
 
         for i, f1_val in enumerate(f1_per_class):  # type: ignore
+            metrics[f"precision_class_{i}"] = float(precision_per_class[i])
+            metrics[f"recall_class_{i}"] = float(recall_per_class[i])
             metrics[f"f1_class_{i}"] = float(f1_val)
 
         return metrics

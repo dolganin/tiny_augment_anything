@@ -79,14 +79,27 @@ services:
     container_name: tiny_augment_ml_worker
     working_dir: /app
     command: ["python", "-m", "backend.ml_worker"]
+    runtime: nvidia
     environment:
       APP_CONFIG_PATH: /app/config/app.yaml
       APP_RUNTIME_DIR: /big_data/augment_anything
+      NVIDIA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      CUDA_VISIBLE_DEVICES: "0"
+      HF_HOME: /model-cache/huggingface
+      HUGGINGFACE_HUB_CACHE: /model-cache/huggingface/hub
+      TRANSFORMERS_CACHE: /model-cache/huggingface/transformers
+      TORCH_HOME: /model-cache/torch
     volumes:
       - ./backend:/app/backend
       - ./config:/app/config
       - ./scripts_for_gen:/app/scripts_for_gen
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./README.md:/app/README.md
       - ./storage/tiny-augment:/big_data/augment_anything
+      - ml_model_cache:/model-cache
     depends_on:
       redis:
         condition: service_started
@@ -114,5 +127,6 @@ services:
 
 volumes:
   frontend_node_modules:
+  ml_model_cache:
   postgres_data:
   redis_data:
