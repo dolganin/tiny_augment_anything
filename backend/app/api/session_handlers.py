@@ -11,7 +11,7 @@ from backend.app.runtime.multipart import parse_multipart
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
-from backend.app.services.queue import enqueue_task
+from backend.app.services.queue import enqueue_core_task
 from backend.app.services.sessions import build_snapshot, parse_session_id
 from backend.app.services.uploads import append_chunk, discard_chunk_upload, get_chunk_upload_status, init_chunk_upload, prepare_dataset_upload, prepare_dataset_upload_from_staged_archive
 
@@ -43,7 +43,7 @@ async def upload_dataset(request: Request, params: dict[str, str], state: object
             },
             dataset_version_id=None,
         )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(result.session_id), "taskType": TaskType.IMPORT.value},
@@ -170,7 +170,7 @@ async def complete_dataset_upload(request: Request, params: dict[str, str], stat
         job_id=task["jobId"],
         archive_path=result.archive_path,
     )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(result.session_id), "taskType": TaskType.IMPORT.value},

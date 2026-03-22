@@ -17,6 +17,13 @@ class RuntimeState:
     runtime_paths: RuntimePaths
 
 
+@dataclass(slots=True)
+class MLRuntimeState:
+    settings: Settings
+    redis: Redis
+    runtime_paths: RuntimePaths
+
+
 async def bootstrap_runtime(settings: Settings) -> RuntimeState:
     runtime_paths = build_runtime_paths(settings)
     ensure_runtime_layout(runtime_paths)
@@ -32,5 +39,21 @@ async def bootstrap_runtime(settings: Settings) -> RuntimeState:
     )
 
 
+async def bootstrap_ml_runtime(settings: Settings) -> MLRuntimeState:
+    runtime_paths = build_runtime_paths(settings)
+    ensure_runtime_layout(runtime_paths)
+    redis = Redis.from_url(settings.redis_dsn, decode_responses=True)
+    await redis.ping()
+    return MLRuntimeState(
+        settings=settings,
+        redis=redis,
+        runtime_paths=runtime_paths,
+    )
+
+
 async def shutdown_runtime(state: RuntimeState) -> None:
+    await state.redis.aclose()
+
+
+async def shutdown_ml_runtime(state: MLRuntimeState) -> None:
     await state.redis.aclose()

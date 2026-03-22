@@ -8,7 +8,7 @@ from backend.app.domain.enums import TaskStatus
 from backend.app.domain.enums import TaskType
 from backend.app.repositories.tasks import get_task
 from backend.app.services.bootstrap import bootstrap_runtime, shutdown_runtime
-from backend.app.services.queue import dequeue_task
+from backend.app.services.queue import dequeue_core_task
 from backend.app.workers.import_dataset import run_import_dataset
 from backend.app.workers.classifier import run_classifier
 from backend.app.workers.fine_tune import run_fine_tune
@@ -19,7 +19,7 @@ async def main() -> None:
     runtime_state = await bootstrap_runtime(load_settings())
     try:
         while True:
-            task_payload = await dequeue_task(runtime_state.redis, runtime_state.settings)
+            task_payload = await dequeue_core_task(runtime_state.redis, runtime_state.settings)
             if task_payload is None:
                 continue
             task_id = UUID(task_payload["taskId"])

@@ -19,6 +19,10 @@ logger = get_logger(__name__)
 @dataclass(frozen=True, slots=True)
 class ZImageRunBundle:
     run_dir: Path
+    manifest_path: Path
+    config_path: Path
+    state_path: Path
+    cancel_signal_path: Path
     input_json_path: Path
     segmented_json_path: Path
     output_json_path: Path
@@ -32,8 +36,16 @@ class ZImageRunBundle:
 
 def build_run_bundle(paths: RuntimePaths, task_id: UUID) -> ZImageRunBundle:
     run_dir = paths.temp / "runs" / "zimage" / str(task_id)
+    return build_run_bundle_from_dir(run_dir)
+
+
+def build_run_bundle_from_dir(run_dir: Path) -> ZImageRunBundle:
     return ZImageRunBundle(
         run_dir=run_dir,
+        manifest_path=run_dir / "manifest.json",
+        config_path=run_dir / "config.json",
+        state_path=run_dir / "state.json",
+        cancel_signal_path=run_dir / "cancel.signal",
         input_json_path=run_dir / "input.json",
         segmented_json_path=run_dir / "segmented.json",
         output_json_path=run_dir / "output.json",
@@ -43,14 +55,53 @@ def build_run_bundle(paths: RuntimePaths, task_id: UUID) -> ZImageRunBundle:
         stderr_log_path=run_dir / "stderr.log",
         segment_stdout_log_path=run_dir / "segment_stdout.log",
         segment_stderr_log_path=run_dir / "segment_stderr.log",
-    )
+)
 
 
-def prepare_run_bundle(bundle: ZImageRunBundle, records: list[dict[str, Any]]) -> None:
+def prepare_run_bundle(
+    bundle: ZImageRunBundle,
+    records: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    config: dict[str, Any],
+) -> None:
     bundle.run_dir.mkdir(parents=True, exist_ok=True)
     bundle.masks_dir.mkdir(parents=True, exist_ok=True)
     bundle.output_dir.mkdir(parents=True, exist_ok=True)
     bundle.input_json_path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    bundle.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    bundle.config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_state(bundle, {"status": "pending", "phase": "queued", "progress": 0.0, "message": "queued"})
+    if bundle.cancel_signal_path.exists():
+        bundle.cancel_signal_path.unlink()
+
+
+def load_manifest(bundle: ZImageRunBundle) -> dict[str, Any]:
+    payload = json.loads(bundle.manifest_path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def load_config(bundle: ZImageRunBundle) -> dict[str, Any]:
+    payload = json.loads(bundle.config_path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def write_state(bundle: ZImageRunBundle, payload: dict[str, Any]) -> None:
+    bundle.state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_state(bundle: ZImageRunBundle) -> dict[str, Any]:
+    if not bundle.state_path.exists():
+        return {}
+    payload = json.loads(bundle.state_path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def request_cancellation(bundle: ZImageRunBundle) -> None:
+    bundle.cancel_signal_path.write_text("cancelled", encoding="utf-8")
+
+
+def is_cancellation_requested(bundle: ZImageRunBundle) -> bool:
+    return bundle.cancel_signal_path.exists()
 
 
 def build_records(

@@ -11,7 +11,8 @@ postgres:
 
 redis:
   dsn: redis://redis:6379/0
-  queue_name: tiny_augment:tasks
+  core_queue_name: tiny_augment:tasks:core
+  ml_queue_name: tiny_augment:tasks:ml
   events_prefix: tiny_augment:events
 
 executor:

@@ -15,7 +15,8 @@ class Settings:
     postgres_dsn: str
     redis_dsn: str
     runtime_dir: Path
-    redis_queue_name: str
+    redis_core_queue_name: str
+    redis_ml_queue_name: str
     redis_events_prefix: str
     executor_mode: str
     executor_python_bin: str
@@ -45,8 +46,12 @@ def load_settings() -> Settings:
         ),
         redis_dsn=str(os.getenv("REDIS_DSN") or _get_config_value(config, ("redis", "dsn"), "redis://redis:6379/0")),
         runtime_dir=runtime_dir,
-        redis_queue_name=str(
-            os.getenv("REDIS_QUEUE_NAME") or _get_config_value(config, ("redis", "queue_name"), "tiny_augment:tasks")
+        redis_core_queue_name=str(
+            os.getenv("REDIS_CORE_QUEUE_NAME")
+            or _get_config_value(config, ("redis", "core_queue_name"), _get_config_value(config, ("redis", "queue_name"), "tiny_augment:tasks:core"))
+        ),
+        redis_ml_queue_name=str(
+            os.getenv("REDIS_ML_QUEUE_NAME") or _get_config_value(config, ("redis", "ml_queue_name"), "tiny_augment:tasks:ml")
         ),
         redis_events_prefix=str(
             os.getenv("REDIS_EVENTS_PREFIX")

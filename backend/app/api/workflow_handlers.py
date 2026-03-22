@@ -12,8 +12,9 @@ from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.configuration import generation_defaults
-from backend.app.services.queue import enqueue_task, remove_queued_task
+from backend.app.services.queue import enqueue_core_task, remove_core_queued_task, remove_ml_queued_task
 from backend.app.services.sessions import parse_session_id
+from backend.app.services.zimage import build_run_bundle
 
 
 async def start_fine_tune(request: Request, params: dict[str, str], state: object):
@@ -30,7 +31,7 @@ async def start_fine_tune(request: Request, params: dict[str, str], state: objec
             payload={},
             dataset_version_id=context["current_dataset_version_id"],
         )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.FINE_TUNE.value},
@@ -68,7 +69,7 @@ async def start_generation(request: Request, params: dict[str, str], state: obje
             payload={"prompt": prompt, "sampleCount": sample_count, "config": config},
             dataset_version_id=context["current_dataset_version_id"],
         )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.GENERATION.value},
@@ -137,7 +138,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
             },
             dataset_version_id=context["current_dataset_version_id"],
         )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.MODIFICATION.value},
@@ -217,11 +218,24 @@ async def cancel_running_task(request: Request, params: dict[str, str], state: o
         row = await cancel_task(connection, session_id, task_id)
     if row is None:
         raise AppError(404, "Активная задача для отмены не найдена.")
-    await remove_queued_task(
+    await remove_core_queued_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": str(row["id"]), "sessionId": str(session_id), "taskType": row["task_type"]},
     )
+    if row["task_type"] in {TaskType.MODIFICATION.value, TaskType.GENERATION.value}:
+        bundle = build_run_bundle(runtime_state.runtime_paths, task_id)
+        ml_task_type = "diffusion.modify" if row["task_type"] == TaskType.MODIFICATION.value else "diffusion.generate"
+        await remove_ml_queued_task(
+            runtime_state.redis,
+            runtime_state.settings,
+            {
+                "taskId": str(row["id"]),
+                "sessionId": str(session_id),
+                "taskType": ml_task_type,
+                "runDir": str(bundle.run_dir),
+            },
+        )
     return json_response(200, {"jobId": str(row["id"]), "status": row["status"]})
 
 
@@ -239,7 +253,7 @@ async def start_classifier_training(request: Request, params: dict[str, str], st
             payload={},
             dataset_version_id=context["current_dataset_version_id"],
         )
-    await enqueue_task(
+    await enqueue_core_task(
         runtime_state.redis,
         runtime_state.settings,
         {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.CLASSIFIER.value},
