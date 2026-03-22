@@ -27,6 +27,7 @@ export const endpoints = {
   generationResults: (sessionId: string) => `/sessions/${sessionId}/results`,
   approveAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/approve`,
   rejectAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/reject`,
+  finalizeReview: (sessionId: string) => `/sessions/${sessionId}/review/finalize`,
   startClassifierTraining: (sessionId: string) => `/sessions/${sessionId}/classifier/train`,
   getMetrics: (sessionId: string) => `/sessions/${sessionId}/metrics`,
   fileByPath: '/assets',

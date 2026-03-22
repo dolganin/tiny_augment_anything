@@ -6,7 +6,17 @@
 
 .modify-layout {
   display: grid;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.88fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.modify-layout__viewer {
+  display: grid;
+  gap: 14px;
+  position: relative;
+  left: -16px;
+  z-index: 6;
 }
 
 .modify-stage {
@@ -16,6 +26,9 @@
   border-radius: 26px;
   background: #ffffff;
   border: 1px solid var(--color-border);
+  position: relative;
+  z-index: 6;
+  box-shadow: 0 22px 50px rgba(18, 34, 68, 0.08);
 }
 
 .modify-stage__head,
@@ -55,6 +68,27 @@
   line-height: 1.5;
 }
 
+.modify-source-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border);
+  position: relative;
+  z-index: 7;
+}
+
+.modify-source-nav__status {
+  min-width: 72px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .mode-card,
 .generation-form {
   display: grid;
@@ -67,6 +101,11 @@
 
 .generation-form--stacked {
   gap: 16px;
+}
+
+.modify-controls {
+  position: relative;
+  z-index: 4;
 }
 
 .mode-card__title {
@@ -100,6 +139,12 @@
   resize: vertical;
 }
 
+.generation-form__textarea--hero {
+  min-height: 220px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
 .generation-form__group {
   display: grid;
   gap: 10px;
@@ -116,6 +161,12 @@
   gap: 14px;
 }
 
+.modify-controls__prompt-fields,
+.modify-controls__actions {
+  display: grid;
+  gap: 12px;
+}
+
 .generation-fields__item {
   display: grid;
   gap: 8px;
@@ -123,6 +174,8 @@
 
 .modify-preview {
   display: block;
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: auto;
   max-height: 520px;
@@ -138,10 +191,13 @@
 .modify-canvas-shell {
   display: flex;
   justify-content: center;
+  position: relative;
+  z-index: 3;
 }
 
 .modify-canvas {
   position: relative;
+  z-index: 3;
   width: fit-content;
   max-width: 100%;
   border-radius: 24px;
@@ -152,6 +208,7 @@
 .modify-canvas__svg {
   position: absolute;
   inset: 0;
+  z-index: 4;
   cursor: crosshair;
 }
 
@@ -199,6 +256,14 @@
 @media (max-width: 900px) {
   .mode-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modify-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .modify-layout__viewer {
+    left: 0;
   }
 
   .modify-stage__actions {

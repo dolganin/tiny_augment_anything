@@ -5,7 +5,7 @@ from backend.app.api.catalog_handlers import activate_dataset, datasets_catalog,
 from backend.app.api.dataset_handlers import dataset_stats
 from backend.app.api.download_handlers import download_dataset
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
-from backend.app.api.review_handlers import approve_asset, reject_asset_handler
+from backend.app.api.review_handlers import approve_asset, finalize_review, reject_asset_handler
 from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_dataset_upload_status, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
 from backend.app.api.workflow_handlers import (
     generation_config,
@@ -69,6 +69,7 @@ def build_router() -> Router:
     router.add_http("GET", "/api/sessions/{session_id}/results", generation_results)
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/approve", approve_asset)
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/reject", reject_asset_handler)
+    router.add_http("POST", "/api/sessions/{session_id}/review/finalize", finalize_review)
     router.add_http("POST", "/api/sessions/{session_id}/classifier/train", start_classifier_training)
     router.add_http("GET", "/api/sessions/{session_id}/metrics", metrics)
     router.add_ws("/ws/sessions/{session_id}/stream", session_stream)

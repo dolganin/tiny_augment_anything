@@ -39,6 +39,37 @@ async def get_random_approved_asset(connection, session_id: UUID) -> dict[str, A
         return await cursor.fetchone()
 
 
+async def list_modification_source_assets(
+    connection,
+    session_id: UUID,
+    limit: int = 64,
+) -> list[dict[str, Any]]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT
+                a.id,
+                a.preview_path,
+                a.class_name
+            FROM dataset_assets a
+            JOIN sessions s ON s.dataset_id = a.dataset_id
+            WHERE s.id = %s
+              AND a.approved_in_version_id = s.current_dataset_version_id
+              AND a.deleted_at IS NULL
+              AND (
+                jsonb_array_length(s.selected_classes) = 0
+                OR a.class_name IN (
+                  SELECT jsonb_array_elements_text(s.selected_classes)
+                )
+              )
+            ORDER BY a.class_name ASC, a.created_at DESC, a.id ASC
+            LIMIT %s
+            """,
+            (session_id, limit),
+        )
+        return list(await cursor.fetchall())
+
+
 async def find_asset_by_storage_path(connection, session_id: UUID, storage_path: str) -> dict[str, Any] | None:
     async with connection.cursor() as cursor:
         await cursor.execute(
@@ -127,11 +158,34 @@ async def get_asset_for_review(connection, session_id: UUID, asset_id: UUID) -> 
             WHERE s.id = %s
               AND a.id = %s
               AND a.approved_in_version_id IS NULL
+              AND a.approved_at IS NULL
               AND a.rejected_at IS NULL
               AND a.deleted_at IS NULL
             LIMIT 1
             """,
             (session_id, asset_id),
+        )
+        return await cursor.fetchone()
+
+
+async def mark_asset_approved(connection, session_id: UUID, asset_id: UUID) -> dict[str, Any] | None:
+    now = datetime.now(timezone.utc)
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            UPDATE dataset_assets AS a
+            SET approved_at = %s
+            FROM sessions s
+            WHERE s.id = %s
+              AND a.dataset_id = s.dataset_id
+              AND a.id = %s
+              AND a.approved_in_version_id IS NULL
+              AND a.approved_at IS NULL
+              AND a.rejected_at IS NULL
+              AND a.deleted_at IS NULL
+            RETURNING a.id, a.dataset_id, a.storage_path
+            """,
+            (now, session_id, asset_id),
         )
         return await cursor.fetchone()
 
@@ -170,20 +224,6 @@ async def create_version_from_current_state(connection, session_id: UUID, approv
     now = datetime.now(timezone.utc)
     await connection.execute(
         """
-        UPDATE dataset_assets
-        SET approved_in_version_id = %s
-        WHERE dataset_id = %s
-          AND approved_in_version_id = %s
-        """,
-        (version_id, context["dataset_id"], context["current_dataset_version_id"]),
-    )
-    await connection.execute(
-        "UPDATE dataset_assets SET approved_in_version_id = %s WHERE id = %s",
-        (version_id, approved_asset_id),
-    )
-    summary = await build_version_summary(connection, context["dataset_id"], version_id)
-    await connection.execute(
-        """
         INSERT INTO dataset_versions (
             id,
             dataset_id,
@@ -205,9 +245,22 @@ async def create_version_from_current_state(connection, session_id: UUID, approv
             VersionKind.REVIEW_SAVE.value,
             "ready",
             "",
-            Jsonb(summary),
+            Jsonb({"assetCount": 0, "classes": []}),
             now,
         ),
+    )
+    await connection.execute(
+        """
+        UPDATE dataset_assets
+        SET approved_in_version_id = %s
+        WHERE dataset_id = %s
+          AND approved_in_version_id = %s
+        """,
+        (version_id, context["dataset_id"], context["current_dataset_version_id"]),
+    )
+    await connection.execute(
+        "UPDATE dataset_assets SET approved_in_version_id = %s WHERE id = %s",
+        (version_id, approved_asset_id),
     )
     await connection.execute(
         """
@@ -222,6 +275,143 @@ async def create_version_from_current_state(connection, session_id: UUID, approv
         (version_id, WorkflowStage.REVIEW.value, now, now, session_id),
     )
     return version_id
+
+
+async def finalize_review_decisions(
+    connection,
+    session_id: UUID,
+    *,
+    next_stage: WorkflowStage,
+) -> dict[str, Any]:
+    context = await get_session_context(connection, session_id)
+    if context is None or context["dataset_id"] is None or context["current_dataset_version_id"] is None:
+        raise RuntimeError("Session context is not initialized")
+
+    dataset_id = context["dataset_id"]
+    current_version_id = context["current_dataset_version_id"]
+    now = datetime.now(timezone.utc)
+
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT COUNT(*)::int AS count
+            FROM dataset_assets
+            WHERE dataset_id = %s
+              AND approved_in_version_id IS NULL
+              AND approved_at IS NOT NULL
+              AND rejected_at IS NULL
+              AND deleted_at IS NULL
+            """,
+            (dataset_id,),
+        )
+        approved_row = await cursor.fetchone()
+        await cursor.execute(
+            """
+            SELECT COUNT(*)::int AS count
+            FROM dataset_assets
+            WHERE dataset_id = %s
+              AND approved_in_version_id IS NULL
+              AND approved_at IS NULL
+              AND rejected_at IS NOT NULL
+              AND deleted_at IS NULL
+            """,
+            (dataset_id,),
+        )
+        rejected_row = await cursor.fetchone()
+        await cursor.execute(
+            "SELECT version_index FROM dataset_versions WHERE id = %s",
+            (current_version_id,),
+        )
+        current_version = await cursor.fetchone()
+
+    approved_count = int(approved_row["count"]) if approved_row else 0
+    rejected_count = int(rejected_row["count"]) if rejected_row else 0
+    version_id: UUID | None = None
+
+    if approved_count > 0:
+        version_id = uuid4()
+        await connection.execute(
+            """
+            INSERT INTO dataset_versions (
+                id,
+                dataset_id,
+                version_index,
+                parent_version_id,
+                kind,
+                status,
+                manifest_path,
+                summary,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                version_id,
+                dataset_id,
+                int(current_version["version_index"]) + 1 if current_version else 2,
+                current_version_id,
+                VersionKind.REVIEW_SAVE.value,
+                "ready",
+                "",
+                Jsonb({"assetCount": 0, "classes": []}),
+                now,
+            ),
+        )
+        await connection.execute(
+            """
+            UPDATE dataset_assets
+            SET approved_in_version_id = %s
+            WHERE dataset_id = %s
+              AND approved_in_version_id = %s
+              AND deleted_at IS NULL
+            """,
+            (version_id, dataset_id, current_version_id),
+        )
+        await connection.execute(
+            """
+            UPDATE dataset_assets
+            SET approved_in_version_id = %s
+            WHERE dataset_id = %s
+              AND approved_in_version_id IS NULL
+              AND approved_at IS NOT NULL
+              AND rejected_at IS NULL
+              AND deleted_at IS NULL
+            """,
+            (version_id, dataset_id),
+        )
+
+    await connection.execute(
+        """
+        UPDATE dataset_assets
+        SET deleted_at = %s
+        WHERE dataset_id = %s
+          AND approved_in_version_id IS NULL
+          AND approved_at IS NULL
+          AND rejected_at IS NOT NULL
+          AND deleted_at IS NULL
+        """,
+        (now, dataset_id),
+    )
+
+    await connection.execute(
+        """
+        UPDATE sessions
+        SET current_dataset_version_id = COALESCE(%s, current_dataset_version_id),
+            workflow_stage = %s,
+            revision = revision + 1,
+            updated_at = %s,
+            last_seen_at = %s
+        WHERE id = %s
+        """,
+        (version_id, next_stage.value, now, now, session_id),
+    )
+
+    return {
+        "datasetId": dataset_id,
+        "versionId": version_id,
+        "approvedCount": approved_count,
+        "rejectedCount": rejected_count,
+    }
 
 
 async def build_version_summary(connection, dataset_id: UUID, version_id: UUID) -> dict[str, Any]:
@@ -299,19 +489,23 @@ async def update_version_manifest_path(connection, version_id: UUID, manifest_pa
     )
 
 
-async def reject_asset(connection, asset_id: UUID) -> dict[str, Any] | None:
+async def reject_asset(connection, session_id: UUID, asset_id: UUID) -> dict[str, Any] | None:
     now = datetime.now(timezone.utc)
     async with connection.cursor() as cursor:
         await cursor.execute(
             """
-            UPDATE dataset_assets
-            SET rejected_at = %s, deleted_at = %s
-            WHERE id = %s
+            UPDATE dataset_assets AS a
+            SET rejected_at = %s
+            FROM sessions s
+            WHERE s.id = %s
+              AND a.dataset_id = s.dataset_id
+              AND a.id = %s
               AND approved_in_version_id IS NULL
+              AND approved_at IS NULL
               AND rejected_at IS NULL
               AND deleted_at IS NULL
-            RETURNING storage_path
+            RETURNING a.storage_path
             """,
-            (now, now, asset_id),
+            (now, session_id, asset_id),
         )
         return await cursor.fetchone()

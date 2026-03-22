@@ -50,6 +50,8 @@ export type DatasetClassStat = {
   count: number
 }
 
+export type ClassTargets = Record<string, number>
+
 export type MetricPoint = {
   name: string
   value: number
@@ -66,6 +68,12 @@ export type GenerationAsset = {
 export type WorkflowMetrics = {
   precision: MetricPoint[]
   recall: MetricPoint[]
+}
+
+export type ModificationSourceAsset = {
+  assetId: string
+  assetUrl: string
+  className: string
 }
 
 export type DatasetCatalogTask = {

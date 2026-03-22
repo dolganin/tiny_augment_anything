@@ -95,6 +95,7 @@ async def list_pending_results(connection, run_id: UUID) -> list[dict[str, Any]]
             FROM dataset_assets
             WHERE source_run_id = %s
               AND approved_in_version_id IS NULL
+              AND approved_at IS NULL
               AND rejected_at IS NULL
               AND deleted_at IS NULL
             ORDER BY created_at ASC

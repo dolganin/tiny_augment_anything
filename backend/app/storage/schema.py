@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     dataset_id uuid NULL,
     current_dataset_version_id uuid NULL,
     selected_classes jsonb NOT NULL DEFAULT '[]'::jsonb,
+    selected_class_targets jsonb NOT NULL DEFAULT '{}'::jsonb,
     current_mode text NULL,
     fine_tune_enabled boolean NOT NULL DEFAULT false,
     fine_tune_resolved boolean NOT NULL DEFAULT false,
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS dataset_assets (
     width integer NULL,
     height integer NULL,
     source_run_id uuid NULL,
+    approved_at timestamptz NULL,
     approved_in_version_id uuid NULL REFERENCES dataset_versions(id) ON DELETE SET NULL,
     rejected_at timestamptz NULL,
     deleted_at timestamptz NULL,
@@ -127,4 +129,10 @@ CREATE TABLE IF NOT EXISTS classifier_runs (
     created_at timestamptz NOT NULL,
     finished_at timestamptz NULL
 );
+
+ALTER TABLE sessions
+ADD COLUMN IF NOT EXISTS selected_class_targets jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE dataset_assets
+ADD COLUMN IF NOT EXISTS approved_at timestamptz NULL;
 """

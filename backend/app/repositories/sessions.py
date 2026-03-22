@@ -25,6 +25,7 @@ async def create_session(
             dataset_id,
             current_dataset_version_id,
             selected_classes,
+            selected_class_targets,
             fine_tune_enabled,
             fine_tune_resolved,
             revision,
@@ -32,7 +33,7 @@ async def create_session(
             updated_at,
             last_seen_at
         )
-        VALUES (%s, %s, %s, %s, '[]'::jsonb, false, false, 1, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, '[]'::jsonb, '{}'::jsonb, false, false, 1, %s, %s, %s)
         """,
         (session_id, WorkflowStage.DATASET_STATS.value, dataset_id, dataset_version_id, now, now, now),
     )
@@ -52,6 +53,7 @@ async def create_pending_session(
             dataset_id,
             current_dataset_version_id,
             selected_classes,
+            selected_class_targets,
             fine_tune_enabled,
             fine_tune_resolved,
             revision,
@@ -59,7 +61,7 @@ async def create_pending_session(
             updated_at,
             last_seen_at
         )
-        VALUES (%s, %s, %s, NULL, '[]'::jsonb, false, false, 1, %s, %s, %s)
+        VALUES (%s, %s, %s, NULL, '[]'::jsonb, '{}'::jsonb, false, false, 1, %s, %s, %s)
         """,
         (session_id, WorkflowStage.UPLOAD.value, dataset_id, now, now, now),
     )
@@ -94,6 +96,7 @@ async def get_snapshot(connection, session_id: UUID) -> dict[str, Any] | None:
                 s.dataset_id,
                 d.name AS dataset_name,
                 s.selected_classes,
+                s.selected_class_targets,
                 s.current_mode,
                 s.fine_tune_enabled,
                 s.fine_tune_resolved,
@@ -127,6 +130,7 @@ async def save_selected_classes(
     connection,
     session_id: UUID,
     class_names: Sequence[str],
+    class_targets: dict[str, int],
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     task_id = uuid4()
@@ -134,13 +138,14 @@ async def save_selected_classes(
         """
         UPDATE sessions
         SET selected_classes = %s::jsonb,
+            selected_class_targets = %s::jsonb,
             workflow_stage = %s,
             revision = revision + 1,
             updated_at = %s,
             last_seen_at = %s
         WHERE id = %s
         """,
-        (Jsonb(list(class_names)), WorkflowStage.FINE_TUNE.value, now, now, session_id),
+        (Jsonb(list(class_names)), Jsonb(class_targets), WorkflowStage.FINE_TUNE.value, now, now, session_id),
     )
     await connection.execute(
         """
@@ -161,7 +166,7 @@ async def save_selected_classes(
             session_id,
             TaskType.SELECT_CLASSES.value,
             TaskStatus.SUCCESS.value,
-            Jsonb({"classNames": list(class_names)}),
+            Jsonb({"classNames": list(class_names), "classTargets": class_targets}),
             now,
             now,
             now,

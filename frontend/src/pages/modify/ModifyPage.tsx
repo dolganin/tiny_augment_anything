@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import { adaptGenerationConfig, adaptModificationSource } from '@/shared/api/adapters'
+import { adaptGenerationConfig, adaptModificationSource, adaptModificationSourceItems } from '@/shared/api/adapters'
 import {
-  useJobsQuery,
+  useFinalizeReviewMutation,
   useGenerationConfigQuery,
+  useGenerationResultsQuery,
   useModificationSourceQuery,
   useStartModificationMutation,
   useTaskStatusQuery,
@@ -18,12 +19,13 @@ import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { useSessionStore } from '@/store/session/session.store'
 import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
 import { GenerationConfigFields } from '@/features/generation-config/GenerationConfigFields'
+import { ReviewWorkspace } from '@/features/generation-review/ReviewWorkspace'
 import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
+import { ModificationSourceAsset } from '@/shared/types/workflow'
 import '@/features/generation-config/generation-config.css'
 
 type ModifyFormValues = {
   prompt: string
-  sampleCount: number
 }
 
 type AreaPoint = [number, number]
@@ -33,28 +35,35 @@ export function ModifyPage() {
   const sessionId = useSessionStore((state) => state.sessionId)
   const generationJobId = useSessionStore((state) => state.generationJobId)
   const generationConfig = useSessionStore((state) => state.generationConfig)
+  const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
+  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
+  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
+  const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
   const [areaPoints, setAreaPoints] = useState<AreaPoint[]>([])
   const [areaConfirmed, setAreaConfirmed] = useState(false)
+  const [selectedSourceAssetId, setSelectedSourceAssetId] = useState<string | null>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const taskSnapshotRef = useRef<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
-  const jobsQuery = useJobsQuery()
+  const reviewResultsQuery = useGenerationResultsQuery(sessionId)
   const sourceQuery = useModificationSourceQuery(sessionId)
   const modificationMutation = useStartModificationMutation(sessionId ?? '')
+  const finalizeReviewMutation = useFinalizeReviewMutation(sessionId ?? '')
   const taskStatusQuery = useTaskStatusQuery(sessionId, generationJobId)
   const form = useForm<ModifyFormValues>({
     defaultValues: {
       prompt: '',
-      sampleCount: 1,
     },
   })
 
   useEffect(() => {
-    setSession({ workflowStage: 'modify' })
-  }, [setSession])
+    if (workflowStage !== 'review') {
+      setSession({ workflowStage: 'modify' })
+    }
+  }, [setSession, workflowStage])
 
   useEffect(() => {
     if (!configQuery.data) {
@@ -67,7 +76,6 @@ export function ModifyPage() {
     setSession({ generationConfig: nextFieldValues })
     form.reset({
       prompt: '',
-      sampleCount: config.sampleCount,
     })
   }, [configQuery.data, form, setSession])
 
@@ -114,7 +122,6 @@ export function ModifyPage() {
 
       if (event.type === 'task.completed' && generationJobId && event.jobId === generationJobId) {
         setSession({ workflowStage: 'review', generationJobId: null })
-        navigate('/review')
       }
 
       if (event.type === 'task.failed' && generationJobId && event.jobId === generationJobId) {
@@ -131,26 +138,6 @@ export function ModifyPage() {
     setSession({ generationJobId: null })
     setErrorMessage(getErrorMessage(taskStatusQuery.error))
   }, [setSession, taskStatusQuery.error])
-
-  useEffect(() => {
-    if (!generationJobId || !jobsQuery.data) {
-      return
-    }
-    const task = jobsQuery.data.items.find((item) => item.jobId === generationJobId)
-    if (!task) {
-      setSession({ generationJobId: null })
-      return
-    }
-    if (task.status === 'error' || task.status === 'cancelled') {
-      setSession({ generationJobId: null })
-      setErrorMessage(task.errorMessage ?? task.message ?? 'Модификация завершилась с ошибкой.')
-      return
-    }
-    if (task.status === 'success') {
-      setSession({ workflowStage: 'review', generationJobId: null })
-      navigate('/review')
-    }
-  }, [generationJobId, jobsQuery.data, navigate, setSession])
 
   useEffect(() => {
     if (!generationJobId || !taskStatusQuery.data) {
@@ -179,7 +166,6 @@ export function ModifyPage() {
 
     if (status === 'success') {
       setSession({ workflowStage: 'review', generationJobId: null })
-      navigate('/review')
       return
     }
 
@@ -187,29 +173,81 @@ export function ModifyPage() {
       setSession({ generationJobId: null })
       setErrorMessage(resolvedMessage ?? 'Модификация завершилась с ошибкой.')
     }
-  }, [generationJobId, navigate, setSession, taskStatusQuery.data])
+  }, [generationJobId, setSession, taskStatusQuery.data])
 
   const fields = useMemo(() => configQuery.data?.fields ?? [], [configQuery.data?.fields])
-  const source = useMemo(() => {
+  const promptFields = useMemo(
+    () =>
+      fields.filter((field) => {
+        const haystack = `${field.key} ${field.label}`.toLowerCase()
+        return haystack.includes('prompt')
+      }),
+    [fields],
+  )
+  const advancedFields = useMemo(
+    () =>
+      fields.filter((field) => {
+        const haystack = `${field.key} ${field.label}`.toLowerCase()
+        return !haystack.includes('prompt')
+      }),
+    [fields],
+  )
+  const sourceItems = useMemo<ModificationSourceAsset[]>(() => {
     if (!sourceQuery.data) {
+      return []
+    }
+    const items =
+      sourceQuery.data.items.length > 0
+        ? adaptModificationSourceItems(sourceQuery.data.items)
+        : [
+            adaptModificationSource(
+              sourceQuery.data.assetId,
+              sourceQuery.data.previewPath,
+              sourceQuery.data.className,
+            ),
+          ]
+    return items
+  }, [sourceQuery.data])
+  const source = useMemo(() => {
+    if (sourceItems.length === 0) {
       return null
     }
-
-    return adaptModificationSource(
-      sourceQuery.data.assetId,
-      sourceQuery.data.previewPath,
-      sourceQuery.data.className,
-    )
-  }, [sourceQuery.data])
+    if (!selectedSourceAssetId) {
+      return sourceItems[0]
+    }
+    return sourceItems.find((item) => item.assetId === selectedSourceAssetId) ?? sourceItems[0]
+  }, [selectedSourceAssetId, sourceItems])
+  const sourceIndex = useMemo(() => {
+    if (!source) {
+      return -1
+    }
+    return sourceItems.findIndex((item) => item.assetId === source.assetId)
+  }, [source, sourceItems])
+  const totalTargetCount = useMemo(
+    () => Object.values(selectedClassTargets).reduce((acc, value) => acc + value, 0),
+    [selectedClassTargets],
+  )
   const isModificationActive =
     modificationMutation.isPending ||
     taskStatusQuery.data?.status === 'pending' ||
     taskStatusQuery.data?.status === 'running'
+  const reviewPendingCount = reviewResultsQuery.data?.items.length ?? 0
+  const isReviewOpen = workflowStage === 'review'
 
   useEffect(() => {
     setAreaPoints([])
     setAreaConfirmed(false)
   }, [source?.assetId])
+
+  useEffect(() => {
+    if (sourceItems.length === 0) {
+      setSelectedSourceAssetId(null)
+      return
+    }
+    if (!selectedSourceAssetId || !sourceItems.some((item) => item.assetId === selectedSourceAssetId)) {
+      setSelectedSourceAssetId(sourceItems[0].assetId)
+    }
+  }, [selectedSourceAssetId, sourceItems])
 
   const updateAreaPoints = (value: AreaPoint[]) => {
     setAreaPoints(value)
@@ -222,8 +260,56 @@ export function ModifyPage() {
     setSession({ generationConfig: nextValues })
   }
 
+  const moveSource = (direction: -1 | 1) => {
+    if (sourceItems.length <= 1 || sourceIndex < 0) {
+      return
+    }
+    const nextIndex = (sourceIndex + direction + sourceItems.length) % sourceItems.length
+    setSelectedSourceAssetId(sourceItems[nextIndex].assetId)
+  }
+
+  const closeReview = async () => {
+    try {
+      if (sessionId) {
+        await finalizeReviewMutation.mutateAsync({ nextStage: 'modify' })
+      }
+      setSession({
+        workflowStage: 'modify',
+        fineTuneEnabled,
+        fineTuneResolved,
+        approvedItems: [],
+        rejectedItemIds: [],
+        generationResults: [],
+      })
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error))
+    }
+  }
+
+  const moveToClassifier = async () => {
+    try {
+      if (sessionId) {
+        await finalizeReviewMutation.mutateAsync({ nextStage: 'classifier-train' })
+      }
+      setSession({
+        workflowStage: 'classifier-train',
+        classifierJobId: null,
+        approvedItems: [],
+        rejectedItemIds: [],
+        generationResults: [],
+      })
+      navigate('/classifier/train')
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error))
+    }
+  }
+
   const submitForm = form.handleSubmit(async (values) => {
     if (!sessionId || !source) {
+      return
+    }
+    if (totalTargetCount <= 0) {
+      setErrorMessage('Сначала задай целевые количества по классам на этапе статистики.')
       return
     }
 
@@ -231,7 +317,8 @@ export function ModifyPage() {
       const response = await modificationMutation.mutateAsync({
         prompt: values.prompt,
         sourceAssetId: source.assetId,
-        sampleCount: Number(values.sampleCount),
+        sampleCount: totalTargetCount,
+        classTargets: selectedClassTargets,
         config: fieldValues,
         areaPoints: areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
       })
@@ -246,7 +333,6 @@ export function ModifyPage() {
     <>
       <PageFrame
         title="Модификация"
-        description="В центре выбранный исходный кадр, ниже параметры новой партии изображений."
       >
         {(configQuery.isLoading || sourceQuery.isLoading) && (
           <div className="upload-stage__loading">
@@ -256,37 +342,110 @@ export function ModifyPage() {
 
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
           <div className="modify-layout">
-            <ModificationCanvas
-              areaConfirmed={areaConfirmed}
-              areaPoints={areaPoints}
-              className={source.className}
-              imageUrl={source.assetUrl}
-              onAreaPointsChange={updateAreaPoints}
-              onConfirmArea={() => setAreaConfirmed(true)}
-            />
+            <div className="modify-layout__viewer">
+              <ModificationCanvas
+                areaConfirmed={areaConfirmed}
+                areaPoints={areaPoints}
+                className={source.className}
+                imageUrl={source.assetUrl}
+                onAreaPointsChange={updateAreaPoints}
+              />
+              <div className="modify-source-nav">
+                <Button
+                  disabled={sourceItems.length <= 1}
+                  onClick={() => moveSource(-1)}
+                  type="button"
+                  variant="ghost"
+                >
+                  Предыдущее
+                </Button>
+                <span className="modify-source-nav__status">
+                  {sourceIndex + 1} / {sourceItems.length}
+                </span>
+                <Button
+                  disabled={sourceItems.length <= 1}
+                  onClick={() => moveSource(1)}
+                  type="button"
+                  variant="ghost"
+                >
+                  Следующее
+                </Button>
+              </div>
+            </div>
 
-            <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
+            <form className="generation-form generation-form--stacked modify-controls" onSubmit={submitForm}>
               <label className="generation-form__group">
                 <span className="generation-form__label">Промпт модификации</span>
                 <textarea
-                  className="generation-form__textarea"
+                  className="generation-form__textarea generation-form__textarea--hero"
                   placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
                   {...form.register('prompt', { required: true })}
                 />
               </label>
 
-              <label className="generation-form__group">
-                <span className="generation-form__label">Количество новых изображений</span>
-                <input
-                  className="generation-form__input"
-                  min={1}
-                  step={1}
-                  type="number"
-                  {...form.register('sampleCount', { required: true, min: 1, valueAsNumber: true })}
-                />
-              </label>
+              {promptFields.length > 0 ? (
+                <div className="modify-controls__prompt-fields">
+                  <GenerationConfigFields fields={promptFields} onChange={updateFieldValue} values={fieldValues} />
+                </div>
+              ) : null}
 
-              <GenerationConfigFields fields={fields} onChange={updateFieldValue} values={fieldValues} />
+              <div className="info-card">
+                <p className="info-card__text">
+                  План генерации взят со страницы статистики: <strong>{totalTargetCount}</strong> изображений суммарно.
+                </p>
+                {reviewPendingCount > 0 && !isReviewOpen ? (
+                  <Button
+                    onClick={() => setSession({ workflowStage: 'review' })}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Открыть отбор ({reviewPendingCount})
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="info-card">
+                <p className="info-card__text">
+                  Источник: <strong>{source.className}</strong>
+                </p>
+                <p className="info-card__text">
+                  Полигон: <strong>{areaConfirmed ? 'область применена' : areaPoints.length >= 3 ? 'готов к применению' : 'ещё не замкнут'}</strong>
+                </p>
+              </div>
+
+              <div className="modify-controls__actions">
+                <Button
+                  disabled={areaPoints.length < 3 || areaConfirmed}
+                  onClick={() => setAreaConfirmed(true)}
+                  type="button"
+                >
+                  Применить область
+                </Button>
+                <Button
+                  disabled={areaPoints.length === 0}
+                  onClick={() => {
+                    updateAreaPoints(areaPoints.slice(0, -1))
+                  }}
+                  type="button"
+                  variant="ghost"
+                >
+                  Удалить вершину
+                </Button>
+                <Button
+                  disabled={areaPoints.length === 0}
+                  onClick={() => {
+                    updateAreaPoints([])
+                  }}
+                  type="button"
+                  variant="ghost"
+                >
+                  Очистить полигон
+                </Button>
+              </div>
+
+              {advancedFields.length > 0 ? (
+                <GenerationConfigFields fields={advancedFields} onChange={updateFieldValue} values={fieldValues} />
+              ) : null}
 
               <Button disabled={modificationMutation.isPending} type="submit">
                 Запустить модификацию
@@ -298,7 +457,7 @@ export function ModifyPage() {
         {isModificationActive && !errorMessage ? (
           <div className="upload-stage__loading">
             <Spinner
-              label="Модификация выполняется. После завершения откроется экран отбора."
+              label="Модификация выполняется. После завершения откроется модалка отбора."
               tone="diffusion"
             />
           </div>
@@ -319,6 +478,12 @@ export function ModifyPage() {
       >
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
+
+      <ReviewWorkspace
+        onClose={() => void closeReview()}
+        onStartClassifier={() => void moveToClassifier()}
+        open={isReviewOpen}
+      />
     </>
   )
 }

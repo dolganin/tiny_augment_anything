@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
+  ClassTargets,
   DatasetClassStat,
   GenerationAsset,
   WorkflowMetrics,
@@ -15,6 +16,7 @@ type SessionState = {
   datasetName: string | null
   datasetStats: DatasetClassStat[]
   selectedClasses: string[]
+  selectedClassTargets: ClassTargets
   currentMode: WorkflowMode
   fineTuneEnabled: boolean
   fineTuneResolved: boolean
@@ -43,6 +45,7 @@ const initialState: SessionSnapshot = {
   datasetName: null,
   datasetStats: [],
   selectedClasses: [],
+  selectedClassTargets: {},
   currentMode: null,
   fineTuneEnabled: false,
   fineTuneResolved: false,
@@ -77,6 +80,7 @@ export const useSessionStore = create<SessionState>()(
         datasetName: state.datasetName,
         datasetStats: state.datasetStats,
         selectedClasses: state.selectedClasses,
+        selectedClassTargets: state.selectedClassTargets,
         currentMode: state.currentMode,
         fineTuneEnabled: state.fineTuneEnabled,
         fineTuneResolved: state.fineTuneResolved,

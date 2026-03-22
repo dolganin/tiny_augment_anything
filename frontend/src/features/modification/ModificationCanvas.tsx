@@ -1,5 +1,4 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '@/shared/ui/buttons/Button'
 
 type AreaPoint = [number, number]
 
@@ -9,7 +8,6 @@ type ModificationCanvasProps = {
   areaPoints: AreaPoint[]
   areaConfirmed: boolean
   onAreaPointsChange: (value: AreaPoint[]) => void
-  onConfirmArea: () => void
 }
 
 type Size = {
@@ -42,7 +40,6 @@ export function ModificationCanvas({
   areaPoints,
   areaConfirmed,
   onAreaPointsChange,
-  onConfirmArea,
 }: ModificationCanvasProps) {
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [naturalSize, setNaturalSize] = useState<Size | null>(null)
@@ -118,14 +115,6 @@ export function ModificationCanvas({
     setHoverPoint(null)
   }
 
-  const removeLastPoint = () => {
-    onAreaPointsChange(areaPoints.slice(0, -1))
-  }
-
-  const clearPoints = () => {
-    onAreaPointsChange([])
-  }
-
   return (
     <section className="modify-stage">
       <div className="modify-stage__head">
@@ -183,21 +172,6 @@ export function ModificationCanvas({
       </div>
       <div className="modify-stage__actions">
         <p className="modify-stage__hint">Щёлкай по изображению, чтобы поставить вершины полигона для inpaint.</p>
-        <div className="modify-stage__buttons">
-          <Button
-            disabled={areaPoints.length < 3 || areaConfirmed}
-            onClick={onConfirmArea}
-            type="button"
-          >
-            Применить область
-          </Button>
-          <Button disabled={areaPoints.length === 0} onClick={removeLastPoint} type="button" variant="ghost">
-            Удалить вершину
-          </Button>
-          <Button disabled={areaPoints.length === 0} onClick={clearPoints} type="button" variant="ghost">
-            Очистить полигон
-          </Button>
-        </div>
       </div>
     </section>
   )

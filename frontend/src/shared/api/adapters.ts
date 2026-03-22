@@ -14,6 +14,7 @@ import {
   DatasetClassStat,
   GenerationAsset,
   GlobalJob,
+  ModificationSourceAsset,
   WorkflowMetrics,
   WorkflowStage,
 } from '@/shared/types/workflow'
@@ -32,6 +33,7 @@ export const adaptSessionSnapshot = (session: SessionSnapshotResponse) => ({
   datasetId: session.datasetId ?? null,
   datasetName: session.datasetName ?? null,
   selectedClasses: session.selectedClasses,
+  selectedClassTargets: session.selectedClassTargets ?? {},
   currentMode: session.currentMode ?? null,
   fineTuneEnabled: session.fineTuneEnabled,
   fineTuneResolved: session.fineTuneResolved,
@@ -70,6 +72,15 @@ export const adaptModificationSource = (assetId: string, previewPath: string, cl
   assetUrl: toFileUrl(previewPath),
   className,
 })
+
+export const adaptModificationSourceItems = (
+  items: Array<{ assetId: string; previewPath: string; className: string }>,
+): ModificationSourceAsset[] =>
+  items.map((item) => ({
+    assetId: item.assetId,
+    assetUrl: toFileUrl(item.previewPath),
+    className: item.className,
+  }))
 
 export const adaptMetrics = (response: MetricsResponse): WorkflowMetrics => ({
   precision: response.precision.map((item) => ({

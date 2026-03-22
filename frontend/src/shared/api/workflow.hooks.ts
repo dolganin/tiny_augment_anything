@@ -123,7 +123,8 @@ export function useCancelJobMutation() {
 
 export function useSelectedClassesMutation(sessionId: string) {
   return useMutation({
-    mutationFn: (classNames: string[]) => workflowApi.saveSelectedClasses(sessionId, classNames),
+    mutationFn: ({ classNames, classTargets }: { classNames: string[]; classTargets: Record<string, number> }) =>
+      workflowApi.saveSelectedClasses(sessionId, classNames, classTargets),
   })
 }
 
@@ -160,6 +161,13 @@ export function useApproveAssetMutation(sessionId: string) {
 export function useRejectAssetMutation(sessionId: string) {
   return useMutation({
     mutationFn: (assetId: string) => workflowApi.rejectAsset(sessionId, assetId),
+  })
+}
+
+export function useFinalizeReviewMutation(sessionId: string) {
+  return useMutation({
+    mutationFn: (payload: { nextStage: 'modify' | 'classifier-train' }) =>
+      workflowApi.finalizeReview(sessionId, payload),
   })
 }
 

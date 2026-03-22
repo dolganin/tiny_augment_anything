@@ -36,7 +36,9 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
             await emit_failure(runtime_state, connection, session_id, task_id, "Сессия не готова к запуску модификации.")
             return
         payload = task["payload"]
-        sample_count = int(payload["sampleCount"])
+        class_targets = _parse_class_targets(payload.get("classTargets"))
+        class_pool = _build_class_pool(context, template_class_name=None, class_targets=class_targets)
+        sample_count = sum(class_targets.values()) if class_targets else int(payload["sampleCount"])
         source_asset = None
         if mode == WorkflowStage.MODIFY.value:
             source_asset_id = _parse_asset_id(payload.get("sourceAssetId"))
@@ -51,6 +53,8 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
         if template_asset is None:
             await emit_failure(runtime_state, connection, session_id, task_id, "Не найдено подходящее изображение для запуска модификации.")
             return
+        if not class_pool:
+            class_pool = _build_class_pool(context, template_class_name=template_asset["class_name"], class_targets=class_targets)
         run_id = await create_augmentation_run(
             connection,
             session_id=session_id,
@@ -78,7 +82,7 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
             sample_count=sample_count,
             config=dict(payload.get("config", {})),
             area_points=_parse_area_points(payload.get("areaPoints")),
-            class_pool=_build_class_pool(context, template_asset["class_name"]),
+            class_pool=class_pool,
         )
 
 
@@ -270,9 +274,29 @@ async def _index_generated_results(
     return produced_count
 
 
-def _build_class_pool(context: dict, fallback_class_name: str) -> list[str]:
+def _build_class_pool(
+    context: dict,
+    template_class_name: str | None,
+    class_targets: dict[str, int] | None = None,
+) -> list[str]:
+    if class_targets:
+        pool: list[str] = []
+        for class_name, count in class_targets.items():
+            pool.extend([class_name] * count)
+        return pool
+
+    context_targets = _parse_class_targets(context.get("selected_class_targets"))
+    if context_targets:
+        pool: list[str] = []
+        for class_name, count in context_targets.items():
+            pool.extend([class_name] * count)
+        return pool
+
     selected_classes = context["selected_classes"] if isinstance(context["selected_classes"], list) else []
-    return [str(item) for item in selected_classes if isinstance(item, str)] or [fallback_class_name]
+    resolved = [str(item) for item in selected_classes if isinstance(item, str)]
+    if resolved:
+        return resolved
+    return [template_class_name] if template_class_name else []
 
 
 def _parse_asset_id(value: object) -> UUIDType | None:
@@ -297,4 +321,17 @@ def _parse_area_points(value: object) -> list[list[float]] | None:
         if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
             return None
         parsed.append([float(x), float(y)])
+    return parsed
+
+
+def _parse_class_targets(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    parsed: dict[str, int] = {}
+    for class_name, count in value.items():
+        if not isinstance(class_name, str) or not class_name:
+            continue
+        if not isinstance(count, int) or count <= 0:
+            continue
+        parsed[class_name] = count
     return parsed

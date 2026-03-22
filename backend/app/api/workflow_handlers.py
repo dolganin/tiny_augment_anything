@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from backend.app.domain.enums import TaskType, WorkflowStage
 from backend.app.repositories.tasks import cancel_task, create_task, get_task_status
-from backend.app.repositories.workflow_assets import get_random_approved_asset, list_class_reference_preview_paths
+from backend.app.repositories.workflow_assets import list_class_reference_preview_paths, list_modification_source_assets
 from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_pending_results
 from backend.app.runtime.multipart import parse_multipart_form
 from backend.app.repositories.workflow_session import get_session_context, sync_session_state
@@ -59,11 +59,14 @@ async def start_generation(request: Request, params: dict[str, str], state: obje
         raise AppError(400, "Некорректное тело генерации.")
     prompt = payload.get("prompt")
     sample_count = payload.get("sampleCount")
+    class_targets = payload.get("classTargets")
     config = payload.get("config")
     if not isinstance(prompt, str) or not prompt.strip():
         raise AppError(400, "Для генерации нужен prompt.")
     if not isinstance(sample_count, int) or sample_count <= 0:
         raise AppError(400, "sampleCount должен быть положительным числом.")
+    if class_targets is not None and not _is_valid_class_targets(class_targets):
+        raise AppError(400, "classTargets должен быть объектом с положительными целыми значениями.")
     if not isinstance(config, dict):
         raise AppError(400, "Нужен объект config.")
     async with runtime_state.database.connection() as connection:
@@ -74,7 +77,7 @@ async def start_generation(request: Request, params: dict[str, str], state: obje
             connection,
             session_id=session_id,
             task_type=TaskType.GENERATION,
-            payload={"prompt": prompt, "sampleCount": sample_count, "config": config},
+            payload={"prompt": prompt, "sampleCount": sample_count, "classTargets": class_targets, "config": config},
             dataset_version_id=context["current_dataset_version_id"],
         )
     await enqueue_core_task(
@@ -89,15 +92,24 @@ async def modification_source(request: Request, params: dict[str, str], state: o
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
     async with runtime_state.database.connection() as connection:
-        asset = await get_random_approved_asset(connection, session_id)
-    if asset is None:
+        assets = await list_modification_source_assets(connection, session_id)
+    if not assets:
         raise AppError(404, "Для модификации не найдено подходящее изображение.")
+    asset = assets[0]
     return json_response(
         200,
         {
             "assetId": str(asset["id"]),
             "previewPath": asset["preview_path"],
             "className": asset["class_name"],
+            "items": [
+                {
+                    "assetId": str(item["id"]),
+                    "previewPath": item["preview_path"],
+                    "className": item["class_name"],
+                }
+                for item in assets
+            ],
         },
     )
 
@@ -111,6 +123,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
     prompt = payload.get("prompt")
     source_asset_id = payload.get("sourceAssetId")
     sample_count = payload.get("sampleCount")
+    class_targets = payload.get("classTargets")
     config = payload.get("config")
     area_points = payload.get("areaPoints")
     if not isinstance(prompt, str) or not prompt.strip():
@@ -119,6 +132,8 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
         raise AppError(400, "Для модификации нужен sourceAssetId.")
     if not isinstance(sample_count, int) or sample_count <= 0:
         raise AppError(400, "sampleCount должен быть положительным числом.")
+    if class_targets is not None and not _is_valid_class_targets(class_targets):
+        raise AppError(400, "classTargets должен быть объектом с положительными целыми значениями.")
     if not isinstance(config, dict):
         raise AppError(400, "Нужен объект config.")
     if area_points is not None:
@@ -141,6 +156,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
                 "prompt": prompt,
                 "sourceAssetId": source_asset_id,
                 "sampleCount": sample_count,
+                "classTargets": class_targets,
                 "config": config,
                 "areaPoints": [[float(value) for value in point] for point in area_points] if area_points is not None else None,
             },
@@ -181,7 +197,6 @@ async def generation_results(request: Request, params: dict[str, str], state: ob
                 {
                     "id": str(item["id"]),
                     "previewPath": item["preview_path"],
-                    "sourcePath": None,
                     "className": item["class_name"],
                     "referencePreviewPaths": reference_paths_by_class.get(str(item["class_name"]), []),
                 }
@@ -397,3 +412,14 @@ def _parse_non_negative_float(raw_value: object, field_name: str, default: float
     if value < 0:
         raise AppError(400, f"Поле {field_name} не должно быть отрицательным.")
     return value
+
+
+def _is_valid_class_targets(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    for class_name, count in value.items():
+        if not isinstance(class_name, str) or not class_name:
+            return False
+        if not isinstance(count, int) or count <= 0:
+            return False
+    return True

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStartFineTuneMutation, useSyncWorkflowStateMutation, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
@@ -145,22 +145,6 @@ export function FineTunePage() {
     }
   }, [fineTuneJobId, navigate, setSession, taskStatusQuery.data])
 
-  const statusLabel = useMemo(() => {
-    if (fineTuneEnabled && fineTuneResolved) {
-      return 'модель загружена'
-    }
-
-    if (fineTuneMutation.isPending || fineTuneEnabled) {
-      return 'модель загружается на устройство'
-    }
-
-    if (fineTuneResolved) {
-      return 'ленивый запуск'
-    }
-
-    return 'ожидание решения'
-  }, [fineTuneEnabled, fineTuneMutation.isPending, fineTuneResolved])
-
   const startFineTune = async () => {
     if (!sessionId) {
       return
@@ -207,8 +191,6 @@ export function FineTunePage() {
     <>
       <PageFrame
         title="Инициализация модели"
-        description="На этом шаге модель загружается в память ml-worker и переносится на устройство заранее. После этого следующий шаг уже работает с готовым runtime, а не стартует загрузку в момент первой модификации."
-        aside={<FineTuneAside statusLabel={statusLabel} />}
       >
         <div className="info-card">
           <p className="info-card__text">
@@ -253,24 +235,5 @@ export function FineTunePage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
-  )
-}
-
-function FineTuneAside({ statusLabel }: { statusLabel: string }) {
-  return (
-    <div className="info-card">
-      <p className="info-card__text">
-        Канал логов: <strong>WebSocket</strong>
-      </p>
-      <p className="info-card__text">
-        Восстановление состояния: <strong>включено</strong>
-      </p>
-      <p className="info-card__text">
-        Текущий статус: <strong>{statusLabel}</strong>
-      </p>
-      <p className="info-card__text">
-        Цель шага: <strong>получить runtime_ready до генерации</strong>
-      </p>
-    </div>
   )
 }

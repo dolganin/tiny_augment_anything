@@ -61,6 +61,11 @@
   border: 1px solid var(--color-border);
 }
 
+.class-chart__entry {
+  display: grid;
+  gap: 10px;
+}
+
 .class-chart__row {
   display: grid;
   gap: 10px;
@@ -122,6 +127,26 @@
 .class-chart__value {
   color: var(--color-text-muted);
   font-size: 13px;
+}
+
+.class-chart__target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.class-chart__target-label {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.class-chart__target-input {
+  width: 104px;
+  padding: 10px 12px;
+  border: 1px solid rgba(48, 98, 187, 0.18);
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 .class-chart__label {

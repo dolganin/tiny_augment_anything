@@ -18,7 +18,6 @@ import { GenerationConfigFields } from '@/features/generation-config/GenerationC
 
 type GenerateFormValues = {
   prompt: string
-  sampleCount: number
 }
 
 export function GeneratePage() {
@@ -26,6 +25,7 @@ export function GeneratePage() {
   const sessionId = useSessionStore((state) => state.sessionId)
   const generationJobId = useSessionStore((state) => state.generationJobId)
   const generationConfig = useSessionStore((state) => state.generationConfig)
+  const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
   const [logs, setLogs] = useState<string[]>([])
@@ -35,7 +35,6 @@ export function GeneratePage() {
   const form = useForm<GenerateFormValues>({
     defaultValues: {
       prompt: '',
-      sampleCount: 1,
     },
   })
 
@@ -54,7 +53,6 @@ export function GeneratePage() {
     setSession({ generationConfig: nextFieldValues })
     form.reset({
       prompt: '',
-      sampleCount: config.sampleCount,
     })
   }, [configQuery.data, form, setSession])
 
@@ -89,11 +87,12 @@ export function GeneratePage() {
       }
 
       if (event.type === 'task.completed' && generationJobId && event.jobId === generationJobId) {
-        setSession({ workflowStage: 'review' })
+        setSession({ workflowStage: 'review', generationJobId: null })
         navigate('/review')
       }
 
       if (event.type === 'task.failed' && generationJobId && event.jobId === generationJobId) {
+        setSession({ generationJobId: null })
         setErrorMessage(event.payload.message ?? 'Генерация завершилась с ошибкой.')
       }
     },
@@ -107,15 +106,25 @@ export function GeneratePage() {
     setSession({ generationConfig: nextValues })
   }
 
+  const totalTargetCount = useMemo(
+    () => Object.values(selectedClassTargets).reduce((acc, value) => acc + value, 0),
+    [selectedClassTargets],
+  )
+
   const submitForm = form.handleSubmit(async (values) => {
     if (!sessionId) {
+      return
+    }
+    if (totalTargetCount <= 0) {
+      setErrorMessage('Сначала задай целевые количества по классам на этапе статистики.')
       return
     }
 
     try {
       const response = await generationMutation.mutateAsync({
         prompt: values.prompt,
-        sampleCount: Number(values.sampleCount),
+        sampleCount: totalTargetCount,
+        classTargets: selectedClassTargets,
         config: fieldValues,
       })
       setSession({ generationJobId: response.jobId })
@@ -149,16 +158,11 @@ export function GeneratePage() {
               />
             </label>
 
-            <label className="generation-form__group">
-              <span className="generation-form__label">Количество изображений</span>
-              <input
-                className="generation-form__input"
-                min={1}
-                step={1}
-                type="number"
-                {...form.register('sampleCount', { required: true, min: 1, valueAsNumber: true })}
-              />
-            </label>
+            <div className="info-card">
+              <p className="info-card__text">
+                План генерации взят со страницы статистики: <strong>{totalTargetCount}</strong> изображений суммарно.
+              </p>
+            </div>
 
             <GenerationConfigFields fields={fields} onChange={updateFieldValue} values={fieldValues} />
 

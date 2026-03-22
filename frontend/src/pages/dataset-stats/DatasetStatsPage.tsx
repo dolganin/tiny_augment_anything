@@ -20,6 +20,7 @@ export function DatasetStatsPage() {
   const datasetName = useSessionStore((state) => state.datasetName)
   const datasetStats = useSessionStore((state) => state.datasetStats)
   const selectedClasses = useSessionStore((state) => state.selectedClasses)
+  const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
   const setSession = useSessionStore((state) => state.setSession)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const statsQuery = useDatasetStatsQuery(sessionId)
@@ -49,7 +50,22 @@ export function DatasetStatsPage() {
     const nextSelection = selectedClasses.includes(className)
       ? selectedClasses.filter((item) => item !== className)
       : [...selectedClasses, className]
-    setSession({ selectedClasses: nextSelection })
+    const nextTargets = { ...selectedClassTargets }
+    if (nextSelection.includes(className)) {
+      nextTargets[className] = nextTargets[className] ?? 1
+    } else {
+      delete nextTargets[className]
+    }
+    setSession({ selectedClasses: nextSelection, selectedClassTargets: nextTargets })
+  }
+
+  const updateTarget = (className: string, value: number) => {
+    setSession({
+      selectedClassTargets: {
+        ...selectedClassTargets,
+        [className]: value,
+      },
+    })
   }
 
   const handleContinue = async () => {
@@ -57,13 +73,22 @@ export function DatasetStatsPage() {
       return
     }
     try {
-      await selectedClassesMutation.mutateAsync(selectedClasses)
+      const classTargets = Object.fromEntries(
+        selectedClasses.map((className) => [className, selectedClassTargets[className] ?? 1]),
+      )
+      await selectedClassesMutation.mutateAsync({ classNames: selectedClasses, classTargets })
       setSession({ workflowStage: 'fine-tune' })
       navigate('/diffusion/fine-tune')
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
   }
+
+  const totalTargetCount = useMemo(
+    () =>
+      selectedClasses.reduce((acc, className) => acc + (selectedClassTargets[className] ?? 1), 0),
+    [selectedClassTargets, selectedClasses],
+  )
 
   return (
     <>
@@ -104,11 +129,13 @@ export function DatasetStatsPage() {
               <ClassDistributionChart
                 items={visibleStats}
                 onToggle={toggleClass}
+                onTargetChange={updateTarget}
                 selectedClasses={selectedClasses}
+                selectedClassTargets={selectedClassTargets}
               />
               <div className="class-selection__footer">
                 <span className="class-selection__meta">Выбрано классов: {selectedClasses.length}</span>
-                <span className="class-selection__meta">Видимых классов: {visibleStats.length}</span>
+                <span className="class-selection__meta">Целевых изображений: {totalTargetCount}</span>
               </div>
             </section>
           </div>
@@ -128,7 +155,7 @@ export function DatasetStatsPage() {
             disabled={selectedClasses.length === 0 || selectedClassesMutation.isPending}
             onClick={handleContinue}
           >
-            Перейти к дообучению
+            Перейти к инициализации
           </Button>
         </div>
       </PageFrame>

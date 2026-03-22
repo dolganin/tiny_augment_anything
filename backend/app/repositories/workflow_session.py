@@ -16,6 +16,7 @@ async def get_session_context(connection, session_id: UUID) -> dict[str, Any] | 
                 dataset_id,
                 current_dataset_version_id,
                 selected_classes,
+                selected_class_targets,
                 current_mode,
                 workflow_stage,
                 fine_tune_enabled,

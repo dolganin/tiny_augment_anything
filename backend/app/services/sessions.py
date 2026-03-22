@@ -13,11 +13,13 @@ def adapt_snapshot(row: dict[str, Any] | None) -> dict[str, Any]:
     if row is None:
         raise AppError(404, "Сессия не найдена.")
     selected_classes = row["selected_classes"]
+    selected_class_targets = row["selected_class_targets"]
     return {
         "sessionId": str(row["session_id"]),
         "datasetId": str(row["dataset_id"]) if row["dataset_id"] else None,
         "datasetName": row["dataset_name"],
         "selectedClasses": selected_classes if isinstance(selected_classes, list) else [],
+        "selectedClassTargets": selected_class_targets if isinstance(selected_class_targets, dict) else {},
         "currentMode": row["current_mode"],
         "fineTuneEnabled": bool(row["fine_tune_enabled"]),
         "fineTuneResolved": bool(row["fine_tune_resolved"]),

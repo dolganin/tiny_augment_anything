@@ -23,7 +23,7 @@ export const generationFieldSchema = z.object({
 export const generationAssetSchema = z.object({
   id: z.string(),
   previewPath: z.string(),
-  sourcePath: z.string().optional(),
+  sourcePath: z.string().nullable().optional(),
   className: z.string(),
   referencePreviewPaths: z.array(z.string()).default([]),
 })
@@ -64,6 +64,7 @@ export const sessionSnapshotResponseSchema = z.object({
   datasetId: z.string().nullable().optional(),
   datasetName: z.string().nullable().optional(),
   selectedClasses: z.array(z.string()).default([]),
+  selectedClassTargets: z.record(z.number().int().positive()).default({}),
   currentMode: z.enum(['generate', 'modify']).nullable().optional(),
   fineTuneEnabled: z.boolean().default(false),
   fineTuneResolved: z.boolean().default(false),
@@ -142,6 +143,7 @@ export const jobsResponseSchema = z.object({
 
 export const selectedClassesPayloadSchema = z.object({
   classNames: z.array(z.string()).min(1),
+  classTargets: z.record(z.number().int().positive()),
 })
 
 export const taskStartedResponseSchema = z.object({
@@ -166,6 +168,17 @@ export const syncStateResponseSchema = z.object({
   status: z.literal('success'),
 })
 
+export const finalizeReviewPayloadSchema = z.object({
+  nextStage: z.enum(['modify', 'classifier-train']),
+})
+
+export const finalizeReviewResponseSchema = z.object({
+  status: z.literal('success'),
+  approvedCount: z.number().int().nonnegative(),
+  rejectedCount: z.number().int().nonnegative(),
+  versionCreated: z.boolean(),
+})
+
 export const generationConfigResponseSchema = z.object({
   fields: z.array(generationFieldSchema),
   sampleCount: z.number().int().positive().default(1),
@@ -174,6 +187,7 @@ export const generationConfigResponseSchema = z.object({
 export const generationStartPayloadSchema = z.object({
   prompt: z.string().min(1),
   sampleCount: z.number().int().positive(),
+  classTargets: z.record(z.number().int().positive()),
   config: z.record(z.string()),
 })
 
@@ -181,6 +195,15 @@ export const modificationSourceResponseSchema = z.object({
   assetId: z.string(),
   previewPath: z.string(),
   className: z.string(),
+  items: z
+    .array(
+      z.object({
+        assetId: z.string(),
+        previewPath: z.string(),
+        className: z.string(),
+      }),
+    )
+    .default([]),
 })
 
 export const modificationAreaPointSchema = z.tuple([z.number(), z.number()])
@@ -189,6 +212,7 @@ export const modificationStartPayloadSchema = z.object({
   prompt: z.string().min(1),
   sourceAssetId: z.string().min(1),
   sampleCount: z.number().int().positive(),
+  classTargets: z.record(z.number().int().positive()),
   config: z.record(z.string()),
   areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
 })

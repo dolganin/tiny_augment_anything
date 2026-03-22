@@ -2,6 +2,8 @@ import {
   datasetsCatalogResponseSchema,
   datasetStatsResponseSchema,
   datasetUploadResponseSchema,
+  finalizeReviewPayloadSchema,
+  finalizeReviewResponseSchema,
   generationConfigResponseSchema,
   generationResultsResponseSchema,
   jobsResponseSchema,
@@ -111,8 +113,8 @@ export const workflowApi = {
     const response = await http.get(endpoints.datasetStats(sessionId))
     return datasetStatsResponseSchema.parse(response.data)
   },
-  async saveSelectedClasses(sessionId: string, classNames: string[]) {
-    const payload = selectedClassesPayloadSchema.parse({ classNames })
+  async saveSelectedClasses(sessionId: string, classNames: string[], classTargets: Record<string, number>) {
+    const payload = selectedClassesPayloadSchema.parse({ classNames, classTargets })
     const response = await http.post(endpoints.selectClasses(sessionId), payload)
     return taskStartedResponseSchema.parse(response.data)
   },
@@ -153,6 +155,11 @@ export const workflowApi = {
   async rejectAsset(sessionId: string, assetId: string) {
     const response = await http.post(endpoints.rejectAsset(sessionId, assetId))
     return taskStartedResponseSchema.parse(response.data)
+  },
+  async finalizeReview(sessionId: string, payload: unknown) {
+    const parsedPayload = finalizeReviewPayloadSchema.parse(payload)
+    const response = await http.post(endpoints.finalizeReview(sessionId), parsedPayload)
+    return finalizeReviewResponseSchema.parse(response.data)
   },
   async startClassifierTraining(sessionId: string, payload: FormData) {
     const response = await http.post(endpoints.startClassifierTraining(sessionId), payload, { timeout: 0 })
