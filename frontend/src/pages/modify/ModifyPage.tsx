@@ -24,7 +24,7 @@ type ModifyFormValues = {
   sampleCount: number
 }
 
-type AreaBox = [number, number, number, number]
+type AreaPoint = [number, number]
 
 export function ModifyPage() {
   const navigate = useNavigate()
@@ -33,7 +33,7 @@ export function ModifyPage() {
   const generationConfig = useSessionStore((state) => state.generationConfig)
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
-  const [areaBox, setAreaBox] = useState<AreaBox | null>(null)
+  const [areaPoints, setAreaPoints] = useState<AreaPoint[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
@@ -122,7 +122,7 @@ export function ModifyPage() {
   }, [sourceQuery.data])
 
   useEffect(() => {
-    setAreaBox(null)
+    setAreaPoints([])
   }, [source?.assetId])
 
   const updateFieldValue = (key: string, value: string) => {
@@ -142,7 +142,7 @@ export function ModifyPage() {
         sourceAssetId: source.assetId,
         sampleCount: Number(values.sampleCount),
         config: fieldValues,
-        areaBox: areaBox ?? undefined,
+        areaPoints: areaPoints.length >= 3 ? areaPoints : undefined,
       })
       setSession({ generationJobId: response.jobId })
       setLogs(['Запуск модификации отправлен на бэкенд.'])
@@ -166,10 +166,10 @@ export function ModifyPage() {
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
           <div className="modify-layout">
             <ModificationCanvas
-              areaBox={areaBox}
+              areaPoints={areaPoints}
               className={source.className}
               imageUrl={source.assetUrl}
-              onAreaBoxChange={setAreaBox}
+              onAreaPointsChange={setAreaPoints}
             />
 
             <form className="generation-form generation-form--stacked" onSubmit={submitForm}>

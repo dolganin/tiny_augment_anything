@@ -27,6 +27,12 @@
   flex-wrap: wrap;
 }
 
+.modify-stage__buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .modify-stage__class {
   justify-self: start;
   padding: 8px 12px;
@@ -116,9 +122,11 @@
 }
 
 .modify-preview {
+  display: block;
   width: 100%;
+  height: auto;
   max-height: 520px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 24px;
   border: 1px solid rgba(114, 183, 224, 0.24);
 }
@@ -127,37 +135,60 @@
   max-height: min(72vh, 720px);
 }
 
+.modify-canvas-shell {
+  display: flex;
+  justify-content: center;
+}
+
 .modify-canvas {
   position: relative;
-  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
   border-radius: 24px;
-  cursor: crosshair;
   user-select: none;
-  touch-action: none;
+  overflow: hidden;
 }
 
-.modify-canvas__overlay {
+.modify-canvas__svg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(10, 16, 30, 0.04), rgba(10, 16, 30, 0.08));
-  pointer-events: none;
+  cursor: crosshair;
 }
 
-.modify-canvas__box {
-  position: absolute;
-  border-radius: 20px;
-  pointer-events: none;
+.modify-canvas__veil {
+  fill: rgba(10, 16, 30, 0.08);
 }
 
-.modify-canvas__box--saved {
-  border: 2px solid rgba(48, 98, 187, 0.86);
-  background: rgba(48, 98, 187, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+.modify-canvas__line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
-.modify-canvas__box--draft {
-  border: 2px dashed rgba(46, 160, 106, 0.9);
-  background: rgba(46, 160, 106, 0.14);
+.modify-canvas__polygon {
+  fill: rgba(48, 98, 187, 0.24);
+  stroke: rgba(48, 98, 187, 0.96);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.modify-canvas__vertex {
+  fill: rgba(255, 255, 255, 0.98);
+  stroke: rgba(48, 98, 187, 0.86);
+  stroke-width: 2;
+}
+
+.modify-canvas__vertex-core {
+  fill: rgba(48, 98, 187, 0.96);
+  stroke: none;
+}
+
+.modify-canvas__hover {
+  fill: rgba(255, 255, 255, 0.95);
+  stroke: rgba(46, 160, 106, 0.95);
+  stroke-width: 2;
 }
 
 @media (max-width: 900px) {

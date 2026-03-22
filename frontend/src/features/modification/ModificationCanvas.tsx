@@ -1,145 +1,121 @@
-import { PointerEvent, useMemo, useRef, useState } from 'react'
+import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
 
-type AreaBox = [number, number, number, number]
-
-type DraftBox = {
-  startX: number
-  startY: number
-  endX: number
-  endY: number
-}
+type AreaPoint = [number, number]
 
 type ModificationCanvasProps = {
   imageUrl: string
   className: string
-  areaBox: AreaBox | null
-  onAreaBoxChange: (value: AreaBox | null) => void
+  areaPoints: AreaPoint[]
+  onAreaPointsChange: (value: AreaPoint[]) => void
+}
+
+type Size = {
+  width: number
+  height: number
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
-const normalizeDraft = (draft: DraftBox): AreaBox => [
-  Math.min(draft.startX, draft.endX),
-  Math.min(draft.startY, draft.endY),
-  Math.max(draft.startX, draft.endX),
-  Math.max(draft.startY, draft.endY),
-]
+const getPointInImage = (event: MouseEvent<SVGSVGElement>, width: number, height: number): AreaPoint => {
+  const bounds = event.currentTarget.getBoundingClientRect()
+  const x = clamp(event.clientX - bounds.left, 0, bounds.width)
+  const y = clamp(event.clientY - bounds.top, 0, bounds.height)
+  return [
+    bounds.width > 0 ? (x / bounds.width) * width : 0,
+    bounds.height > 0 ? (y / bounds.height) * height : 0,
+  ]
+}
 
-export function ModificationCanvas({ imageUrl, className, areaBox, onAreaBoxChange }: ModificationCanvasProps) {
-  const frameRef = useRef<HTMLDivElement | null>(null)
-  const [draftBox, setDraftBox] = useState<DraftBox | null>(null)
-  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
-
-  const normalizedDraft = useMemo(() => (draftBox ? normalizeDraft(draftBox) : null), [draftBox])
-  const selectionLabel = useMemo(() => {
-    if (!areaBox) {
-      return 'Область не выделена'
-    }
-    return `${Math.round(areaBox[2] - areaBox[0])} × ${Math.round(areaBox[3] - areaBox[1])} px`
-  }, [areaBox])
-
-  const readLocalPoint = (event: PointerEvent<HTMLDivElement>) => {
-    const frame = frameRef.current
-    if (!frame) {
-      return null
-    }
-    const bounds = frame.getBoundingClientRect()
-    return {
-      x: clamp(event.clientX - bounds.left, 0, bounds.width),
-      y: clamp(event.clientY - bounds.top, 0, bounds.height),
-      width: bounds.width,
-      height: bounds.height,
-    }
+const toSvgPath = (points: AreaPoint[]) => {
+  if (points.length === 0) {
+    return ''
   }
+  return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point[0]} ${point[1]}`).join(' ')
+}
 
-  const toNaturalBox = (box: AreaBox, width: number, height: number): AreaBox | null => {
-    if (!naturalSize || width <= 0 || height <= 0) {
-      return null
-    }
-    const scaleX = naturalSize.width / width
-    const scaleY = naturalSize.height / height
-    const normalized: AreaBox = [
-      box[0] * scaleX,
-      box[1] * scaleY,
-      box[2] * scaleX,
-      box[3] * scaleY,
-    ]
-    if (normalized[2] - normalized[0] < 8 || normalized[3] - normalized[1] < 8) {
-      return null
-    }
-    return normalized
-  }
+export function ModificationCanvas({
+  imageUrl,
+  className,
+  areaPoints,
+  onAreaPointsChange,
+}: ModificationCanvasProps) {
+  const imageRef = useRef<HTMLImageElement | null>(null)
+  const [naturalSize, setNaturalSize] = useState<Size | null>(null)
+  const [renderSize, setRenderSize] = useState<Size | null>(null)
+  const [hoverPoint, setHoverPoint] = useState<AreaPoint | null>(null)
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    const point = readLocalPoint(event)
-    if (!point) {
+  useEffect(() => {
+    const element = imageRef.current
+    if (!element) {
       return
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setDraftBox({
-      startX: point.x,
-      startY: point.y,
-      endX: point.x,
-      endY: point.y,
-    })
-  }
+    const updateSize = () => {
+      setRenderSize({
+        width: element.clientWidth,
+        height: element.clientHeight,
+      })
+    }
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [imageUrl])
 
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!draftBox) {
+  const activePoints = useMemo(() => {
+    if (!naturalSize || !renderSize) {
+      return []
+    }
+    const scaleX = renderSize.width / naturalSize.width
+    const scaleY = renderSize.height / naturalSize.height
+    return areaPoints.map<AreaPoint>((point) => [point[0] * scaleX, point[1] * scaleY])
+  }, [areaPoints, naturalSize, renderSize])
+
+  const previewPath = useMemo(() => {
+    if (activePoints.length === 0) {
+      return ''
+    }
+    const previewPoints = hoverPoint ? [...activePoints, hoverPoint] : activePoints
+    return toSvgPath(previewPoints)
+  }, [activePoints, hoverPoint])
+
+  const polygonPath = useMemo(() => {
+    if (activePoints.length < 3) {
+      return ''
+    }
+    return `${toSvgPath(activePoints)} Z`
+  }, [activePoints])
+
+  const selectionLabel = areaPoints.length >= 3 ? `${areaPoints.length} вершин` : 'Полигон не замкнут'
+
+  const handleAddPoint = (event: MouseEvent<SVGSVGElement>) => {
+    if (!naturalSize) {
       return
     }
-    const point = readLocalPoint(event)
-    if (!point) {
+    const point = getPointInImage(event, naturalSize.width, naturalSize.height)
+    onAreaPointsChange([...areaPoints, point])
+  }
+
+  const handleMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (!naturalSize || !renderSize || areaPoints.length === 0) {
+      setHoverPoint(null)
       return
     }
-    setDraftBox({
-      startX: draftBox.startX,
-      startY: draftBox.startY,
-      endX: point.x,
-      endY: point.y,
-    })
+    const [x, y] = getPointInImage(event, renderSize.width, renderSize.height)
+    setHoverPoint([x, y])
   }
 
-  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    const point = readLocalPoint(event)
-    const frame = frameRef.current
-    if (!draftBox || !point || !frame) {
-      setDraftBox(null)
-      return
-    }
-    const nextDraft: DraftBox = {
-      startX: draftBox.startX,
-      startY: draftBox.startY,
-      endX: point.x,
-      endY: point.y,
-    }
-    const normalized = normalizeDraft(nextDraft)
-    onAreaBoxChange(toNaturalBox(normalized, frame.clientWidth, frame.clientHeight))
-    setDraftBox(null)
-    event.currentTarget.releasePointerCapture(event.pointerId)
+  const handleLeave = () => {
+    setHoverPoint(null)
   }
 
-  const renderBoxStyle = (box: AreaBox | null) => {
-    if (!box || !naturalSize) {
-      return undefined
-    }
-    return {
-      left: `${(box[0] / naturalSize.width) * 100}%`,
-      top: `${(box[1] / naturalSize.height) * 100}%`,
-      width: `${((box[2] - box[0]) / naturalSize.width) * 100}%`,
-      height: `${((box[3] - box[1]) / naturalSize.height) * 100}%`,
-    }
+  const removeLastPoint = () => {
+    onAreaPointsChange(areaPoints.slice(0, -1))
   }
 
-  const draftStyle = normalizedDraft
-    ? {
-        left: `${normalizedDraft[0]}px`,
-        top: `${normalizedDraft[1]}px`,
-        width: `${normalizedDraft[2] - normalizedDraft[0]}px`,
-        height: `${normalizedDraft[3] - normalizedDraft[1]}px`,
-      }
-    : undefined
+  const clearPoints = () => {
+    onAreaPointsChange([])
+  }
 
   return (
     <section className="modify-stage">
@@ -147,33 +123,60 @@ export function ModificationCanvas({ imageUrl, className, areaBox, onAreaBoxChan
         <span className="modify-stage__class">{className}</span>
         <span className="modify-stage__selection">{selectionLabel}</span>
       </div>
-      <div
-        className="modify-canvas"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        ref={frameRef}
-      >
-        <img
-          alt="Источник для модификации"
-          className="modify-preview modify-preview--hero"
-          onLoad={(event) =>
-            setNaturalSize({
-              width: event.currentTarget.naturalWidth,
-              height: event.currentTarget.naturalHeight,
-            })
-          }
-          src={imageUrl}
-        />
-        <div className="modify-canvas__overlay" />
-        {areaBox ? <div className="modify-canvas__box modify-canvas__box--saved" style={renderBoxStyle(areaBox)} /> : null}
-        {draftStyle ? <div className="modify-canvas__box modify-canvas__box--draft" style={draftStyle} /> : null}
+      <div className="modify-canvas-shell">
+        <div className="modify-canvas">
+          <img
+            alt="Источник для модификации"
+            className="modify-preview modify-preview--hero"
+            onLoad={(event) => {
+              setNaturalSize({
+                width: event.currentTarget.naturalWidth,
+                height: event.currentTarget.naturalHeight,
+              })
+              setRenderSize({
+                width: event.currentTarget.clientWidth,
+                height: event.currentTarget.clientHeight,
+              })
+            }}
+            ref={imageRef}
+            src={imageUrl}
+          />
+          {renderSize ? (
+            <svg
+              className="modify-canvas__svg"
+              height={renderSize.height}
+              onClick={handleAddPoint}
+              onMouseLeave={handleLeave}
+              onMouseMove={handleMove}
+              viewBox={`0 0 ${renderSize.width} ${renderSize.height}`}
+              width={renderSize.width}
+            >
+              <rect className="modify-canvas__veil" height={renderSize.height} width={renderSize.width} x={0} y={0} />
+              {previewPath ? <path className="modify-canvas__line" d={previewPath} /> : null}
+              {polygonPath ? <path className="modify-canvas__polygon" d={polygonPath} /> : null}
+              {activePoints.map((point, index) => (
+                <g className="modify-canvas__vertex" key={`${point[0]}-${point[1]}-${index}`}>
+                  <circle cx={point[0]} cy={point[1]} r={11} />
+                  <circle className="modify-canvas__vertex-core" cx={point[0]} cy={point[1]} r={4} />
+                </g>
+              ))}
+              {hoverPoint && areaPoints.length > 0 ? (
+                <circle className="modify-canvas__hover" cx={hoverPoint[0]} cy={hoverPoint[1]} r={6} />
+              ) : null}
+            </svg>
+          ) : null}
+        </div>
       </div>
       <div className="modify-stage__actions">
-        <p className="modify-stage__hint">Потяни мышью по изображению, если хочешь изменить только часть кадра.</p>
-        <Button disabled={!areaBox} onClick={() => onAreaBoxChange(null)} type="button" variant="ghost">
-          Сбросить область
-        </Button>
+        <p className="modify-stage__hint">Щёлкай по изображению, чтобы поставить вершины полигона для inpaint.</p>
+        <div className="modify-stage__buttons">
+          <Button disabled={areaPoints.length === 0} onClick={removeLastPoint} type="button" variant="ghost">
+            Удалить вершину
+          </Button>
+          <Button disabled={areaPoints.length === 0} onClick={clearPoints} type="button" variant="ghost">
+            Очистить полигон
+          </Button>
+        </div>
       </div>
     </section>
   )
