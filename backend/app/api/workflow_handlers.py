@@ -4,7 +4,7 @@ from uuid import UUID
 
 from backend.app.domain.enums import TaskType, WorkflowStage
 from backend.app.repositories.tasks import cancel_task, create_task, get_task_status
-from backend.app.repositories.workflow_assets import get_random_approved_asset
+from backend.app.repositories.workflow_assets import get_random_approved_asset, list_class_reference_preview_paths
 from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_pending_results
 from backend.app.repositories.workflow_session import get_session_context, sync_session_state
 from backend.app.runtime.errors import AppError
@@ -128,6 +128,16 @@ async def generation_results(request: Request, params: dict[str, str], state: ob
         if run is None:
             return json_response(200, {"remainingCount": 0, "targetCount": 1, "items": []})
         items = await list_pending_results(connection, run["id"])
+        reference_paths_by_class: dict[str, list[str]] = {}
+        for item in items:
+            class_name = str(item["class_name"])
+            if class_name not in reference_paths_by_class:
+                reference_paths_by_class[class_name] = await list_class_reference_preview_paths(
+                    connection,
+                    session_id,
+                    class_name,
+                    6,
+                )
     return json_response(
         200,
         {
@@ -139,6 +149,7 @@ async def generation_results(request: Request, params: dict[str, str], state: ob
                     "previewPath": item["preview_path"],
                     "sourcePath": None,
                     "className": item["class_name"],
+                    "referencePreviewPaths": reference_paths_by_class.get(str(item["class_name"]), []),
                 }
                 for item in items
             ],

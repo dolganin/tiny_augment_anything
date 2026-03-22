@@ -61,6 +61,7 @@ export const adaptGenerationResults = (response: GenerationResultsResponse) => (
     previewUrl: toFileUrl(item.previewPath),
     sourceUrl: item.sourcePath ? toFileUrl(item.sourcePath) : undefined,
     className: item.className,
+    referenceUrls: item.referencePreviewPaths.map((path) => toFileUrl(path)),
   })),
 })
 

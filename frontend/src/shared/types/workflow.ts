@@ -53,6 +53,7 @@ export type GenerationAsset = {
   previewUrl: string
   sourceUrl?: string
   className: string
+  referenceUrls: string[]
 }
 
 export type WorkflowMetrics = {

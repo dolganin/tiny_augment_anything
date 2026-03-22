@@ -25,6 +25,7 @@ export const generationAssetSchema = z.object({
   previewPath: z.string(),
   sourcePath: z.string().optional(),
   className: z.string(),
+  referencePreviewPaths: z.array(z.string()).default([]),
 })
 
 export const metricsPointSchema = z.object({

@@ -101,8 +101,7 @@ export function ReviewPage() {
     <>
       <PageFrame
         title="Отбор результатов"
-        description="Изображения проверяются по одному. Принятые экземпляры сохраняются в датасет, отклонённые удаляются на стороне бэкенда."
-        aside={<ReviewAside approvedCount={approvedItems.length} queue={queue?.items.length ?? 0} />}
+        description="Проверяй кандидатов по одному, сверяй их с образцами класса и сразу принимай решение."
       >
         {resultsQuery.isLoading ? (
           <div className="upload-stage__loading">
@@ -115,24 +114,11 @@ export function ReviewPage() {
             <ReviewQueue
               approvedCount={approvedItems.length}
               asset={currentAsset}
+              isMutating={approveMutation.isPending || rejectMutation.isPending}
+              onApprove={() => void handleApprove()}
+              onReject={() => void handleReject()}
               pendingCount={queue?.items.length ?? 0}
             />
-
-            <div className="class-selection__footer">
-              <Button
-                disabled={!currentAsset || approveMutation.isPending || rejectMutation.isPending}
-                onClick={handleReject}
-                variant="ghost"
-              >
-                Отклонить и удалить
-              </Button>
-              <Button
-                disabled={!currentAsset || approveMutation.isPending || rejectMutation.isPending}
-                onClick={handleApprove}
-              >
-                Подтвердить изображение
-              </Button>
-            </div>
 
             <div className="info-card">
               <p className="info-card__text">
@@ -158,27 +144,5 @@ export function ReviewPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
-  )
-}
-
-function ReviewAside({
-  approvedCount,
-  queue,
-}: {
-  approvedCount: number
-  queue: number
-}) {
-  return (
-    <div className="info-card">
-      <p className="info-card__text">
-        Уже принято: <strong>{approvedCount}</strong>
-      </p>
-      <p className="info-card__text">
-        В текущей очереди: <strong>{queue}</strong>
-      </p>
-      <p className="info-card__text">
-        Отказ по изображению отправляет на бэкенд сигнал немедленного удаления файла.
-      </p>
-    </div>
   )
 }

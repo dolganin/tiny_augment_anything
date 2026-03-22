@@ -119,6 +119,26 @@ async def get_asset_for_review(connection, session_id: UUID, asset_id: UUID) -> 
         return await cursor.fetchone()
 
 
+async def list_class_reference_preview_paths(connection, session_id: UUID, class_name: str, limit: int) -> list[str]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT a.preview_path
+            FROM dataset_assets a
+            JOIN sessions s ON s.dataset_id = a.dataset_id
+            WHERE s.id = %s
+              AND a.approved_in_version_id = s.current_dataset_version_id
+              AND a.class_name = %s
+              AND a.deleted_at IS NULL
+            ORDER BY a.created_at DESC
+            LIMIT %s
+            """,
+            (session_id, class_name, limit),
+        )
+        rows = await cursor.fetchall()
+    return [str(row["preview_path"]) for row in rows]
+
+
 async def create_version_from_current_state(connection, session_id: UUID, approved_asset_id: UUID) -> UUID:
     context = await get_session_context(connection, session_id)
     if context is None or context["dataset_id"] is None or context["current_dataset_version_id"] is None:
