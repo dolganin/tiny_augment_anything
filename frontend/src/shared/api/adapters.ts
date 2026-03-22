@@ -19,7 +19,7 @@ import {
 } from '@/shared/types/workflow'
 
 const normalizeWorkflowStage = (stage: SessionSnapshotResponse['workflowStage']): WorkflowStage =>
-  stage === 'download' ? 'metrics' : stage
+  stage === 'download' ? 'metrics' : stage === 'mode-select' || stage === 'generate' ? 'modify' : stage
 
 const toFileUrl = (path: string) => {
   const fileUrl = new URL(`${env.apiBaseUrl}${endpoints.fileByPath}`)

@@ -183,6 +183,7 @@ export const modificationSourceResponseSchema = z.object({
 })
 
 export const modificationStartPayloadSchema = z.object({
+  prompt: z.string().min(1),
   sourcePath: z.string(),
   sampleCount: z.number().int().positive(),
   config: z.record(z.string()),

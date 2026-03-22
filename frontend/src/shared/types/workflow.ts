@@ -1,23 +1,30 @@
-export const workflowStages = [
+export type WorkflowStage =
+  | 'upload'
+  | 'dataset-stats'
+  | 'fine-tune'
+  | 'mode-select'
+  | 'generate'
+  | 'modify'
+  | 'review'
+  | 'classifier-train'
+  | 'metrics'
+
+export const workflowStages: WorkflowStage[] = [
   'upload',
   'dataset-stats',
   'fine-tune',
-  'mode-select',
-  'generate',
   'modify',
   'review',
   'classifier-train',
   'metrics',
-] as const
-
-export type WorkflowStage = (typeof workflowStages)[number]
+]
 
 export type WorkflowMode = 'generate' | 'modify' | null
 
 export const workflowStageLabels: Record<WorkflowStage, string> = {
   upload: 'Загрузка',
   'dataset-stats': 'Статистика',
-  'fine-tune': 'Дообучение',
+  'fine-tune': 'Подготовка',
   'mode-select': 'Режим',
   generate: 'Генерация',
   modify: 'Модификация',

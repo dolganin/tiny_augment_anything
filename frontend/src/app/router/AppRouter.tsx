@@ -2,10 +2,8 @@ import { Route, Routes } from 'react-router-dom'
 import { ClassifierTrainPage } from '@/pages/classifier-train/ClassifierTrainPage'
 import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
 import { FineTunePage } from '@/pages/fine-tune/FineTunePage'
-import { GeneratePage } from '@/pages/generate/GeneratePage'
 import { HomePage } from '@/pages/home/HomePage'
 import { MetricsPage } from '@/pages/metrics/MetricsPage'
-import { ModeSelectPage } from '@/pages/mode-select/ModeSelectPage'
 import { ModifyPage } from '@/pages/modify/ModifyPage'
 import { ReviewPage } from '@/pages/review/ReviewPage'
 import { UploadPage } from '@/pages/upload/UploadPage'
@@ -16,7 +14,6 @@ import { useSessionStore } from '@/store/session/session.store'
 export function AppRouter() {
   const datasetId = useSessionStore((state) => state.datasetId)
   const selectedClasses = useSessionStore((state) => state.selectedClasses)
-  const mode = useSessionStore((state) => state.currentMode)
   const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const metrics = useSessionStore((state) => state.metrics)
@@ -24,10 +21,8 @@ export function AppRouter() {
 
   const hasDataset = Boolean(datasetId)
   const hasSelectedClasses = selectedClasses.length > 0
-  const canOpenMode = hasSelectedClasses && fineTuneResolved
-  const canGenerate = canOpenMode && mode === 'generate'
-  const canModify = canOpenMode && mode === 'modify'
-  const canReview = canGenerate || canModify
+  const canModify = hasSelectedClasses && fineTuneResolved
+  const canReview = canModify
   const canTrainClassifier =
     Boolean(classifierJobId) ||
     Boolean(metrics) ||
@@ -53,19 +48,11 @@ export function AppRouter() {
         <Route path="/diffusion/fine-tune" element={<FineTunePage />} />
       </Route>
 
-      <Route element={<ProtectedRoute canAccess={canOpenMode} redirectTo="/diffusion/fine-tune" />}>
-        <Route path="/mode" element={<ModeSelectPage />} />
-      </Route>
-
-      <Route element={<ProtectedRoute canAccess={canGenerate} redirectTo="/mode" />}>
-        <Route path="/generate" element={<GeneratePage />} />
-      </Route>
-
-      <Route element={<ProtectedRoute canAccess={canModify} redirectTo="/mode" />}>
+      <Route element={<ProtectedRoute canAccess={canModify} redirectTo="/diffusion/fine-tune" />}>
         <Route path="/modify" element={<ModifyPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute canAccess={canReview} redirectTo="/mode" />}>
+      <Route element={<ProtectedRoute canAccess={canReview} redirectTo="/modify" />}>
         <Route path="/review" element={<ReviewPage />} />
       </Route>
 

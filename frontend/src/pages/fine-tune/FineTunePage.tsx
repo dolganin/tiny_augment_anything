@@ -51,9 +51,9 @@ export function FineTunePage() {
       if (event.type === 'task.completed' && fineTuneJobId && event.jobId === fineTuneJobId) {
         setSession({
           fineTuneResolved: true,
-          workflowStage: 'mode-select',
+          workflowStage: 'modify',
         })
-        navigate('/mode')
+        navigate('/modify')
       }
 
       if (event.type === 'task.failed' && fineTuneJobId && event.jobId === fineTuneJobId) {
@@ -61,14 +61,14 @@ export function FineTunePage() {
           fineTuneEnabled: false,
           fineTuneResolved: false,
         })
-        setErrorMessage(event.payload.message ?? 'Бэкенд вернул ошибку во время дообучения.')
+        setErrorMessage(event.payload.message ?? 'Бэкенд вернул ошибку во время подготовки модели.')
       }
     },
   })
 
   const statusLabel = useMemo(() => {
     if (fineTuneMutation.isPending || fineTuneEnabled) {
-      return 'обучение запущено'
+      return 'подготовка запущена'
     }
 
     return 'ожидание решения'
@@ -86,7 +86,7 @@ export function FineTunePage() {
         fineTuneResolved: false,
         fineTuneJobId: response.jobId,
       })
-      setLogs((current) => [...current, 'Задача дообучения отправлена на бэкенд.'])
+      setLogs((current) => [...current, 'Задача подготовки модели отправлена на бэкенд.'])
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
@@ -96,7 +96,7 @@ export function FineTunePage() {
     try {
       if (sessionId) {
         await syncWorkflowStateMutation.mutateAsync({
-          workflowStage: 'mode-select',
+          workflowStage: 'modify',
           fineTuneEnabled: false,
           fineTuneResolved: true,
         })
@@ -105,9 +105,9 @@ export function FineTunePage() {
         fineTuneEnabled: false,
         fineTuneResolved: true,
         fineTuneJobId: null,
-        workflowStage: 'mode-select',
+        workflowStage: 'modify',
       })
-      navigate('/mode')
+      navigate('/modify')
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
@@ -116,48 +116,48 @@ export function FineTunePage() {
   return (
     <>
       <PageFrame
-        title="Дообучение диффузионной модели"
-        description="Этот шаг решает, будет ли выбранный набор классов использоваться для дополнительного обучения диффузионной модели перед следующими действиями."
+        title="Подготовка модели"
+        description="На этом шаге можно заранее подготовить базовые веса диффузионной модели или сразу перейти к модификации и позволить системе догрузить их лениво."
         aside={<FineTuneAside statusLabel={statusLabel} />}
       >
         <div className="info-card">
           <p className="info-card__text">
-            Если этот этап пропустить, интерфейс дальше откроет только режим модификации. Генерация по промпту останется недоступной.
+            Генерация с нуля из интерфейса отключена. Дальше доступна только модификация существующих изображений датасета.
           </p>
           <div className="class-selection__footer">
             <Button
               disabled={fineTuneMutation.isPending || fineTuneEnabled}
               onClick={startFineTune}
             >
-              Запустить дообучение
+              Подготовить базовые веса
             </Button>
             <Button
               disabled={fineTuneMutation.isPending || syncWorkflowStateMutation.isPending || fineTuneEnabled}
               onClick={skipFineTune}
               variant="ghost"
             >
-              Пропустить этап
+              Перейти без ожидания
             </Button>
           </div>
         </div>
 
         {fineTuneMutation.isPending || fineTuneEnabled ? (
           <div className="upload-stage__loading">
-            <Spinner label="Бэкенд дообучает модель и транслирует логи через WebSocket." tone="diffusion" />
+            <Spinner label="Бэкенд готовит базовые веса и транслирует статусы через WebSocket." tone="diffusion" />
           </div>
         ) : null}
 
         <TrainingLogPanel
-          emptyLabel="Логи дообучения появятся здесь после старта задачи."
+          emptyLabel="Логи подготовки появятся здесь после старта задачи."
           logs={logs}
-          title="Поток логов fine-tune"
+          title="Поток логов подготовки"
         />
       </PageFrame>
 
       <Modal
         onClose={() => setErrorMessage(null)}
         open={Boolean(errorMessage)}
-        title="Ошибка этапа fine-tune"
+        title="Ошибка подготовки модели"
         tone="error"
       >
         <p className="upload-stage__error">{errorMessage}</p>

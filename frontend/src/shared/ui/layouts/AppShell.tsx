@@ -12,10 +12,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation()
   const queryClient = useQueryClient()
   const workflowStage = useSessionStore((state) => state.workflowStage)
-  const sessionId = useSessionStore((state) => state.sessionId)
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
-  const currentMode = useSessionStore((state) => state.currentMode)
   const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
   const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const jobsPanelOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
@@ -96,12 +94,12 @@ export function AppShell({ children }: PropsWithChildren) {
             <div className="shell__dataset">
               <span className="shell__session-label">Активный датасет</span>
               <strong className="shell__dataset-name">{datasetName ?? datasetId}</strong>
-              <span className="shell__session-value">{sessionId}</span>
+              <span className="shell__session-value">{fineTuneEnabled ? 'Профиль: подготовленный' : 'Профиль: базовый'}</span>
             </div>
 
             <nav className="shell__nav">
               {workflowStages.map((stage) => {
-                const isSkipped = isStageSkipped(stage, workflowStage, currentMode, fineTuneEnabled, fineTuneResolved)
+                const isSkipped = isStageSkipped(stage, workflowStage, fineTuneEnabled, fineTuneResolved)
                 const isCompleted = !isSkipped && currentStageIndex > workflowStages.indexOf(stage)
                 return (
                   <NavLink
@@ -141,19 +139,11 @@ export function AppShell({ children }: PropsWithChildren) {
 function isStageSkipped(
   stage: WorkflowStage,
   currentStage: WorkflowStage,
-  currentMode: ReturnType<typeof useSessionStore.getState>['currentMode'],
   fineTuneEnabled: boolean,
   fineTuneResolved: boolean,
 ) {
-  const modeStageIndex = workflowStages.indexOf('mode-select')
   const currentStageIndex = workflowStages.indexOf(currentStage)
   if (stage === 'fine-tune' && fineTuneResolved && !fineTuneEnabled && currentStageIndex >= workflowStages.indexOf('fine-tune')) {
-    return true
-  }
-  if (stage === 'generate' && currentMode === 'modify' && currentStageIndex >= modeStageIndex) {
-    return true
-  }
-  if (stage === 'modify' && currentMode === 'generate' && currentStageIndex >= modeStageIndex) {
     return true
   }
   return false

@@ -92,9 +92,12 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
     payload = request.json()
     if not isinstance(payload, dict):
         raise AppError(400, "Некорректное тело модификации.")
+    prompt = payload.get("prompt")
     source_path = payload.get("sourcePath")
     sample_count = payload.get("sampleCount")
     config = payload.get("config")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise AppError(400, "Для модификации нужен prompt.")
     if not isinstance(source_path, str) or not source_path:
         raise AppError(400, "Для модификации нужен sourcePath.")
     if not isinstance(sample_count, int) or sample_count <= 0:
@@ -109,7 +112,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
             connection,
             session_id=session_id,
             task_type=TaskType.MODIFICATION,
-            payload={"sourcePath": source_path, "sampleCount": sample_count, "config": config},
+            payload={"prompt": prompt, "sourcePath": source_path, "sampleCount": sample_count, "config": config},
             dataset_version_id=context["current_dataset_version_id"],
         )
     await enqueue_task(

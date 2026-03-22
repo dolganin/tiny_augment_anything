@@ -19,6 +19,7 @@ import { GenerationConfigFields } from '@/features/generation-config/GenerationC
 import '@/features/generation-config/generation-config.css'
 
 type ModifyFormValues = {
+  prompt: string
   sampleCount: number
 }
 
@@ -36,6 +37,7 @@ export function ModifyPage() {
   const modificationMutation = useStartModificationMutation(sessionId ?? '')
   const form = useForm<ModifyFormValues>({
     defaultValues: {
+      prompt: '',
       sampleCount: 1,
     },
   })
@@ -54,6 +56,7 @@ export function ModifyPage() {
     setFieldValues(nextFieldValues)
     setSession({ generationConfig: nextFieldValues })
     form.reset({
+      prompt: '',
       sampleCount: config.sampleCount,
     })
   }, [configQuery.data, form, setSession])
@@ -123,6 +126,7 @@ export function ModifyPage() {
 
     try {
       const response = await modificationMutation.mutateAsync({
+        prompt: values.prompt,
         sourcePath: source.assetPath,
         sampleCount: Number(values.sampleCount),
         config: fieldValues,
@@ -154,6 +158,15 @@ export function ModifyPage() {
             </section>
 
             <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
+              <label className="generation-form__group">
+                <span className="generation-form__label">Промпт модификации</span>
+                <textarea
+                  className="generation-form__textarea"
+                  placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
+                  {...form.register('prompt', { required: true })}
+                />
+              </label>
+
               <label className="generation-form__group">
                 <span className="generation-form__label">Количество новых изображений</span>
                 <input
