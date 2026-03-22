@@ -5,16 +5,13 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir uv
+COPY backend/requirements.runtime.txt /tmp/requirements.runtime.txt
 
-COPY pyproject.toml uv.lock README.md ./
-COPY src ./src
+RUN pip install --no-cache-dir -r /tmp/requirements.runtime.txt
+
 COPY backend ./backend
 COPY config ./config
-COPY scripts_for_gen ./scripts_for_gen
-
-RUN uv sync --frozen && pip install --no-cache-dir torch torchvision -r scripts_for_gen/requirements.generate.txt
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "backend.app.asgi:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "backend.app.asgi:app", "--host", "0.0.0.0", "--port", "8000"]

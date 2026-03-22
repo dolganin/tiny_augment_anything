@@ -32,13 +32,8 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./config:/app/config
-      - ./src:/app/src
-      - ./scripts_for_gen:/app/scripts_for_gen
       - ./storage/tiny-augment:/big_data/augment_anything
-      - ./pyproject.toml:/app/pyproject.toml
-      - ./uv.lock:/app/uv.lock
-      - ./README.md:/app/README.md
-    command: ["uv", "run", "--no-sync", "uvicorn", "backend.app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    command: ["python", "-m", "uvicorn", "backend.app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,22 +58,36 @@ services:
       dockerfile: backend/Dockerfile
     container_name: tiny_augment_worker
     working_dir: /app
-    command: ["uv", "run", "--no-sync", "python", "-m", "backend.worker"]
+    command: ["python", "-m", "backend.worker"]
     environment:
       APP_CONFIG_PATH: /app/config/app.yaml
       APP_RUNTIME_DIR: /big_data/augment_anything
     volumes:
       - ./backend:/app/backend
       - ./config:/app/config
-      - ./src:/app/src
-      - ./scripts_for_gen:/app/scripts_for_gen
       - ./storage/tiny-augment:/big_data/augment_anything
-      - ./pyproject.toml:/app/pyproject.toml
-      - ./uv.lock:/app/uv.lock
-      - ./README.md:/app/README.md
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  ml-worker:
+    build:
+      context: .
+      dockerfile: backend/ml-worker.Dockerfile
+    container_name: tiny_augment_ml_worker
+    working_dir: /app
+    command: ["python", "-m", "backend.ml_worker"]
+    environment:
+      APP_CONFIG_PATH: /app/config/app.yaml
+      APP_RUNTIME_DIR: /big_data/augment_anything
+    volumes:
+      - ./backend:/app/backend
+      - ./config:/app/config
+      - ./scripts_for_gen:/app/scripts_for_gen
+      - ./storage/tiny-augment:/big_data/augment_anything
+    depends_on:
       redis:
         condition: service_started
 
