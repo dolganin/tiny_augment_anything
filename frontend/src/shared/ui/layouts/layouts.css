@@ -36,6 +36,17 @@
   box-shadow: 0 16px 36px rgba(48, 98, 187, 0.18);
 }
 
+.shell__logo-link {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 20px;
+  transition: transform var(--transition-base);
+}
+
+.shell__logo-link:hover {
+  transform: translateY(-3px);
+}
+
 .shell__eyebrow,
 .page-frame__eyebrow {
   margin: 0;

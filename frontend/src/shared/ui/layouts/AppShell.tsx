@@ -40,7 +40,9 @@ export function AppShell({ children }: PropsWithChildren) {
     <div className="shell">
       <aside className="shell__sidebar">
         <div className="shell__brand">
-          <img alt="Логотип Tiny Augment Anything" className="shell__logo" height="72" src="/favicon/favicon-512.png" width="72" />
+          <NavLink aria-label="Перейти на главную" className="shell__logo-link" to="/datasets">
+            <img alt="Логотип Tiny Augment Anything" className="shell__logo" height="72" src="/favicon/favicon-512.png" width="72" />
+          </NavLink>
           <p className="shell__eyebrow">Tiny Augment Anything</p>
           <h1 className="shell__title">Датасеты и пайплайны</h1>
           <p className="shell__subtitle">Каталог проектов и очередь фоновых задач.</p>
