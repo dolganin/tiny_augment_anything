@@ -56,6 +56,23 @@ async def find_asset_by_storage_path(connection, session_id: UUID, storage_path:
         return await cursor.fetchone()
 
 
+async def find_asset_by_id(connection, session_id: UUID, asset_id: UUID) -> dict[str, Any] | None:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT a.*
+            FROM dataset_assets a
+            JOIN sessions s ON s.dataset_id = a.dataset_id
+            WHERE s.id = %s
+              AND a.id = %s
+              AND a.deleted_at IS NULL
+            LIMIT 1
+            """,
+            (session_id, asset_id),
+        )
+        return await cursor.fetchone()
+
+
 async def create_candidate_asset(
     connection,
     dataset_id: UUID,

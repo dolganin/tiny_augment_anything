@@ -3,19 +3,29 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from uuid import UUID
+from uuid import UUID as UUIDType
 
 from backend.app.domain.enums import AssetOrigin, TaskStatus, WorkflowStage
 from backend.app.repositories.tasks import get_task
 from backend.app.repositories.workflow_assets import (
     create_asset_link,
     create_candidate_asset,
-    find_asset_by_storage_path,
+    find_asset_by_id,
     get_random_approved_asset,
 )
 from backend.app.repositories.workflow_runs import complete_augmentation_run, create_augmentation_run
 from backend.app.repositories.workflow_session import get_session_context, update_session_stage
 from backend.app.services.filesystem import dataset_generated_dir, dataset_modified_dir, make_relative_path
-from backend.app.services.zimage import build_command, build_records, build_run_bundle, load_results, prepare_run_bundle, run_command
+from backend.app.services.zimage import (
+    build_command,
+    build_records,
+    build_run_bundle,
+    build_segment_command,
+    has_mask_records,
+    load_results,
+    prepare_run_bundle,
+    run_command,
+)
 from backend.app.workers.shared import checksum_bytes, emit_cancelled, emit_completion, emit_event, emit_failure, ensure_not_cancelled, load_binary
 
 
@@ -31,7 +41,11 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
         sample_count = int(payload["sampleCount"])
         source_asset = None
         if mode == WorkflowStage.MODIFY.value:
-            source_asset = await find_asset_by_storage_path(connection, session_id, str(payload["sourcePath"]))
+            source_asset_id = _parse_asset_id(payload.get("sourceAssetId"))
+            if source_asset_id is None:
+                await emit_failure(runtime_state, connection, session_id, task_id, "Некорректный источник для модификации.")
+                return
+            source_asset = await find_asset_by_id(connection, session_id, source_asset_id)
             if source_asset is None:
                 await emit_failure(runtime_state, connection, session_id, task_id, "Источник для модификации не найден.")
                 return
@@ -84,6 +98,7 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
             template_asset["id"],
             str(payload.get("prompt", "")),
             dict(payload.get("config", {})),
+            _parse_area_box(payload.get("areaBox")),
             _build_class_pool(context, template_asset["class_name"]),
         )
 
@@ -101,6 +116,7 @@ async def _run_zimage_generation(
     parent_asset_id: UUID,
     prompt: str,
     config: dict[str, object],
+    area_box: list[float] | None,
     class_pool: list[str],
 ) -> None:
     if not source_path.exists():
@@ -126,16 +142,68 @@ async def _run_zimage_generation(
         prompt=prompt,
         sample_count=sample_count,
         config=config,
+        area_box=area_box,
     )
     bundle = build_run_bundle(runtime_state.runtime_paths, task_id)
     prepare_run_bundle(bundle, records)
-    command = build_command(runtime_state.settings, bundle, config, None)
 
     async def is_cancelled() -> bool:
         return await ensure_not_cancelled(connection, task_id)
 
+    if area_box is not None:
+        await emit_event(
+            runtime_state,
+            connection,
+            session_id,
+            task_id,
+            event_name,
+            {"progress": 0.15, "message": "Строю маску выбранной области."},
+            status=TaskStatus.RUNNING,
+            progress=0.15,
+            message="segmenting",
+        )
+        segment_command = build_segment_command(runtime_state.settings, bundle)
+        try:
+            await run_command(
+                segment_command,
+                bundle,
+                expected_outputs=1,
+                is_cancelled=is_cancelled,
+                on_progress=lambda current_count, expected_count: emit_event(
+                    runtime_state,
+                    connection,
+                    session_id,
+                    task_id,
+                    event_name,
+                    {"progress": 0.2, "message": f"Подготовлено масок: {current_count}"},
+                    status=TaskStatus.RUNNING,
+                    progress=0.2,
+                    message=f"segmented {current_count}/{expected_count}",
+                ),
+                stdout_log_path=bundle.segment_stdout_log_path,
+                stderr_log_path=bundle.segment_stderr_log_path,
+                watch_dir=bundle.masks_dir,
+            )
+        except Exception as error:
+            if str(error) == "cancelled":
+                await emit_cancelled(runtime_state, connection, session_id, task_id, "Задача модификации была остановлена пользователем.")
+                return
+            await emit_failure(runtime_state, connection, session_id, task_id, str(error))
+            return
+        if not has_mask_records(bundle):
+            await emit_failure(runtime_state, connection, session_id, task_id, "Не удалось построить маску по выбранной области.")
+            return
+
+    command = build_command(
+        runtime_state.settings,
+        bundle,
+        config,
+        None,
+        bundle.segmented_json_path if area_box is not None else bundle.input_json_path,
+    )
+
     async def on_progress(current_count: int, expected_count: int) -> None:
-        progress = min(0.9, current_count / max(expected_count, 1))
+        progress = min(0.95, 0.25 + current_count / max(expected_count, 1) * 0.65)
         await emit_event(
             runtime_state,
             connection,
@@ -269,3 +337,27 @@ async def _run_stub_generation(
 def _build_class_pool(context: dict, fallback_class_name: str) -> list[str]:
     selected_classes = context["selected_classes"] if isinstance(context["selected_classes"], list) else []
     return [str(item) for item in selected_classes if isinstance(item, str)] or [fallback_class_name]
+
+
+def _parse_asset_id(value: object) -> UUIDType | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return UUID(value)
+    except ValueError:
+        return None
+
+
+def _parse_area_box(value: object) -> list[float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    parsed: list[float] = []
+    for item in value:
+        if not isinstance(item, (int, float)):
+            return None
+        parsed.append(float(item))
+    if parsed[2] <= parsed[0] or parsed[3] <= parsed[1]:
+        return None
+    return parsed

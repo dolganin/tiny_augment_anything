@@ -18,3 +18,5 @@ executor:
   mode: zimage_json
   python_bin: python
   script_path: ../scripts_for_gen/generate_zimage_json.py
+  segment_script_path: ../scripts_for_gen/segment_sam2_json.py
+  segment_model_id: facebook/sam2.1-hiera-small

@@ -20,6 +20,8 @@ class Settings:
     executor_mode: str
     executor_python_bin: str
     executor_script_path: Path
+    executor_segment_script_path: Path
+    executor_segment_model_id: str
 
 
 def load_settings() -> Settings:
@@ -55,6 +57,14 @@ def load_settings() -> Settings:
         executor_script_path=_resolve_path(
             os.getenv("EXECUTOR_SCRIPT_PATH") or _get_config_value(config, ("executor", "script_path"), "../scripts_for_gen/generate_zimage_json.py"),
             config_path.parent,
+        ),
+        executor_segment_script_path=_resolve_path(
+            os.getenv("EXECUTOR_SEGMENT_SCRIPT_PATH") or _get_config_value(config, ("executor", "segment_script_path"), "../scripts_for_gen/segment_sam2_json.py"),
+            config_path.parent,
+        ),
+        executor_segment_model_id=str(
+            os.getenv("EXECUTOR_SEGMENT_MODEL_ID")
+            or _get_config_value(config, ("executor", "segment_model_id"), "facebook/sam2.1-hiera-small")
         ),
     )
 

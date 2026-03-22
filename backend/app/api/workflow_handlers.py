@@ -83,7 +83,14 @@ async def modification_source(request: Request, params: dict[str, str], state: o
         asset = await get_random_approved_asset(connection, session_id)
     if asset is None:
         raise AppError(404, "Для модификации не найдено подходящее изображение.")
-    return json_response(200, {"assetPath": asset["storage_path"], "className": asset["class_name"]})
+    return json_response(
+        200,
+        {
+            "assetId": str(asset["id"]),
+            "previewPath": asset["preview_path"],
+            "className": asset["class_name"],
+        },
+    )
 
 
 async def start_modification(request: Request, params: dict[str, str], state: object):
@@ -93,17 +100,23 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
     if not isinstance(payload, dict):
         raise AppError(400, "Некорректное тело модификации.")
     prompt = payload.get("prompt")
-    source_path = payload.get("sourcePath")
+    source_asset_id = payload.get("sourceAssetId")
     sample_count = payload.get("sampleCount")
     config = payload.get("config")
+    area_box = payload.get("areaBox")
     if not isinstance(prompt, str) or not prompt.strip():
         raise AppError(400, "Для модификации нужен prompt.")
-    if not isinstance(source_path, str) or not source_path:
-        raise AppError(400, "Для модификации нужен sourcePath.")
+    if not isinstance(source_asset_id, str) or not source_asset_id:
+        raise AppError(400, "Для модификации нужен sourceAssetId.")
     if not isinstance(sample_count, int) or sample_count <= 0:
         raise AppError(400, "sampleCount должен быть положительным числом.")
     if not isinstance(config, dict):
         raise AppError(400, "Нужен объект config.")
+    if area_box is not None:
+        if not isinstance(area_box, list) or len(area_box) != 4:
+            raise AppError(400, "areaBox должен содержать 4 координаты.")
+        if not all(isinstance(value, (int, float)) for value in area_box):
+            raise AppError(400, "areaBox должен содержать только числа.")
     async with runtime_state.database.connection() as connection:
         context = await get_session_context(connection, session_id)
         if context is None or context["current_dataset_version_id"] is None:
@@ -112,7 +125,13 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
             connection,
             session_id=session_id,
             task_type=TaskType.MODIFICATION,
-            payload={"prompt": prompt, "sourcePath": source_path, "sampleCount": sample_count, "config": config},
+            payload={
+                "prompt": prompt,
+                "sourceAssetId": source_asset_id,
+                "sampleCount": sample_count,
+                "config": config,
+                "areaBox": [float(value) for value in area_box] if area_box is not None else None,
+            },
             dataset_version_id=context["current_dataset_version_id"],
         )
     await enqueue_task(
