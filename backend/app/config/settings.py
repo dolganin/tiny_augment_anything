@@ -18,6 +18,8 @@ class Settings:
     redis_queue_name: str
     redis_events_prefix: str
     executor_mode: str
+    executor_python_bin: str
+    executor_script_path: Path
 
 
 def load_settings() -> Settings:
@@ -49,6 +51,11 @@ def load_settings() -> Settings:
             or _get_config_value(config, ("redis", "events_prefix"), "tiny_augment:events")
         ),
         executor_mode=str(os.getenv("EXECUTOR_MODE") or _get_config_value(config, ("executor", "mode"), "stub")),
+        executor_python_bin=str(os.getenv("EXECUTOR_PYTHON_BIN") or _get_config_value(config, ("executor", "python_bin"), "python")),
+        executor_script_path=_resolve_path(
+            os.getenv("EXECUTOR_SCRIPT_PATH") or _get_config_value(config, ("executor", "script_path"), "../scripts_for_gen/generate_zimage_json.py"),
+            config_path.parent,
+        ),
     )
 
 

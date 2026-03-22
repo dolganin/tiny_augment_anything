@@ -33,6 +33,7 @@ services:
       - ./backend:/app/backend
       - ./config:/app/config
       - ./src:/app/src
+      - ./scripts_for_gen:/app/scripts_for_gen
       - ./storage/tiny-augment:/big_data/augment_anything
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
@@ -70,6 +71,7 @@ services:
       - ./backend:/app/backend
       - ./config:/app/config
       - ./src:/app/src
+      - ./scripts_for_gen:/app/scripts_for_gen
       - ./storage/tiny-augment:/big_data/augment_anything
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock

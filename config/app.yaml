@@ -15,4 +15,6 @@ redis:
   events_prefix: tiny_augment:events
 
 executor:
-  mode: stub
+  mode: zimage_json
+  python_bin: python
+  script_path: ../scripts_for_gen/generate_zimage_json.py
