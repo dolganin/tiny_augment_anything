@@ -120,25 +120,53 @@ class ZImageGenerator:
     def __init__(self, model_id, device, dtype, lora_path, lora_scale):
         self.torch = torch
         self.device = device
-        self.img2img = ZImageImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype).to(device)
-        self.inpaint = ZImageInpaintPipeline.from_pretrained(model_id, torch_dtype=dtype).to(device)
-        
+        self.dtype = dtype
+        self.model_id = model_id
+        self.lora_path = lora_path
         self.lora_scale = lora_scale
-        if lora_path:
-            p = Path(lora_path)
+        self.pipe = None
+        self.pipe_kind = None
+
+    def _clear_pipe(self):
+        if self.pipe is not None:
+            try:
+                self.pipe.to("cpu")
+            except Exception:
+                pass
+            del self.pipe
+            self.pipe = None
+            self.pipe_kind = None
+            if self.device.startswith("cuda"):
+                self.torch.cuda.empty_cache()
+
+    def _load_pipe(self, kind):
+        if self.pipe is not None and self.pipe_kind == kind:
+            return self.pipe
+
+        self._clear_pipe()
+
+        if kind == "inpaint":
+            pipe = ZImageInpaintPipeline.from_pretrained(
+                self.model_id,
+                torch_dtype=self.dtype,
+            ).to(self.device)
+        else:
+            pipe = ZImageImg2ImgPipeline.from_pretrained(
+                self.model_id,
+                torch_dtype=self.dtype,
+            ).to(self.device)
+
+        if self.lora_path:
+            p = Path(self.lora_path)
             adapter_dir = str(p.parent)
             weight_name = p.name
+            pipe.load_lora_weights(adapter_dir, weight_name=weight_name)
 
-            self.img2img.load_lora_weights(
-                adapter_dir,
-                weight_name=weight_name,
-            )
-            self.inpaint.load_lora_weights(
-                adapter_dir,
-                weight_name=weight_name,
-            )
+        self.pipe = pipe
+        self.pipe_kind = kind
+        return pipe
 
-    def _generator(self, seed: int):
+    def _generator(self, seed):
         if self.device.startswith("cuda"):
             return self.torch.Generator(device=self.device).manual_seed(seed)
         return self.torch.Generator().manual_seed(seed)
@@ -151,8 +179,10 @@ class ZImageGenerator:
         strength,
         steps,
         guidance_scale,
-        seed):
-        return self.img2img(
+        seed,
+    ):
+        pipe = self._load_pipe("img2img")
+        return pipe(
             prompt=prompt,
             image=image,
             negative_prompt=negative_prompt,
@@ -160,7 +190,7 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-            cross_attention_kwargs={"scale": self.lora_scale}
+            cross_attention_kwargs={"scale": self.lora_scale},
         ).images[0]
 
     def generate_inpaint(
@@ -172,8 +202,10 @@ class ZImageGenerator:
         strength,
         steps,
         guidance_scale,
-        seed):
-        return self.inpaint(
+        seed,
+    ):
+        pipe = self._load_pipe("inpaint")
+        return pipe(
             prompt=prompt,
             image=image,
             mask_image=mask_image,
@@ -182,7 +214,7 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-            cross_attention_kwargs={"scale": self.lora_scale}
+            cross_attention_kwargs={"scale": self.lora_scale},
         ).images[0]
 
 
