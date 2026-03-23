@@ -92,10 +92,7 @@ export function DatasetStatsPage() {
 
   return (
     <>
-      <PageFrame
-        title="Статистика классов"
-        description="Проверь редкие классы, выбери нужные категории и переходи к следующему этапу аугментации."
-      >
+      <PageFrame title="Статистика классов">
         <div className="dataset-stats__summary">
           <div className="dataset-stats__summary-card">
             <span className="dataset-stats__summary-label">Датасет</span>

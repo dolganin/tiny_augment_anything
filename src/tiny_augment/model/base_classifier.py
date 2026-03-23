@@ -47,8 +47,16 @@ class ISICClassifier(nn.Module):
             model_name=backbone,
             pretrained=pretrained,
             drop_rate=drop_rate,
-            num_classes=num_classes,
+            num_classes=0,
             drop_path_rate=drop_path_rate,
+        )
+        in_features = int(getattr(self.model, "num_features"))
+        self.head = nn.Sequential(
+            nn.Linear(in_features, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, num_classes),
         )
 
         self._apply_finetune_strategy(trainable_prefixes)
@@ -68,7 +76,10 @@ class ISICClassifier(nn.Module):
             Raw logits of shape (B, num_classes).
         """
 
-        return self.model(x)
+        features = self.model(x)
+        if features.ndim > 2:
+            features = torch.flatten(features, 1)
+        return self.head(features)
 
     def load_checkpoint(self, checkpoint_path: str | Path) -> None:
         """
@@ -85,13 +96,13 @@ class ISICClassifier(nn.Module):
         if (state_dict := checkpoint.get("model_state_dict", None)) is None:
             raise RuntimeError("No checkpoint.")
 
-        current_state = self.model.state_dict()
+        current_state = self.state_dict()
         compatible_state = {
             key: value
             for key, value in state_dict.items()
             if key in current_state and current_state[key].shape == value.shape
         }
-        self.model.load_state_dict(compatible_state, strict=False)
+        self.load_state_dict(compatible_state, strict=False)
 
     def _apply_finetune_strategy(self, trainable_prefixes: list[str] | None) -> None:
         """
@@ -108,10 +119,11 @@ class ISICClassifier(nn.Module):
 
         for param in self.model.parameters():
             param.requires_grad = False
+        for param in self.head.parameters():
+            param.requires_grad = False
 
         if self.finetune_mode == "head":
-            classifier = self.model.get_classifier()  # type: ignore
-            for param in classifier.parameters():
+            for param in self.head.parameters():
                 param.requires_grad = True
 
         elif self.finetune_mode == "partial":

@@ -138,7 +138,6 @@ export function GeneratePage() {
     <>
       <PageFrame
         title="Генерация по промпту"
-        description="Промпт задаётся слева, а набор параметров, пришедших из YAML-конфига, редактируется как обычные текстовые поля."
         aside={<GenerateAside fieldCount={fields.length} />}
       >
         {configQuery.isLoading ? (
