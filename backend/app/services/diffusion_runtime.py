@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 import importlib.util
 from pathlib import Path
@@ -285,6 +286,34 @@ def preload_diffusion_pipe(warmed: WarmedDiffusionRuntime, kind: str = "img2img"
     load_pipe = getattr(generator, "_load_pipe", None)
     if callable(load_pipe):
         load_pipe(kind)
+
+
+def release_warm_diffusion_runtime(warmed: WarmedDiffusionRuntime) -> None:
+    cached = _runtime_cache.get(warmed.key)
+    if cached is warmed:
+        _runtime_cache.pop(warmed.key, None)
+    raw_generator = getattr(warmed.generator, "_inner", warmed.generator)
+    clear_pipe = getattr(raw_generator, "_clear_pipe", None)
+    if callable(clear_pipe):
+        clear_pipe()
+    torch_module = getattr(raw_generator, "torch", None)
+    if torch_module is not None and warmed.key.device.startswith("cuda"):
+        try:
+            torch_module.cuda.empty_cache()
+        except Exception:
+            pass
+        try:
+            torch_module.cuda.ipc_collect()
+        except Exception:
+            pass
+    gc.collect()
+
+
+def release_all_diffusion_runtimes() -> None:
+    cached_runtimes = list(_runtime_cache.values())
+    _runtime_cache.clear()
+    for warmed in cached_runtimes:
+        release_warm_diffusion_runtime(warmed)
 
 
 def load_generate_module(settings: Settings) -> GenerateModule:

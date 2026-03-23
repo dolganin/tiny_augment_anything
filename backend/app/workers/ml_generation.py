@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.diffusion_runtime import preload_diffusion_pipe, warm_diffusion_runtime
+from backend.app.services.diffusion_runtime import (
+    preload_diffusion_pipe,
+    release_all_diffusion_runtimes,
+    release_warm_diffusion_runtime,
+    warm_diffusion_runtime,
+)
 from backend.app.services.zimage import (
     build_run_bundle_from_dir,
     has_mask_records,
@@ -71,6 +76,7 @@ async def _prepare_diffusion_runtime(runtime_state, bundle) -> None:
             "message": "Загружаю пайплайн диффузии в память.",
         },
     )
+    warmed = None
     try:
         warmed = warm_diffusion_runtime(runtime_state.settings, config)
         preload_diffusion_pipe(warmed, "img2img")
@@ -319,6 +325,10 @@ async def _run_generation(runtime_state, bundle) -> None:
     except RuntimeError as error:
         _write_terminal_state(bundle, error)
         return
+    finally:
+        if warmed is not None:
+            release_warm_diffusion_runtime(warmed)
+        release_all_diffusion_runtimes()
 
     log_event(
         logger,

@@ -5,12 +5,16 @@ import { GenerationAsset } from '@/shared/types/workflow'
 type ReviewQueueProps = {
   asset: GenerationAsset | null
   approvedCount: number
+  galleryOpen: boolean
+  generatedPreviewUrls: string[]
   pendingCount: number
   remainingCount: number
   targetCount: number
   onApprove: () => void
+  onCloseGallery: () => void
   onReject: () => void
   onClose: () => void
+  onOpenGallery: () => void
   onStartClassifier: () => void
   isMutating: boolean
 }
@@ -18,12 +22,16 @@ type ReviewQueueProps = {
 export function ReviewQueue({
   asset,
   approvedCount,
+  galleryOpen,
+  generatedPreviewUrls,
   pendingCount,
   remainingCount,
   targetCount,
   onApprove,
+  onCloseGallery,
   onReject,
   onClose,
+  onOpenGallery,
   onStartClassifier,
   isMutating,
 }: ReviewQueueProps) {
@@ -82,9 +90,16 @@ export function ReviewQueue({
               <span>В очереди {pendingCount}</span>
               <span>Осталось добрать {remainingCount}</span>
             </div>
-            <Button onClick={onClose} type="button" variant="ghost">
-              Выйти
-            </Button>
+            <div className="review-overlay__toolbar-actions">
+              {generatedPreviewUrls.length > 0 ? (
+                <Button onClick={onOpenGallery} type="button" variant="secondary">
+                  Синтетика ({generatedPreviewUrls.length})
+                </Button>
+              ) : null}
+              <Button onClick={onClose} type="button" variant="ghost">
+                Выйти
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -142,6 +157,31 @@ export function ReviewQueue({
           </Button>
         </div>
       </section>
+
+      {galleryOpen ? (
+        <section aria-modal="true" className="review-gallery" role="dialog">
+          <div className="review-gallery__head">
+            <div>
+              <p className="review-overlay__eyebrow">Синтетические результаты</p>
+              <h3 className="review-gallery__title">Текущая партия генерации</h3>
+            </div>
+            <Button onClick={onCloseGallery} type="button" variant="ghost">
+              Закрыть
+            </Button>
+          </div>
+          <div className="review-gallery__grid">
+            {generatedPreviewUrls.map((previewUrl, index) => (
+              <img
+                alt={`Синтетический результат ${index + 1}`}
+                className="review-gallery__image"
+                key={`${previewUrl}-${index}`}
+                loading="lazy"
+                src={previewUrl}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }

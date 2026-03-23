@@ -25,6 +25,7 @@ export function ReviewWorkspace({ open, onClose, onStartClassifier }: ReviewWork
   const approveMutation = useApproveAssetMutation(sessionId ?? '')
   const rejectMutation = useRejectAssetMutation(sessionId ?? '')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
 
   const queue = useMemo(() => {
     if (!resultsQuery.data) {
@@ -40,6 +41,7 @@ export function ReviewWorkspace({ open, onClose, onStartClassifier }: ReviewWork
   }, [resultsQuery.error])
 
   const currentAsset = queue?.items[0] ?? null
+  const generatedPreviewUrls = queue?.items.map((item) => item.previewUrl) ?? []
 
   const handleApprove = async () => {
     if (!sessionId || !currentAsset) {
@@ -95,9 +97,13 @@ export function ReviewWorkspace({ open, onClose, onStartClassifier }: ReviewWork
       <ReviewQueue
         approvedCount={approvedItems.length}
         asset={currentAsset}
+        galleryOpen={isGalleryOpen}
+        generatedPreviewUrls={generatedPreviewUrls}
         isMutating={approveMutation.isPending || rejectMutation.isPending}
         onApprove={() => void handleApprove()}
         onClose={onClose}
+        onCloseGallery={() => setIsGalleryOpen(false)}
+        onOpenGallery={() => setIsGalleryOpen(true)}
         onReject={() => void handleReject()}
         onStartClassifier={onStartClassifier}
         pendingCount={queue?.items.length ?? 0}

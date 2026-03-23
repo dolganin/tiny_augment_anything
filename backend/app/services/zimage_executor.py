@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import importlib.util
 import json
 import sys
@@ -93,43 +94,46 @@ async def prepare_prompt_segmented_input(
         dtype=dtype,
     )
     prepared: list[dict[str, Any]] = []
+    try:
+        for index, record in enumerate(records):
+            if await is_cancelled():
+                raise RuntimeError("cancelled")
 
-    for index, record in enumerate(records):
-        if await is_cancelled():
-            raise RuntimeError("cancelled")
+            rec = dict(record)
+            org_img = rec.get("org_img")
+            seg_prompt = rec.get("seg_prompt")
+            if not isinstance(org_img, str) or not org_img or not isinstance(seg_prompt, str) or not seg_prompt.strip():
+                prepared.append(rec)
+                await on_progress(index + 1, len(records))
+                continue
 
-        rec = dict(record)
-        org_img = rec.get("org_img")
-        seg_prompt = rec.get("seg_prompt")
-        if not isinstance(org_img, str) or not org_img or not isinstance(seg_prompt, str) or not seg_prompt.strip():
+            image_path = segment_module.utils.resolve_path(org_img, input_json_path.parent)
+            if not image_path.exists():
+                prepared.append(rec)
+                await on_progress(index + 1, len(records))
+                continue
+
+            with segment_module.Image.open(image_path) as raw_image:
+                image_np = segment_module.np.array(raw_image.convert("RGB"))
+            masks = segmenter.predict(
+                image_np=image_np,
+                prompt=seg_prompt.strip(),
+                semantic_type=bool(rec.get("seg_semantic")),
+            )
+            stem = segment_module.utils.sanitize_stem(str(rec.get("id", index)))
+            saved_masks = segment_module.save_masks(
+                masks,
+                out_dir=mask_dir,
+                stem=stem,
+                save_all=False,
+                compress_level=3,
+            )
+            rec["mask_path"] = saved_masks[0] if saved_masks else None
+            rec["mask_paths"] = saved_masks
             prepared.append(rec)
             await on_progress(index + 1, len(records))
-            continue
-
-        image_path = segment_module.utils.resolve_path(org_img, input_json_path.parent)
-        if not image_path.exists():
-            prepared.append(rec)
-            await on_progress(index + 1, len(records))
-            continue
-
-        image_np = segment_module.np.array(segment_module.Image.open(image_path).convert("RGB"))
-        masks = segmenter.predict(
-            image_np=image_np,
-            prompt=seg_prompt.strip(),
-            semantic_type=bool(rec.get("seg_semantic")),
-        )
-        stem = segment_module.utils.sanitize_stem(str(rec.get("id", index)))
-        saved_masks = segment_module.save_masks(
-            masks,
-            out_dir=mask_dir,
-            stem=stem,
-            save_all=False,
-            compress_level=3,
-        )
-        rec["mask_path"] = saved_masks[0] if saved_masks else None
-        rec["mask_paths"] = saved_masks
-        prepared.append(rec)
-        await on_progress(index + 1, len(records))
+    finally:
+        _cleanup_prompt_segmenter(segmenter)
 
     output_json_path.write_text(
         json.dumps(prepared, ensure_ascii=False, indent=2),
@@ -333,3 +337,29 @@ def _load_evf_segment_module(settings: Settings):
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _cleanup_prompt_segmenter(segmenter: object) -> None:
+    model = getattr(segmenter, "model", None)
+    if model is not None:
+        try:
+            model.to("cpu")
+        except Exception:
+            pass
+    for attr in ("model", "tokenizer", "beit3_preprocess", "sam_preprocess"):
+        if hasattr(segmenter, attr):
+            try:
+                delattr(segmenter, attr)
+            except Exception:
+                pass
+    torch_module = sys.modules.get("torch")
+    if torch_module is not None:
+        try:
+            torch_module.cuda.empty_cache()
+        except Exception:
+            pass
+        try:
+            torch_module.cuda.ipc_collect()
+        except Exception:
+            pass
+    gc.collect()
