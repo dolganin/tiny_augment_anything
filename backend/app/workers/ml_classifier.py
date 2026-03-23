@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,8 @@ from backend.app.services.classifier_runtime import (
 
 logger = get_logger(__name__)
 EPOCH_RE = re.compile(r"Epoch\s+(?P<epoch>\d+)\s+\|\s+Val Loss:\s+(?P<loss>[0-9.]+)\s+\|\s+Val F1 Macro:\s+(?P<f1>[0-9.]+)")
+EPOCH_PROGRESS_RE = re.compile(r"Epoch=(?P<epoch>\d+):\s+(?P<percent>\d+)%")
+TORCH_WARNING_RE = re.compile(r"^[WE]\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+")
 
 
 async def execute_classifier_training(runtime_state, task_payload: dict[str, Any]) -> None:
@@ -63,6 +66,32 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
         if not existing_pythonpath
         else f"{classifier_root}:{existing_pythonpath}"
     )
+    env.setdefault("UV_PROJECT_ENVIRONMENT", str(Path(classifier_root) / ".venv"))
+    env.setdefault("CC", shutil.which("gcc") or shutil.which("cc") or "/usr/bin/gcc")
+    env.setdefault("CXX", shutil.which("g++") or "/usr/bin/g++")
+
+    preflight_error = _validate_classifier_environment(runtime_state.settings, env)
+    if preflight_error is not None:
+        log_event(
+            logger,
+            40,
+            "ml_worker.classifier.preflight_failed",
+            run_dir=bundle.run_dir,
+            error=preflight_error,
+            compiler=env.get("CC"),
+            uv=shutil.which(runtime_state.settings.classifier_uv_bin),
+            project_env=env.get("UV_PROJECT_ENVIRONMENT"),
+        )
+        write_state(
+            bundle,
+            {
+                "status": "error",
+                "phase": "failed",
+                "progress": 1.0,
+                "message": preflight_error,
+            },
+        )
+        return
 
     total_epochs = int(config.get("hparams", {}).get("epochs", 10))
     write_state(
@@ -85,6 +114,8 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
         command=command,
         cwd=runtime_state.settings.classifier_pipeline_root,
         pythonpath=env["PYTHONPATH"],
+        compiler=env.get("CC"),
+        project_env=env.get("UV_PROJECT_ENVIRONMENT"),
     )
 
     with bundle.stdout_log_path.open("w", encoding="utf-8") as stdout_file, bundle.stderr_log_path.open(
@@ -245,6 +276,7 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
 
 async def _consume_stdout(process, bundle, stdout_file, total_epochs: int) -> None:
     assert process.stdout is not None
+    progress_state: dict[int, int] = {}
     while True:
         line = await process.stdout.readline()
         if not line:
@@ -252,30 +284,51 @@ async def _consume_stdout(process, bundle, stdout_file, total_epochs: int) -> No
         text = line.decode("utf-8", errors="ignore")
         stdout_file.write(text)
         stdout_file.flush()
-        stripped = text.strip()
-        if stripped:
-            _write_runtime_line(bundle, "bootstrapping", stripped, total_epochs, progress=0.2)
-        match = EPOCH_RE.search(stripped)
-        if match:
-            epoch = int(match.group("epoch"))
-            progress = min(0.95, 0.15 + 0.8 * (epoch / max(total_epochs, 1)))
-            write_state(
-                bundle,
-                {
-                    "status": "running",
-                    "phase": "training",
-                    "progress": progress,
-                    "message": stripped,
-                    "epoch": epoch,
-                    "totalEpochs": total_epochs,
-                    "valLoss": float(match.group("loss")),
-                    "valF1Macro": float(match.group("f1")),
-                },
-            )
+        for stripped in _extract_log_chunks(text):
+            match = EPOCH_RE.search(stripped)
+            if match:
+                epoch = int(match.group("epoch"))
+                progress = min(0.95, 0.15 + 0.8 * (epoch / max(total_epochs, 1)))
+                write_state(
+                    bundle,
+                    {
+                        "status": "running",
+                        "phase": "training",
+                        "progress": progress,
+                        "message": stripped,
+                        "epoch": epoch,
+                        "totalEpochs": total_epochs,
+                        "valLoss": float(match.group("loss")),
+                        "valF1Macro": float(match.group("f1")),
+                    },
+                )
+                continue
+
+            progress_update = _build_epoch_progress_message(stripped, progress_state, total_epochs)
+            if progress_update is not None:
+                epoch, message = progress_update
+                overall_progress = min(
+                    0.94,
+                    0.18 + 0.72 * ((epoch - 1) / max(total_epochs, 1)) + 0.04 * (progress_state[epoch] / 100),
+                )
+                _write_runtime_line(
+                    bundle,
+                    "training",
+                    message,
+                    total_epochs,
+                    progress=overall_progress,
+                    epoch=epoch,
+                )
+                continue
+
+            cleaned = _clean_runtime_message(stripped)
+            if cleaned:
+                _write_runtime_line(bundle, "bootstrapping", cleaned, total_epochs, progress=0.2)
 
 
 async def _consume_stderr(process, bundle, stderr_file, total_epochs: int) -> None:
     assert process.stderr is not None
+    progress_state: dict[int, int] = {}
     while True:
         line = await process.stderr.readline()
         if not line:
@@ -283,9 +336,26 @@ async def _consume_stderr(process, bundle, stderr_file, total_epochs: int) -> No
         text = line.decode("utf-8", errors="ignore")
         stderr_file.write(text)
         stderr_file.flush()
-        stripped = text.strip()
-        if stripped:
-            _write_runtime_line(bundle, "bootstrapping", f"stderr | {stripped}", total_epochs, progress=0.2)
+        for stripped in _extract_log_chunks(text):
+            progress_update = _build_epoch_progress_message(stripped, progress_state, total_epochs)
+            if progress_update is not None:
+                epoch, message = progress_update
+                overall_progress = min(
+                    0.94,
+                    0.18 + 0.72 * ((epoch - 1) / max(total_epochs, 1)) + 0.04 * (progress_state[epoch] / 100),
+                )
+                _write_runtime_line(
+                    bundle,
+                    "training",
+                    message,
+                    total_epochs,
+                    progress=overall_progress,
+                    epoch=epoch,
+                )
+                continue
+            cleaned = _clean_runtime_message(stripped)
+            if cleaned:
+                _write_runtime_line(bundle, "bootstrapping", cleaned, total_epochs, progress=0.2)
 
 
 def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
@@ -295,6 +365,7 @@ def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
     command = [
         settings.classifier_uv_bin,
         "run",
+        "--frozen",
         "do-finetune",
         f"model={config['modelKey']}",
         "model.object._target_=backend.app.services.classifier_head_override.build_model",
@@ -319,6 +390,29 @@ def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
     return command
 
 
+def _validate_classifier_environment(settings, env: dict[str, str]) -> str | None:
+    pipeline_root = Path(settings.classifier_pipeline_root)
+    pyproject_path = pipeline_root / "pyproject.toml"
+    src_root = pipeline_root / "src" / "tiny_augment"
+    uv_path = shutil.which(settings.classifier_uv_bin)
+    compiler_path = shutil.which(Path(env.get("CC", "")).name) or (
+        env.get("CC") if env.get("CC") and Path(env["CC"]).exists() else None
+    )
+    project_env = Path(env.get("UV_PROJECT_ENVIRONMENT", "")).resolve() if env.get("UV_PROJECT_ENVIRONMENT") else None
+
+    if uv_path is None:
+        return "Classifier environment is incomplete: uv binary is not available in ml-worker."
+    if not pyproject_path.exists():
+        return f"Classifier environment is incomplete: {pyproject_path} is missing."
+    if not src_root.exists():
+        return f"Classifier environment is incomplete: {src_root} is missing."
+    if compiler_path is None:
+        return "Classifier environment is incomplete: C compiler is not available in ml-worker."
+    if project_env is not None and not project_env.exists():
+        return f"Classifier environment is incomplete: virtualenv {project_env} is missing. Rebuild ml-worker image."
+    return None
+
+
 def _load_json_dict(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -340,9 +434,10 @@ def _write_runtime_line(
     total_epochs: int,
     *,
     progress: float,
+    epoch: int | None = None,
 ) -> None:
     current_state = _load_json_dict(bundle.state_path)
-    current_epoch = int(current_state.get("epoch") or 0)
+    current_epoch = epoch if epoch is not None else int(current_state.get("epoch") or 0)
     current_progress = max(progress, float(current_state.get("progress") or 0.0))
     write_state(
         bundle,
@@ -355,3 +450,48 @@ def _write_runtime_line(
             "totalEpochs": total_epochs,
         },
     )
+
+
+def _extract_log_chunks(text: str) -> list[str]:
+    chunks = []
+    for raw_chunk in re.split(r"[\r\n]+", text):
+        stripped = raw_chunk.strip()
+        if stripped:
+            chunks.append(stripped)
+    return chunks
+
+
+def _build_epoch_progress_message(
+    stripped: str,
+    progress_state: dict[int, int],
+    total_epochs: int,
+) -> tuple[int, str] | None:
+    match = EPOCH_PROGRESS_RE.search(stripped)
+    if match is None:
+        return None
+    epoch = int(match.group("epoch"))
+    percent = int(match.group("percent"))
+    previous = progress_state.get(epoch, -1)
+    if percent < 0 or percent > 100:
+        return None
+    if percent < 1 and previous >= 0:
+        return None
+    if previous >= 0 and percent < previous:
+        return None
+    if previous >= 0 and percent < 100 and percent - previous < 10:
+        return None
+    progress_state[epoch] = percent
+    return epoch, f"Эпоха {epoch}/{max(total_epochs, 1)}: обработано {percent}% батчей."
+
+
+def _clean_runtime_message(stripped: str) -> str | None:
+    lowered = stripped.lower()
+    if stripped.startswith("export GIT_PYTHON_REFRESH=quiet"):
+        return None
+    if "it/s" in stripped and "Epoch=" in stripped:
+        return None
+    if TORCH_WARNING_RE.match(stripped):
+        if "Not enough SMs to use max_autotune_gemm mode" in stripped:
+            return "Torch предупреждение: max_autotune_gemm недоступен на текущем GPU, продолжаю со стандартным режимом."
+        return f"Torch предупреждение: {stripped.split(']')[-1].strip()}"
+    return stripped

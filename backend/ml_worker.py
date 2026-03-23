@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
+import shutil
 
 from backend.app.config.settings import load_settings
 from backend.app.runtime.logging import configure_logging, get_logger, log_event
@@ -34,10 +36,29 @@ def _write_crash_state(task_payload: dict, task_type: object, message: str) -> N
     write_zimage_state(build_run_bundle_from_dir(run_dir), payload)
 
 
+def _log_classifier_environment(settings) -> None:
+    pipeline_root = Path(settings.classifier_pipeline_root)
+    project_env = Path(os.getenv("UV_PROJECT_ENVIRONMENT", str(pipeline_root / ".venv")))
+    log_event(
+        logger,
+        20,
+        "ml_worker.classifier.environment",
+        pipeline_root=pipeline_root,
+        uv=shutil.which(settings.classifier_uv_bin),
+        cc=shutil.which(os.getenv("CC", "gcc")),
+        cxx=shutil.which(os.getenv("CXX", "g++")),
+        pyproject_exists=(pipeline_root / "pyproject.toml").exists(),
+        src_exists=(pipeline_root / "src" / "tiny_augment").exists(),
+        venv_exists=project_env.exists(),
+        project_env=project_env,
+    )
+
+
 async def main() -> None:
     settings = load_settings()
     configure_logging(settings.app_log_level)
     log_event(logger, 20, "ml_worker.startup.begin", runtime_dir=settings.runtime_dir, log_level=settings.app_log_level)
+    _log_classifier_environment(settings)
     runtime_state = await bootstrap_ml_runtime(settings)
     log_event(logger, 20, "ml_worker.startup.ready", runtime_dir=runtime_state.settings.runtime_dir)
     try:
