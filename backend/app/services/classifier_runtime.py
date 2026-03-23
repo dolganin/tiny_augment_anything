@@ -213,10 +213,32 @@ def analyze_training_layout(
 
 
 def read_metrics(bundle: ClassifierRunBundle) -> dict:
-    if not bundle.metrics_path.exists():
-        return {}
-    payload = json.loads(bundle.metrics_path.read_text(encoding="utf-8"))
-    return payload if isinstance(payload, dict) else {}
+    candidate_paths = [bundle.metrics_path, bundle.checkpoints_dir / "best_metrics.json"]
+    if bundle.checkpoints_dir.exists():
+        candidate_paths.extend(
+            sorted(
+                (
+                    path
+                    for path in bundle.checkpoints_dir.rglob("best_metrics.json")
+                    if path.is_file()
+                ),
+                key=lambda path: (-path.stat().st_mtime, str(path)),
+            )
+        )
+
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            continue
+        if path != bundle.metrics_path:
+            bundle.metrics_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        return payload
+    return {}
 
 
 def resolve_checkpoint_path(bundle: ClassifierRunBundle) -> Path | None:

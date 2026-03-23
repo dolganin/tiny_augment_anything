@@ -55,6 +55,7 @@ async def list_modification_source_assets(
             JOIN sessions s ON s.dataset_id = a.dataset_id
             WHERE s.id = %s
               AND a.approved_in_version_id = s.current_dataset_version_id
+              AND a.origin_type = %s
               AND a.deleted_at IS NULL
               AND (
                 jsonb_array_length(s.selected_classes) = 0
@@ -65,7 +66,7 @@ async def list_modification_source_assets(
             ORDER BY a.class_name ASC, a.created_at DESC, a.id ASC
             LIMIT %s
             """,
-            (session_id, limit),
+            (session_id, AssetOrigin.ORIGINAL.value, limit),
         )
         return list(await cursor.fetchall())
 
