@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+import shutil
 from uuid import UUID
 
 from backend.app.domain.enums import TaskStatus, WorkflowStage
@@ -18,7 +19,6 @@ from backend.app.services.classifier_runtime import (
     prepare_training_layout,
     read_metrics,
     request_cancellation,
-    resolve_checkpoint_path,
 )
 from backend.app.services.downloads import build_dataset_download_archive
 from backend.app.services.queue import enqueue_ml_task
@@ -192,13 +192,13 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             await asyncio.sleep(0.5)
 
         metrics = _adapt_metrics(read_metrics(bundle), class_names)
-        checkpoint_path = resolve_checkpoint_path(bundle)
         await finish_classifier_run(
             connection,
             run_id,
             metrics,
-            checkpoint_path=None if checkpoint_path is None else checkpoint_path.as_posix(),
+            checkpoint_path=None,
         )
+        shutil.rmtree(bundle.checkpoints_dir, ignore_errors=True)
         archive_path, _ = await build_dataset_download_archive(
             connection=connection,
             runtime_paths=runtime_state.runtime_paths,

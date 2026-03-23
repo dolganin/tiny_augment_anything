@@ -213,7 +213,7 @@ export function ClassifierTrainPage() {
       weightDecay: Number(model.hparams.weight_decay ?? 0.000001),
       epochs: Number(model.hparams.epochs ?? 10),
     })
-    const reusableWeightsPath = model.checkpointPath ?? model.pretrainedWeightsPath
+    const reusableWeightsPath = model.pretrainedWeightsPath
     if (!reusableWeightsPath) {
       await clearWeightsSelection()
       return
@@ -536,14 +536,14 @@ export function ClassifierTrainPage() {
                         Классы: {model.classNames.length > 0 ? model.classNames.join(', ') : 'не сохранены'}
                       </p>
                       <p className="classifier-model-card__line">
-                        Веса: {(model.checkpointPath ?? model.pretrainedWeightsPath ?? 'нет').split('/').pop()}
+                        Веса: {(model.pretrainedWeightsPath ?? 'нет').split('/').pop()}
                       </p>
                       <p className="classifier-model-card__line">
                         Batch train/val: {Number(model.hparams.train_batch_size ?? 32)} / {Number(model.hparams.val_batch_size ?? 64)}
                       </p>
                       <div className="classifier-model-card__actions">
                         <Button
-                          disabled={!model.checkpointPath && !model.pretrainedWeightsPath}
+                          disabled={!model.pretrainedWeightsPath}
                           onClick={() => void applySavedModel(model)}
                           type="button"
                           variant="ghost"

@@ -118,8 +118,6 @@ export const adaptClassifierSummary = (response: {
     classNames: string[]
     hparams: Record<string, number>
     pretrainedWeightsPath?: string | null
-    checkpointPath?: string | null
-    checkpointsDir?: string | null
     metrics?: MetricsResponse | null
     createdAt?: string | null
     finishedAt?: string | null
@@ -141,8 +139,6 @@ export const adaptClassifierSummary = (response: {
     classNames: model.classNames,
     hparams: model.hparams,
     pretrainedWeightsPath: model.pretrainedWeightsPath ?? null,
-    checkpointPath: model.checkpointPath ?? null,
-    checkpointsDir: model.checkpointsDir ?? null,
     metrics: model.metrics ? adaptMetrics(model.metrics) : null,
     createdAt: model.createdAt ?? null,
     finishedAt: model.finishedAt ?? null,

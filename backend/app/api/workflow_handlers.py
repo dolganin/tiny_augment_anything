@@ -380,8 +380,6 @@ async def classifier_summary(request: Request, params: dict[str, str], state: ob
                     "classNames": run["class_names"] if isinstance(run["class_names"], list) else [],
                     "hparams": run["hparams"] if isinstance(run["hparams"], dict) else {},
                     "pretrainedWeightsPath": run["pretrained_weights_path"],
-                    "checkpointPath": run["checkpoint_path"],
-                    "checkpointsDir": run["checkpoints_dir"],
                     "metrics": run["metrics"] if isinstance(run["metrics"], dict) else None,
                     "createdAt": run["created_at"].isoformat() if run["created_at"] is not None else None,
                     "finishedAt": run["finished_at"].isoformat() if run["finished_at"] is not None else None,

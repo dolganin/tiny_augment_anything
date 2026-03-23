@@ -260,8 +260,6 @@ export const classifierSummaryResponseSchema = z.object({
       classNames: z.array(z.string()).default([]),
       hparams: z.record(z.number()).default({}),
       pretrainedWeightsPath: z.string().nullable().optional(),
-      checkpointPath: z.string().nullable().optional(),
-      checkpointsDir: z.string().nullable().optional(),
       metrics: metricsResponseSchema.nullable().optional(),
       createdAt: z.string().nullable().optional(),
       finishedAt: z.string().nullable().optional(),

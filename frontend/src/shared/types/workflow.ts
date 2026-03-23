@@ -95,8 +95,6 @@ export type TrainedClassifierModel = {
   classNames: string[]
   hparams: Record<string, number>
   pretrainedWeightsPath: string | null
-  checkpointPath: string | null
-  checkpointsDir: string | null
   metrics: WorkflowMetrics | null
   createdAt: string | null
   finishedAt: string | null
