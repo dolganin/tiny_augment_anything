@@ -5,6 +5,7 @@ import { useStartClassifierTrainingMutation } from '@/shared/api/workflow.hooks'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
+import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { useSessionStore } from '@/store/session/session.store'
 import '@/features/generation-config/generation-config.css'
@@ -30,7 +31,10 @@ export function ClassifierTrainPage() {
   const setSession = useSessionStore((state) => state.setSession)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [weightsFile, setWeightsFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isCancelling, setIsCancelling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadAbortRef = useRef<AbortController | null>(null)
   const classifierMutation = useStartClassifierTrainingMutation(sessionId ?? '')
   const form = useForm<ClassifierFormValues>({
     defaultValues: {
@@ -54,6 +58,8 @@ export function ClassifierTrainPage() {
   }, [classifierJobId, navigate])
 
   const handleWeightsChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setUploadProgress(0)
+    setIsCancelling(false)
     setWeightsFile(event.target.files?.[0] ?? null)
   }
 
@@ -81,7 +87,17 @@ export function ClassifierTrainPage() {
     }
 
     try {
-      const response = await classifierMutation.mutateAsync(payload)
+      const controller = new AbortController()
+      uploadAbortRef.current = controller
+      setUploadProgress(0)
+      setIsCancelling(false)
+      const response = await classifierMutation.mutateAsync({
+        payload,
+        signal: controller.signal,
+        onUploadProgress: (progress) => {
+          setUploadProgress(Math.round(progress * 100))
+        },
+      })
       setSession({
         classifierJobId: response.jobId,
         classifierLogs: [
@@ -93,11 +109,50 @@ export function ClassifierTrainPage() {
         workflowStage: 'metrics',
       })
       setErrorMessage(null)
+      setUploadProgress(100)
       navigate('/metrics')
     } catch (error) {
+      if (isClassifierAbortError(error)) {
+        setUploadProgress(0)
+        return
+      }
       setErrorMessage(getErrorMessage(error))
+    } finally {
+      uploadAbortRef.current = null
+      setIsCancelling(false)
     }
   })
+
+  const resetWeights = () => {
+    if (classifierMutation.isPending) {
+      return
+    }
+    setWeightsFile(null)
+    setUploadProgress(0)
+    setIsCancelling(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const abortUpload = () => {
+    if (!uploadAbortRef.current) {
+      return
+    }
+    setIsCancelling(true)
+    uploadAbortRef.current.abort()
+    uploadAbortRef.current = null
+  }
+
+  const weightsStatusLabel = classifierMutation.isPending
+    ? uploadProgress >= 100
+      ? 'Веса на сервере, запускаю обучение'
+      : `Загрузка весов: ${uploadProgress}%`
+    : isCancelling
+      ? 'Останавливаю отправку'
+      : weightsFile
+        ? `${weightsFile.name} готов к отправке`
+        : 'Файл весов не выбран'
 
   return (
     <>
@@ -150,6 +205,27 @@ export function ClassifierTrainPage() {
                       : 'Поддерживаются .bin, .ckpt, .pt, .pth. Можно пропустить.'}
                   </span>
                 </button>
+                {classifierMutation.isPending ? (
+                  <div className="upload-stage__loading">
+                    <div className="upload-stage__loading-head">
+                      <Spinner label={weightsStatusLabel} />
+                      <button
+                        aria-label="Сбросить загрузку весов"
+                        className="upload-stage__abort"
+                        onClick={abortUpload}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="upload-stage__progress">
+                      <div
+                        className="upload-stage__progress-bar"
+                        style={{ width: `${Math.max(uploadProgress, 8)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </label>
 
@@ -210,6 +286,9 @@ export function ClassifierTrainPage() {
 
             <div className="info-card">
               <p className="info-card__text">
+                Статус весов: <strong>{weightsStatusLabel}</strong>
+              </p>
+              <p className="info-card__text">
                 Если веса не загрузить, запуск пойдёт на базовой инициализации выбранной модели.
               </p>
               <p className="info-card__text">
@@ -223,6 +302,11 @@ export function ClassifierTrainPage() {
             <Button disabled={classifierMutation.isPending} type="submit">
               Запустить обучение
             </Button>
+            {weightsFile ? (
+              <Button disabled={classifierMutation.isPending} onClick={resetWeights} type="button" variant="ghost">
+                Сбросить веса
+              </Button>
+            ) : null}
           </form>
         ) : null}
 
@@ -261,4 +345,14 @@ function WeightUploadIllustration() {
       <rect x="33" y="82" width="54" height="8" rx="4" fill="currentColor" opacity="0.78" />
     </svg>
   )
+}
+
+function isClassifierAbortError(error: unknown) {
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError'
+  }
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return (error as { code?: string }).code === 'ERR_CANCELED'
+  }
+  return false
 }

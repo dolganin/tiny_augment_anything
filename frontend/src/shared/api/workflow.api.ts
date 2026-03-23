@@ -161,8 +161,30 @@ export const workflowApi = {
     const response = await http.post(endpoints.finalizeReview(sessionId), parsedPayload)
     return finalizeReviewResponseSchema.parse(response.data)
   },
-  async startClassifierTraining(sessionId: string, payload: FormData) {
-    const response = await http.post(endpoints.startClassifierTraining(sessionId), payload, { timeout: 0 })
+  async startClassifierTraining(
+    sessionId: string,
+    payload: FormData,
+    options?: {
+      signal?: AbortSignal
+      onUploadProgress?: (progress: number) => void
+    },
+  ) {
+    const weightsEntry = payload.get('weights')
+    const weightsSize =
+      typeof File !== 'undefined' && weightsEntry instanceof File
+        ? weightsEntry.size
+        : typeof Blob !== 'undefined' && weightsEntry instanceof Blob
+          ? weightsEntry.size
+          : undefined
+    const response = await http.post(endpoints.startClassifierTraining(sessionId), payload, {
+      timeout: 0,
+      signal: options?.signal,
+      onUploadProgress: (event) => {
+        const total = event.total ?? weightsSize ?? event.loaded ?? 1
+        const progress = total === 0 ? 1 : Math.min(1, (event.loaded ?? 0) / total)
+        options?.onUploadProgress?.(progress)
+      },
+    })
     return taskStartedResponseSchema.parse(response.data)
   },
   async getMetrics(sessionId: string) {

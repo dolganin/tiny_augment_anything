@@ -173,6 +173,14 @@ export function useFinalizeReviewMutation(sessionId: string) {
 
 export function useStartClassifierTrainingMutation(sessionId: string) {
   return useMutation({
-    mutationFn: (payload: FormData) => workflowApi.startClassifierTraining(sessionId, payload),
+    mutationFn: ({
+      payload,
+      signal,
+      onUploadProgress,
+    }: {
+      payload: FormData
+      signal?: AbortSignal
+      onUploadProgress?: (progress: number) => void
+    }) => workflowApi.startClassifierTraining(sessionId, payload, { signal, onUploadProgress }),
   })
 }
