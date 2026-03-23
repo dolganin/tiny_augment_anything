@@ -211,6 +211,33 @@ async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, A
     async with connection.cursor() as cursor:
         await cursor.execute(
             """
+            WITH ranked_runs AS (
+                SELECT
+                    id,
+                    task_id,
+                    dataset_version_id,
+                    status,
+                    model_key,
+                    class_names,
+                    hparams,
+                    pretrained_weights_path,
+                    checkpoints_dir,
+                    checkpoint_path,
+                    metrics,
+                    created_at,
+                    finished_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            dataset_version_id,
+                            model_key,
+                            class_names,
+                            hparams,
+                            COALESCE(pretrained_weights_path, '')
+                        ORDER BY created_at DESC, finished_at DESC NULLS LAST, id DESC
+                    ) AS row_number
+                FROM classifier_runs
+                WHERE session_id = %s
+            )
             SELECT
                 id,
                 task_id,
@@ -225,9 +252,9 @@ async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, A
                 metrics,
                 created_at,
                 finished_at
-            FROM classifier_runs
-            WHERE session_id = %s
-            ORDER BY created_at DESC
+            FROM ranked_runs
+            WHERE row_number = 1
+            ORDER BY created_at DESC, finished_at DESC NULLS LAST
             """,
             (session_id,),
         )
