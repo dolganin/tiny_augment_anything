@@ -3,6 +3,7 @@ import {
   datasetStatsResponseSchema,
   datasetUploadResponseSchema,
   classifierWeightsUploadResponseSchema,
+  classifierSummaryResponseSchema,
   finalizeReviewPayloadSchema,
   finalizeReviewResponseSchema,
   generationConfigResponseSchema,
@@ -224,6 +225,10 @@ export const workflowApi = {
   async cancelClassifierWeightsUpload(sessionId: string, uploadId: string) {
     const response = await http.delete(endpoints.cancelClassifierWeightsUpload(sessionId, uploadId))
     return statusResponseSchema.parse(response.data)
+  },
+  async getClassifierSummary(sessionId: string) {
+    const response = await http.get(endpoints.classifierSummary(sessionId))
+    return classifierSummaryResponseSchema.parse(response.data)
   },
   async getMetrics(sessionId: string) {
     const response = await http.get(endpoints.getMetrics(sessionId))

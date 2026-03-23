@@ -105,28 +105,88 @@ async def list_pending_results(connection, run_id: UUID) -> list[dict[str, Any]]
         return await cursor.fetchall()
 
 
-async def create_classifier_run(connection, session_id: UUID, task_id: UUID, dataset_version_id: UUID) -> UUID:
+async def create_classifier_run(
+    connection,
+    session_id: UUID,
+    task_id: UUID,
+    dataset_version_id: UUID,
+    *,
+    model_key: str,
+    class_names: list[str],
+    hparams: dict[str, Any],
+    pretrained_weights_path: str | None,
+    checkpoints_dir: str,
+) -> UUID:
     run_id = uuid4()
     now = datetime.now(timezone.utc)
     await connection.execute(
         """
-        INSERT INTO classifier_runs (id, session_id, task_id, dataset_version_id, status, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO classifier_runs (
+            id,
+            session_id,
+            task_id,
+            dataset_version_id,
+            status,
+            model_key,
+            class_names,
+            hparams,
+            pretrained_weights_path,
+            checkpoints_dir,
+            created_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (run_id, session_id, task_id, dataset_version_id, TaskStatus.RUNNING.value, now),
+        (
+            run_id,
+            session_id,
+            task_id,
+            dataset_version_id,
+            TaskStatus.RUNNING.value,
+            model_key,
+            Jsonb(class_names),
+            Jsonb(hparams),
+            pretrained_weights_path,
+            checkpoints_dir,
+            now,
+        ),
     )
     return run_id
 
 
-async def finish_classifier_run(connection, run_id: UUID, metrics: dict[str, Any]) -> None:
+async def finish_classifier_run(
+    connection,
+    run_id: UUID,
+    metrics: dict[str, Any],
+    *,
+    checkpoint_path: str | None,
+) -> None:
     now = datetime.now(timezone.utc)
     await connection.execute(
         """
         UPDATE classifier_runs
-        SET status = %s, metrics = %s, finished_at = %s
+        SET status = %s, metrics = %s, checkpoint_path = %s, finished_at = %s
         WHERE id = %s
         """,
-        (TaskStatus.SUCCESS.value, Jsonb(metrics), now, run_id),
+        (TaskStatus.SUCCESS.value, Jsonb(metrics), checkpoint_path, now, run_id),
+    )
+
+
+async def update_classifier_run_status(connection, run_id: UUID, status: TaskStatus) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE classifier_runs
+        SET status = %s, finished_at = CASE WHEN %s IN (%s, %s) THEN %s ELSE finished_at END
+        WHERE id = %s
+        """,
+        (
+            status.value,
+            status.value,
+            TaskStatus.ERROR.value,
+            TaskStatus.CANCELLED.value,
+            now,
+            run_id,
+        ),
     )
 
 
@@ -145,3 +205,30 @@ async def get_latest_metrics(connection, session_id: UUID) -> dict[str, Any] | N
         )
         row = await cursor.fetchone()
     return None if row is None else row["metrics"]
+
+
+async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, Any]]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT
+                id,
+                task_id,
+                dataset_version_id,
+                status,
+                model_key,
+                class_names,
+                hparams,
+                pretrained_weights_path,
+                checkpoints_dir,
+                checkpoint_path,
+                metrics,
+                created_at,
+                finished_at
+            FROM classifier_runs
+            WHERE session_id = %s
+            ORDER BY created_at DESC
+            """,
+            (session_id,),
+        )
+        return await cursor.fetchall()

@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from backend.app.domain.enums import TaskType, WorkflowStage
 from backend.app.repositories.tasks import cancel_task, create_task, get_task_status
-from backend.app.repositories.workflow_assets import list_class_reference_preview_paths, list_modification_source_assets
-from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_pending_results
+from backend.app.repositories.workflow_assets import list_active_assets_with_origin, list_class_reference_preview_paths, list_modification_source_assets
+from backend.app.repositories.workflow_runs import get_latest_augmentation_run, get_latest_metrics, list_classifier_runs, list_pending_results
 from backend.app.runtime.multipart import parse_multipart_form
 from backend.app.repositories.workflow_session import get_session_context, sync_session_state
 from backend.app.runtime.errors import AppError
@@ -15,6 +15,7 @@ from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.configuration import generation_defaults
+from backend.app.services.classifier_runtime import analyze_training_layout
 from backend.app.services.filesystem import make_relative_path
 from backend.app.services.queue import enqueue_core_task, remove_core_queued_task, remove_ml_queued_task
 from backend.app.services.sessions import parse_session_id
@@ -323,6 +324,74 @@ async def metrics(request: Request, params: dict[str, str], state: object):
     return json_response(200, result)
 
 
+async def classifier_summary(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    session_id = parse_session_id(params["session_id"])
+    async with runtime_state.database.connection() as connection:
+        context = await get_session_context(connection, session_id)
+        if context is None or context["dataset_id"] is None or context["current_dataset_version_id"] is None:
+            raise AppError(404, "Сессия не готова к обучению классификатора.")
+        assets = await list_active_assets_with_origin(
+            connection,
+            context["dataset_id"],
+            context["current_dataset_version_id"],
+        )
+        runs = await list_classifier_runs(connection, session_id)
+
+    split_payload: dict[str, object]
+    if not assets:
+        split_payload = {
+            "classCount": 0,
+            "trainCount": 0,
+            "valCount": 0,
+            "perClass": [],
+            "error": "В активной версии датасета нет изображений для обучения.",
+        }
+    else:
+        try:
+            split = analyze_training_layout(assets, val_ratio=runtime_state.settings.classifier_val_ratio)
+            split_payload = {
+                "classCount": int(split["classCount"]),
+                "trainCount": int(split["trainCount"]),
+                "valCount": int(split["valCount"]),
+                "perClass": split["perClass"],
+                "error": None,
+            }
+        except RuntimeError as error:
+            split_payload = {
+                "classCount": 0,
+                "trainCount": 0,
+                "valCount": 0,
+                "perClass": [],
+                "error": str(error),
+            }
+
+    return json_response(
+        200,
+        {
+            "split": split_payload,
+            "models": [
+                {
+                    "id": str(run["id"]),
+                    "taskId": str(run["task_id"]),
+                    "datasetVersionId": str(run["dataset_version_id"]),
+                    "status": run["status"],
+                    "modelKey": run["model_key"],
+                    "classNames": run["class_names"] if isinstance(run["class_names"], list) else [],
+                    "hparams": run["hparams"] if isinstance(run["hparams"], dict) else {},
+                    "pretrainedWeightsPath": run["pretrained_weights_path"],
+                    "checkpointPath": run["checkpoint_path"],
+                    "checkpointsDir": run["checkpoints_dir"],
+                    "metrics": run["metrics"] if isinstance(run["metrics"], dict) else None,
+                    "createdAt": run["created_at"].isoformat() if run["created_at"] is not None else None,
+                    "finishedAt": run["finished_at"].isoformat() if run["finished_at"] is not None else None,
+                }
+                for run in runs
+            ],
+        },
+    )
+
+
 def _require_state(state: object) -> RuntimeState:
     if not isinstance(state, RuntimeState):
         raise RuntimeError("Runtime state is not available")
@@ -392,14 +461,23 @@ def _resolve_pretrained_weights_path(
     if not isinstance(raw_path, str):
         raise AppError(400, "pretrainedWeightsPath должен быть строкой.")
     candidate = (runtime_state.settings.runtime_dir / Path(raw_path)).resolve()
-    allowed_root = (runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)).resolve()
-    try:
-        candidate.relative_to(allowed_root)
-    except ValueError as error:
-        raise AppError(400, "pretrainedWeightsPath не принадлежит текущей сессии.") from error
+    allowed_roots = [
+        (runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)).resolve(),
+        (runtime_state.runtime_paths.temp / "runs" / "classifier").resolve(),
+    ]
+    if not any(_is_within(candidate, root) for root in allowed_roots):
+        raise AppError(400, "pretrainedWeightsPath не принадлежит разрешённому classifier storage.")
     if not candidate.exists():
         raise AppError(400, "Файл предобученных весов не найден.")
     return make_relative_path(runtime_state.settings.runtime_dir, candidate)
+
+
+def _is_within(candidate: Path, root: Path) -> bool:
+    try:
+        candidate.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 def _parse_positive_int(raw_value: object, field_name: str, default: int) -> int:

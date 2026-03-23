@@ -8,14 +8,17 @@ from backend.app.domain.enums import TaskStatus, WorkflowStage
 from backend.app.repositories.tasks import get_task
 from backend.app.repositories.workflow_assets import list_active_assets_with_origin
 from backend.app.repositories.workflow_runs import create_classifier_run, finish_classifier_run
+from backend.app.repositories.workflow_runs import update_classifier_run_status
 from backend.app.repositories.workflow_session import get_session_context, update_session_stage
 from backend.app.services.classifier_runtime import (
+    analyze_training_layout,
     build_classifier_bundle,
     load_state,
     prepare_classifier_bundle,
     prepare_training_layout,
     read_metrics,
     request_cancellation,
+    resolve_checkpoint_path,
 )
 from backend.app.services.downloads import build_dataset_download_archive
 from backend.app.services.queue import enqueue_ml_task
@@ -31,15 +34,24 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             return
 
         payload = task["payload"] if isinstance(task["payload"], dict) else {}
-        run_id = await create_classifier_run(connection, session_id, task_id, context["current_dataset_version_id"])
-        await update_session_stage(connection, session_id, WorkflowStage.CLASSIFIER_TRAIN)
-
         assets = await list_active_assets_with_origin(
             connection,
             context["dataset_id"],
             context["current_dataset_version_id"],
         )
         if not assets:
+            run_id = await create_classifier_run(
+                connection,
+                session_id,
+                task_id,
+                context["current_dataset_version_id"],
+                model_key=str(payload.get("modelKey") or "EdgeNeXt_finetune"),
+                class_names=[],
+                hparams=payload.get("hparams", {}) if isinstance(payload.get("hparams", {}), dict) else {},
+                pretrained_weights_path=None,
+                checkpoints_dir="",
+            )
+            await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
             await emit_failure(runtime_state, connection, session_id, task_id, "В активной версии датасета нет изображений для обучения.")
             return
 
@@ -51,19 +63,30 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             if isinstance(pretrained_weights_path, str) and pretrained_weights_path
             else None
         )
+        hparams = payload.get("hparams", {}) if isinstance(payload.get("hparams", {}), dict) else {}
+        class_names = sorted({str(asset["class_name"]) for asset in assets})
+        run_id = await create_classifier_run(
+            connection,
+            session_id,
+            task_id,
+            context["current_dataset_version_id"],
+            model_key=model_key,
+            class_names=class_names,
+            hparams=hparams,
+            pretrained_weights_path=None if pretrained_weights_abs is None else str(pretrained_weights_abs),
+            checkpoints_dir=str(bundle.checkpoints_dir),
+        )
+        await update_session_stage(connection, session_id, WorkflowStage.CLASSIFIER_TRAIN)
 
         try:
-            layout = prepare_training_layout(
-                bundle,
-                runtime_state.settings.runtime_dir,
-                assets,
-                val_ratio=runtime_state.settings.classifier_val_ratio,
-            )
+            split = analyze_training_layout(assets, val_ratio=runtime_state.settings.classifier_val_ratio)
+            layout = prepare_training_layout(bundle, runtime_state.settings.runtime_dir, assets, val_ratio=runtime_state.settings.classifier_val_ratio)
         except RuntimeError as error:
+            await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
             await emit_failure(runtime_state, connection, session_id, task_id, str(error))
             return
-        class_names = sorted({str(asset["class_name"]) for asset in assets})
         if layout["valCount"] == 0:
+            await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
             await emit_failure(runtime_state, connection, session_id, task_id, "Не удалось подготовить валидационную выборку без синтетики.")
             return
 
@@ -76,7 +99,7 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
                 "datasetVersionId": str(context["current_dataset_version_id"]),
                 "modelKey": model_key,
                 "classNames": class_names,
-                "hparams": payload.get("hparams", {}),
+                "hparams": hparams,
                 "pretrainedWeightsPath": None if pretrained_weights_abs is None else str(pretrained_weights_abs),
                 "trainRoot": str(bundle.train_dir),
                 "valRoot": str(bundle.val_dir),
@@ -98,6 +121,7 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
                     f"val={layout['valCount']}, classes={layout['classCount']}. "
                     "Валидация собрана только из исходных изображений."
                 ),
+                "split": split["perClass"],
                 "progress": 0.1,
             },
             status=TaskStatus.RUNNING,
@@ -150,9 +174,11 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
                         message=str(state.get("message") or "classifier running"),
                     )
                 if status == "cancelled":
+                    await update_classifier_run_status(connection, run_id, TaskStatus.CANCELLED)
                     await emit_cancelled(runtime_state, connection, session_id, task_id, "Обучение классификатора было остановлено пользователем.")
                     return
                 if status == "error":
+                    await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
                     await emit_failure(
                         runtime_state,
                         connection,
@@ -166,7 +192,13 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             await asyncio.sleep(0.5)
 
         metrics = _adapt_metrics(read_metrics(bundle), class_names)
-        await finish_classifier_run(connection, run_id, metrics)
+        checkpoint_path = resolve_checkpoint_path(bundle)
+        await finish_classifier_run(
+            connection,
+            run_id,
+            metrics,
+            checkpoint_path=None if checkpoint_path is None else checkpoint_path.as_posix(),
+        )
         archive_path, _ = await build_dataset_download_archive(
             connection=connection,
             runtime_paths=runtime_state.runtime_paths,

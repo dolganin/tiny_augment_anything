@@ -8,6 +8,7 @@ const workflowKeys = {
   datasetStats: (sessionId: string) => ['workflow', 'dataset-stats', sessionId] as const,
   generationConfig: (sessionId: string) => ['workflow', 'generation-config', sessionId] as const,
   generationResults: (sessionId: string) => ['workflow', 'generation-results', sessionId] as const,
+  classifierSummary: (sessionId: string) => ['workflow', 'classifier-summary', sessionId] as const,
   metrics: (sessionId: string) => ['workflow', 'metrics', sessionId] as const,
 }
 
@@ -95,6 +96,15 @@ export function useMetricsQuery(sessionId: string | null) {
     queryKey: sessionId ? workflowKeys.metrics(sessionId) : ['workflow', 'metrics', 'empty'],
     queryFn: () => workflowApi.getMetrics(sessionId!),
     enabled: Boolean(sessionId),
+  })
+}
+
+export function useClassifierSummaryQuery(sessionId: string | null) {
+  return useQuery({
+    queryKey: sessionId ? workflowKeys.classifierSummary(sessionId) : ['workflow', 'classifier-summary', 'empty'],
+    queryFn: () => workflowApi.getClassifierSummary(sessionId!),
+    enabled: Boolean(sessionId),
+    refetchOnWindowFocus: false,
   })
 }
 

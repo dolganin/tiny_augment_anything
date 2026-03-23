@@ -112,36 +112,11 @@ def prepare_training_layout(
     *,
     val_ratio: float,
 ) -> dict[str, int]:
-    originals_by_class: dict[str, list[dict]] = defaultdict(list)
-    synthetic_by_class: dict[str, list[dict]] = defaultdict(list)
-
-    for asset in assets:
-        class_name = str(asset["class_name"])
-        if asset["origin_type"] == AssetOrigin.ORIGINAL.value:
-            originals_by_class[class_name].append(asset)
-        else:
-            synthetic_by_class[class_name].append(asset)
-
-    class_names = sorted(set(originals_by_class) | set(synthetic_by_class))
-    original_counts = [len(originals_by_class[class_name]) for class_name in class_names if originals_by_class[class_name]]
-    if not original_counts:
-        raise RuntimeError("Для обучения классификатора не найдено ни одного исходного изображения.")
-
-    for class_name in class_names:
-        original_count = len(originals_by_class[class_name])
-        synthetic_count = len(synthetic_by_class[class_name])
-        total_count = original_count + synthetic_count
-        if original_count == 0:
-            raise RuntimeError(
-                f"Класс {class_name} содержит только синтетику. Для честной валидации нужен минимум один исходный пример."
-            )
-        if total_count < 2:
-            raise RuntimeError(
-                f"Класс {class_name} содержит только один пример. Для train/val split нужно минимум два изображения "
-                "или одно исходное и одно синтетическое."
-            )
-
-    common_val_count = _resolve_common_val_count(original_counts, val_ratio)
+    split = analyze_training_layout(assets, val_ratio=val_ratio)
+    originals_by_class = split["originalsByClass"]
+    synthetic_by_class = split["syntheticsByClass"]
+    class_names = split["classNames"]
+    common_val_count = int(split["commonValCount"])
     train_count = 0
     val_count = 0
 
@@ -173,11 +148,96 @@ def prepare_training_layout(
     return {"trainCount": train_count, "valCount": val_count, "classCount": len(class_names)}
 
 
+def analyze_training_layout(
+    assets: list[dict],
+    *,
+    val_ratio: float,
+) -> dict[str, object]:
+    originals_by_class: dict[str, list[dict]] = defaultdict(list)
+    synthetic_by_class: dict[str, list[dict]] = defaultdict(list)
+
+    for asset in assets:
+        class_name = str(asset["class_name"])
+        if asset["origin_type"] == AssetOrigin.ORIGINAL.value:
+            originals_by_class[class_name].append(asset)
+        else:
+            synthetic_by_class[class_name].append(asset)
+
+    class_names = sorted(set(originals_by_class) | set(synthetic_by_class))
+    original_counts = [len(originals_by_class[class_name]) for class_name in class_names if originals_by_class[class_name]]
+    if not original_counts:
+        raise RuntimeError("Для обучения классификатора не найдено ни одного исходного изображения.")
+
+    per_class: list[dict[str, int | str]] = []
+    for class_name in class_names:
+        original_count = len(originals_by_class[class_name])
+        synthetic_count = len(synthetic_by_class[class_name])
+        total_count = original_count + synthetic_count
+        if original_count == 0:
+            raise RuntimeError(
+                f"Класс {class_name} содержит только синтетику. Для честной валидации нужен минимум один исходный пример."
+            )
+        if total_count < 2:
+            raise RuntimeError(
+                f"Класс {class_name} содержит только один пример. Для train/val split нужно минимум два изображения "
+                "или одно исходное и одно синтетическое."
+            )
+
+    common_val_count = _resolve_common_val_count(original_counts, val_ratio)
+    for class_name in class_names:
+        original_count = len(originals_by_class[class_name])
+        synthetic_count = len(synthetic_by_class[class_name])
+        val_count = _resolve_per_class_val_count(original_count, common_val_count)
+        train_original_count = max(0, original_count - val_count)
+        train_count = train_original_count + synthetic_count
+        per_class.append(
+            {
+                "className": class_name,
+                "originalCount": original_count,
+                "syntheticCount": synthetic_count,
+                "trainCount": train_count,
+                "valCount": val_count,
+            }
+        )
+
+    return {
+        "classNames": class_names,
+        "originalsByClass": originals_by_class,
+        "syntheticsByClass": synthetic_by_class,
+        "commonValCount": common_val_count,
+        "perClass": per_class,
+        "trainCount": sum(int(item["trainCount"]) for item in per_class),
+        "valCount": sum(int(item["valCount"]) for item in per_class),
+        "classCount": len(class_names),
+    }
+
+
 def read_metrics(bundle: ClassifierRunBundle) -> dict:
     if not bundle.metrics_path.exists():
         return {}
     payload = json.loads(bundle.metrics_path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def resolve_checkpoint_path(bundle: ClassifierRunBundle) -> Path | None:
+    if not bundle.checkpoints_dir.exists():
+        return None
+    candidates = [
+        path
+        for path in bundle.checkpoints_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".ckpt", ".pt", ".pth", ".bin", ".safetensors"}
+    ]
+    if not candidates:
+        return None
+    prioritized = sorted(
+        candidates,
+        key=lambda path: (
+            0 if "best" in path.name.lower() else 1,
+            -path.stat().st_mtime,
+            path.name,
+        ),
+    )
+    return prioritized[0]
 
 
 def _resolve_common_val_count(original_counts: list[int], val_ratio: float) -> int:

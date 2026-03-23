@@ -10,11 +10,13 @@ import {
 import { endpoints } from '@/shared/api/endpoints'
 import { env } from '@/shared/config/env'
 import {
+  ClassifierSplitSummary,
   DatasetCatalogItem,
   DatasetClassStat,
   GenerationAsset,
   GlobalJob,
   ModificationSourceAsset,
+  TrainedClassifierModel,
   WorkflowMetrics,
   WorkflowStage,
 } from '@/shared/types/workflow'
@@ -90,6 +92,60 @@ export const adaptMetrics = (response: MetricsResponse): WorkflowMetrics => ({
   recall: response.recall.map((item) => ({
     name: item.name,
     value: item.value,
+  })),
+})
+
+export const adaptClassifierSummary = (response: {
+  split: {
+    classCount: number
+    trainCount: number
+    valCount: number
+    perClass: Array<{
+      className: string
+      originalCount: number
+      syntheticCount: number
+      trainCount: number
+      valCount: number
+    }>
+    error?: string | null
+  }
+  models: Array<{
+    id: string
+    taskId: string
+    datasetVersionId: string
+    status: string
+    modelKey?: string | null
+    classNames: string[]
+    hparams: Record<string, number>
+    pretrainedWeightsPath?: string | null
+    checkpointPath?: string | null
+    checkpointsDir?: string | null
+    metrics?: MetricsResponse | null
+    createdAt?: string | null
+    finishedAt?: string | null
+  }>
+}): { split: ClassifierSplitSummary; models: TrainedClassifierModel[] } => ({
+  split: {
+    classCount: response.split.classCount,
+    trainCount: response.split.trainCount,
+    valCount: response.split.valCount,
+    perClass: response.split.perClass,
+    error: response.split.error ?? null,
+  },
+  models: response.models.map((model) => ({
+    id: model.id,
+    taskId: model.taskId,
+    datasetVersionId: model.datasetVersionId,
+    status: model.status,
+    modelKey: model.modelKey ?? null,
+    classNames: model.classNames,
+    hparams: model.hparams,
+    pretrainedWeightsPath: model.pretrainedWeightsPath ?? null,
+    checkpointPath: model.checkpointPath ?? null,
+    checkpointsDir: model.checkpointsDir ?? null,
+    metrics: model.metrics ? adaptMetrics(model.metrics) : null,
+    createdAt: model.createdAt ?? null,
+    finishedAt: model.finishedAt ?? null,
   })),
 })
 

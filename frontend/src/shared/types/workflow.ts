@@ -70,6 +70,38 @@ export type WorkflowMetrics = {
   recall: MetricPoint[]
 }
 
+export type ClassifierSplitClass = {
+  className: string
+  originalCount: number
+  syntheticCount: number
+  trainCount: number
+  valCount: number
+}
+
+export type ClassifierSplitSummary = {
+  classCount: number
+  trainCount: number
+  valCount: number
+  perClass: ClassifierSplitClass[]
+  error: string | null
+}
+
+export type TrainedClassifierModel = {
+  id: string
+  taskId: string
+  datasetVersionId: string
+  status: string
+  modelKey: string | null
+  classNames: string[]
+  hparams: Record<string, number>
+  pretrainedWeightsPath: string | null
+  checkpointPath: string | null
+  checkpointsDir: string | null
+  metrics: WorkflowMetrics | null
+  createdAt: string | null
+  finishedAt: string | null
+}
+
 export type ModificationSourceAsset = {
   assetId: string
   assetUrl: string

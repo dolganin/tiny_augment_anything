@@ -1,12 +1,14 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
+import { adaptClassifierSummary } from '@/shared/api/adapters'
 import { workflowApi } from '@/shared/api/workflow.api'
-import { useStartClassifierTrainingMutation } from '@/shared/api/workflow.hooks'
+import { useClassifierSummaryQuery, useStartClassifierTrainingMutation } from '@/shared/api/workflow.hooks'
 import {
   clearClassifierWeightsUploadSession,
   createClassifierWeightsUploadSession,
   loadClassifierWeightsUploadSession,
+  saveClassifierWeightsUploadSession,
   type PersistedClassifierWeightsUploadSession,
 } from '@/shared/lib/classifier-weights-upload-storage'
 import {
@@ -18,6 +20,7 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
+import { type TrainedClassifierModel } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 import '@/features/generation-config/generation-config.css'
 
@@ -48,6 +51,7 @@ export function ClassifierTrainPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const uploadAbortRef = useRef<AbortController | null>(null)
   const classifierMutation = useStartClassifierTrainingMutation(sessionId ?? '')
+  const classifierSummaryQuery = useClassifierSummaryQuery(sessionId)
   const form = useForm<ClassifierFormValues>({
     defaultValues: {
       modelKey: 'EdgeNeXt_finetune',
@@ -68,6 +72,15 @@ export function ClassifierTrainPage() {
       navigate('/metrics')
     }
   }, [classifierJobId, navigate])
+
+  const classifierSummary = classifierSummaryQuery.data ? adaptClassifierSummary(classifierSummaryQuery.data) : null
+
+  useEffect(() => {
+    if (!classifierSummaryQuery.error) {
+      return
+    }
+    setErrorMessage(getErrorMessage(classifierSummaryQuery.error))
+  }, [classifierSummaryQuery.error])
 
   useEffect(() => {
     if (!sessionId) {
@@ -187,6 +200,44 @@ export function ClassifierTrainPage() {
     await resumeWeightsUpload(nextSession)
   }
 
+  const applySavedModel = async (model: TrainedClassifierModel) => {
+    if (!sessionId) {
+      setErrorMessage('Сессия потеряна. Сначала восстанови проект.')
+      return
+    }
+    form.reset({
+      modelKey: model.modelKey === 'EVA02-small_finetune' ? 'EVA02-small_finetune' : 'EdgeNeXt_finetune',
+      trainBatchSize: Number(model.hparams.train_batch_size ?? 32),
+      valBatchSize: Number(model.hparams.val_batch_size ?? 64),
+      learningRate: Number(model.hparams.learning_rate ?? 0.0003),
+      weightDecay: Number(model.hparams.weight_decay ?? 0.000001),
+      epochs: Number(model.hparams.epochs ?? 10),
+    })
+    const reusableWeightsPath = model.checkpointPath ?? model.pretrainedWeightsPath
+    if (!reusableWeightsPath) {
+      await clearWeightsSelection()
+      return
+    }
+    const nextSession: PersistedClassifierWeightsUploadSession = {
+      id: `classifier-weights:${sessionId}`,
+      phase: 'uploaded',
+      file: null,
+      fileName: reusableWeightsPath.split('/').pop() ?? 'weights',
+      fileSize: 0,
+      fileLastModified: 0,
+      uploadId: null,
+      chunkSize: null,
+      totalParts: null,
+      nextPart: 0,
+      weightsPath: reusableWeightsPath,
+      updatedAt: Date.now(),
+    }
+    await saveClassifierWeightsUploadSession(nextSession)
+    setWeightsUploadSession(nextSession)
+    setUploadProgress(100)
+    setErrorMessage(null)
+  }
+
   const handleWeightsChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null
     if (!file) {
@@ -286,7 +337,7 @@ export function ClassifierTrainPage() {
 
   return (
     <>
-      <PageFrame title="Обучение классификатора">
+      <PageFrame description="" title="Обучение классификатора">
         <div className="info-card">
           <p className="info-card__text">
             Head checkpoint подменяется автоматически: старый classifier head не загружается.
@@ -297,8 +348,8 @@ export function ClassifierTrainPage() {
         </div>
 
         {!classifierJobId ? (
-          <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
-            <label className="generation-form__group">
+          <form className="generation-form generation-form--stacked classifier-train-layout" onSubmit={submitForm}>
+            <label className="generation-form__group classifier-train-layout__full">
               <span className="generation-form__label">Модель классификатора</span>
               <select className="generation-form__input" {...form.register('modelKey', { required: true })}>
                 {CLASSIFIER_MODELS.map((model) => (
@@ -309,7 +360,7 @@ export function ClassifierTrainPage() {
               </select>
             </label>
 
-            <label className="generation-form__group">
+            <label className="generation-form__group classifier-train-layout__full">
               <span className="generation-form__label">Pretrain-веса (опционально)</span>
               <div className="upload-stage upload-stage--compact classifier-weights">
                 <input
@@ -405,7 +456,7 @@ export function ClassifierTrainPage() {
               />
             </label>
 
-            <label className="generation-form__group">
+            <label className="generation-form__group classifier-train-layout__half">
               <span className="generation-form__label">Epochs</span>
               <input
                 className="generation-form__input"
@@ -416,7 +467,7 @@ export function ClassifierTrainPage() {
               />
             </label>
 
-            <div className="info-card">
+            <div className="info-card classifier-train-layout__full">
               <p className="info-card__text">
                 Статус весов: <strong>{weightsStatusLabel}</strong>
               </p>
@@ -431,14 +482,91 @@ export function ClassifierTrainPage() {
               </p>
             </div>
 
-            <Button disabled={isSubmitDisabled} type="submit">
-              Запустить обучение
-            </Button>
-            {weightsUploadSession ? (
-              <Button disabled={classifierMutation.isPending || isUploadingWeights} onClick={() => void clearWeightsSelection()} type="button" variant="ghost">
-                Сбросить веса
+            <section className="info-card classifier-train-layout__full classifier-summary-card">
+              <div className="classifier-summary-card__head">
+                <h3 className="classifier-summary-card__title">Разбиение train / val</h3>
+                {classifierSummaryQuery.isLoading ? <Spinner label="Считаю layout датасета" /> : null}
+              </div>
+              {classifierSummary?.split.error ? (
+                <p className="info-card__text">{classifierSummary.split.error}</p>
+              ) : (
+                <>
+                  <div className="classifier-summary-card__totals">
+                    <span>Классов: {classifierSummary?.split.classCount ?? 0}</span>
+                    <span>Train: {classifierSummary?.split.trainCount ?? 0}</span>
+                    <span>Val: {classifierSummary?.split.valCount ?? 0}</span>
+                  </div>
+                  <div className="classifier-split-table">
+                    <div className="classifier-split-table__row classifier-split-table__row--head">
+                      <span>Класс</span>
+                      <span>Original</span>
+                      <span>Synth</span>
+                      <span>Train</span>
+                      <span>Val</span>
+                    </div>
+                    {(classifierSummary?.split.perClass ?? []).map((item) => (
+                      <div className="classifier-split-table__row" key={item.className}>
+                        <span>{item.className}</span>
+                        <span>{item.originalCount}</span>
+                        <span>{item.syntheticCount}</span>
+                        <span>{item.trainCount}</span>
+                        <span>{item.valCount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section className="info-card classifier-train-layout__full classifier-model-history">
+              <div className="classifier-summary-card__head">
+                <h3 className="classifier-summary-card__title">Сохранённые модели датасета</h3>
+              </div>
+              {(classifierSummary?.models ?? []).length === 0 ? (
+                <p className="info-card__text">Пока нет завершённых запусков классификатора для этого датасета.</p>
+              ) : (
+                <div className="classifier-model-history__list">
+                  {(classifierSummary?.models ?? []).map((model) => (
+                    <article className="classifier-model-card" key={model.id}>
+                      <div className="classifier-model-card__meta">
+                        <strong>{model.modelKey ?? 'Classifier run'}</strong>
+                        <span>{model.status}</span>
+                      </div>
+                      <p className="classifier-model-card__line">
+                        Классы: {model.classNames.length > 0 ? model.classNames.join(', ') : 'не сохранены'}
+                      </p>
+                      <p className="classifier-model-card__line">
+                        Веса: {(model.checkpointPath ?? model.pretrainedWeightsPath ?? 'нет').split('/').pop()}
+                      </p>
+                      <p className="classifier-model-card__line">
+                        Batch train/val: {Number(model.hparams.train_batch_size ?? 32)} / {Number(model.hparams.val_batch_size ?? 64)}
+                      </p>
+                      <div className="classifier-model-card__actions">
+                        <Button
+                          disabled={!model.checkpointPath && !model.pretrainedWeightsPath}
+                          onClick={() => void applySavedModel(model)}
+                          type="button"
+                          variant="ghost"
+                        >
+                          Использовать
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="classifier-train-layout__actions classifier-train-layout__full">
+              <Button disabled={isSubmitDisabled || Boolean(classifierSummary?.split.error)} type="submit">
+                Запустить обучение
               </Button>
-            ) : null}
+              {weightsUploadSession ? (
+                <Button disabled={classifierMutation.isPending || isUploadingWeights} onClick={() => void clearWeightsSelection()} type="button" variant="ghost">
+                  Сбросить веса
+                </Button>
+              ) : null}
+            </div>
           </form>
         ) : null}
 

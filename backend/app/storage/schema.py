@@ -125,6 +125,12 @@ CREATE TABLE IF NOT EXISTS classifier_runs (
     task_id uuid NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     dataset_version_id uuid NOT NULL REFERENCES dataset_versions(id) ON DELETE CASCADE,
     status text NOT NULL,
+    model_key text NULL,
+    class_names jsonb NULL,
+    hparams jsonb NULL,
+    pretrained_weights_path text NULL,
+    checkpoints_dir text NULL,
+    checkpoint_path text NULL,
     metrics jsonb NULL,
     created_at timestamptz NOT NULL,
     finished_at timestamptz NULL
@@ -135,4 +141,22 @@ ADD COLUMN IF NOT EXISTS selected_class_targets jsonb NOT NULL DEFAULT '{}'::jso
 
 ALTER TABLE dataset_assets
 ADD COLUMN IF NOT EXISTS approved_at timestamptz NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS model_key text NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS class_names jsonb NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS hparams jsonb NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS pretrained_weights_path text NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS checkpoints_dir text NULL;
+
+ALTER TABLE classifier_runs
+ADD COLUMN IF NOT EXISTS checkpoint_path text NULL;
 """
