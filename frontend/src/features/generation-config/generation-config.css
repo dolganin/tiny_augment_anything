@@ -167,6 +167,14 @@
   gap: 12px;
 }
 
+.classifier-weights {
+  gap: 10px;
+}
+
+.classifier-weights__dropzone {
+  min-height: 180px;
+}
+
 .generation-fields__item {
   display: grid;
   gap: 8px;

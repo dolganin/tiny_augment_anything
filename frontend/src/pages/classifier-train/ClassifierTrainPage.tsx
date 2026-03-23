@@ -1,15 +1,12 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
-import { useStartClassifierTrainingMutation, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
-import { useWorkflowSocket } from '@/shared/api/workflow.socket'
+import { useStartClassifierTrainingMutation } from '@/shared/api/workflow.hooks'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
-import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { useSessionStore } from '@/store/session/session.store'
-import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
 import '@/features/generation-config/generation-config.css'
 
 type ClassifierFormValues = {
@@ -31,12 +28,10 @@ export function ClassifierTrainPage() {
   const sessionId = useSessionStore((state) => state.sessionId)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const setSession = useSessionStore((state) => state.setSession)
-  const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [weightsFile, setWeightsFile] = useState<File | null>(null)
-  const taskSnapshotRef = useRef<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const classifierMutation = useStartClassifierTrainingMutation(sessionId ?? '')
-  const taskStatusQuery = useTaskStatusQuery(sessionId, classifierJobId)
   const form = useForm<ClassifierFormValues>({
     defaultValues: {
       modelKey: 'EdgeNeXt_finetune',
@@ -53,103 +48,20 @@ export function ClassifierTrainPage() {
   }, [setSession])
 
   useEffect(() => {
-    taskSnapshotRef.current = null
-  }, [classifierJobId])
-
-  const appendLog = (line: string) => {
-    setLogs((current) => [...current, line])
-  }
-
-  useWorkflowSocket({
-    sessionId,
-    onError: () =>
-      setLogs((current) =>
-        current.includes('WebSocket недоступен, продолжаю через polling статуса задачи.')
-          ? current
-          : [...current, 'WebSocket недоступен, продолжаю через polling статуса задачи.'],
-      ),
-    onMessage: (event) => {
-      if (event.jobId && classifierJobId && event.jobId !== classifierJobId) {
-        return
-      }
-
-      if (event.type === 'classifier.progress') {
-        const { phase, progress, epoch, totalEpochs, message } = event.payload
-        const chunks = [
-          typeof phase === 'string' ? `phase ${phase}` : null,
-          typeof progress === 'number' ? `готово ${Math.round(progress * 100)}%` : null,
-          epoch ? `epoch ${epoch}` : null,
-          totalEpochs ? `из ${totalEpochs}` : null,
-          message ?? null,
-        ].filter(Boolean)
-
-        if (chunks.length > 0) {
-          appendLog(chunks.join(' | '))
-        }
-      }
-
-      if (event.type === 'task.completed' && classifierJobId && event.jobId === classifierJobId) {
-        setSession({ workflowStage: 'metrics', classifierJobId: null })
-        navigate('/metrics')
-      }
-
-      if (event.type === 'task.failed' && classifierJobId && event.jobId === classifierJobId) {
-        appendLog(`Ошибка: ${event.payload.message ?? 'Обучение классификатора завершилось с ошибкой.'}`)
-        setSession({ classifierJobId: null })
-        setErrorMessage(event.payload.message ?? 'Обучение классификатора завершилось с ошибкой.')
-      }
-    },
-  })
-
-  useEffect(() => {
-    if (!taskStatusQuery.error) {
-      return
-    }
-    appendLog(`Ошибка polling: ${getErrorMessage(taskStatusQuery.error)}`)
-    setSession({ classifierJobId: null })
-    setErrorMessage(getErrorMessage(taskStatusQuery.error))
-  }, [setSession, taskStatusQuery.error])
-
-  useEffect(() => {
-    if (!taskStatusQuery.data || !classifierJobId) {
-      return
-    }
-    const { status, progress, message, error } = taskStatusQuery.data
-    const resolvedMessage = error?.message ?? message ?? null
-    const snapshot = [status, progress ?? 'null', resolvedMessage ?? ''].join('|')
-    if (snapshot === taskSnapshotRef.current) {
-      return
-    }
-    taskSnapshotRef.current = snapshot
-
-    if (status === 'pending' || status === 'running') {
-      const label = [
-        typeof progress === 'number' ? `готово ${Math.round(progress * 100)}%` : null,
-        resolvedMessage,
-      ]
-        .filter(Boolean)
-        .join(' | ')
-      if (label) {
-        appendLog(label)
-      }
-      return
-    }
-
-    if (status === 'success') {
-      setSession({ workflowStage: 'metrics', classifierJobId: null })
+    if (classifierJobId) {
       navigate('/metrics')
-      return
     }
-
-    if (status === 'error' || status === 'cancelled') {
-      appendLog(`Ошибка: ${resolvedMessage ?? 'Обучение классификатора завершилось с ошибкой.'}`)
-      setSession({ classifierJobId: null })
-      setErrorMessage(resolvedMessage ?? 'Обучение классификатора завершилось с ошибкой.')
-    }
-  }, [classifierJobId, navigate, setSession, taskStatusQuery.data])
+  }, [classifierJobId, navigate])
 
   const handleWeightsChange = (event: ChangeEvent<HTMLInputElement>) => {
     setWeightsFile(event.target.files?.[0] ?? null)
+  }
+
+  const openWeightsDialog = () => {
+    if (classifierMutation.isPending) {
+      return
+    }
+    fileInputRef.current?.click()
   }
 
   const submitForm = form.handleSubmit(async (values) => {
@@ -170,15 +82,19 @@ export function ClassifierTrainPage() {
 
     try {
       const response = await classifierMutation.mutateAsync(payload)
-      setSession({ classifierJobId: response.jobId, workflowStage: 'classifier-train' })
+      setSession({
+        classifierJobId: response.jobId,
+        classifierLogs: [
+          weightsFile
+            ? `Задача обучения классификатора отправлена. Загружены веса ${weightsFile.name}.`
+            : 'Задача обучения классификатора отправлена без внешних весов.',
+        ],
+        metrics: null,
+        workflowStage: 'metrics',
+      })
       setErrorMessage(null)
-      setLogs([
-        weightsFile
-          ? `Задача обучения классификатора отправлена. Загружены веса ${weightsFile.name}.`
-          : 'Задача обучения классификатора отправлена без внешних весов.',
-      ])
+      navigate('/metrics')
     } catch (error) {
-      appendLog(`Ошибка запуска: ${getErrorMessage(error)}`)
       setErrorMessage(getErrorMessage(error))
     }
   })
@@ -210,12 +126,31 @@ export function ClassifierTrainPage() {
 
             <label className="generation-form__group">
               <span className="generation-form__label">Pretrain-веса (опционально)</span>
-              <input
-                accept=".bin,.ckpt,.pt,.pth"
-                className="generation-form__input"
-                onChange={handleWeightsChange}
-                type="file"
-              />
+              <div className="upload-stage upload-stage--compact classifier-weights">
+                <input
+                  accept=".bin,.ckpt,.pt,.pth"
+                  className="upload-stage__input"
+                  onChange={handleWeightsChange}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <button
+                  className="upload-stage__dropzone classifier-weights__dropzone"
+                  disabled={classifierMutation.isPending}
+                  onClick={openWeightsDialog}
+                  type="button"
+                >
+                  <WeightUploadIllustration />
+                  <span className="upload-stage__title">
+                    {weightsFile ? 'Файл выбран' : 'Выбрать веса'}
+                  </span>
+                  <span className="upload-stage__hint">
+                    {weightsFile
+                      ? `${weightsFile.name} готов к запуску обучения.`
+                      : 'Поддерживаются .bin, .ckpt, .pt, .pth. Можно пропустить.'}
+                  </span>
+                </button>
+              </div>
             </label>
 
             <label className="generation-form__group">
@@ -291,20 +226,6 @@ export function ClassifierTrainPage() {
           </form>
         ) : null}
 
-        {classifierJobId && !errorMessage ? (
-          <div className="upload-stage__loading">
-            <Spinner
-              label="Классификатор обучается. После завершения откроется экран метрик."
-              tone="diffusion"
-            />
-          </div>
-        ) : null}
-
-        <TrainingLogPanel
-          emptyLabel="Логи классификатора появятся после первого сообщения от WebSocket."
-          logs={logs}
-          title="Поток логов классификатора"
-        />
       </PageFrame>
 
       <Modal
@@ -316,5 +237,28 @@ export function ClassifierTrainPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
+  )
+}
+
+function WeightUploadIllustration() {
+  return (
+    <svg aria-hidden="true" className="upload-stage__icon" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="classifierWeightsGradient" x1="16" x2="102" y1="18" y2="106" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#2f9e6f" />
+          <stop offset="1" stopColor="#1d2967" />
+        </linearGradient>
+      </defs>
+      <rect x="18" y="20" width="84" height="80" rx="22" fill="url(#classifierWeightsGradient)" opacity="0.12" />
+      <path
+        d="M39 69.5L60 47l21 22.5M60 47v34"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="7"
+      />
+      <rect x="33" y="82" width="54" height="8" rx="4" fill="currentColor" opacity="0.78" />
+    </svg>
   )
 }

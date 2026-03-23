@@ -27,6 +27,7 @@ type SessionState = {
   approvedItems: GenerationAsset[]
   rejectedItemIds: string[]
   classifierJobId: string | null
+  classifierLogs: string[]
   metrics: WorkflowMetrics | null
   downloadUrl: string | null
   workflowStage: WorkflowStage
@@ -56,6 +57,7 @@ const initialState: SessionSnapshot = {
   approvedItems: [],
   rejectedItemIds: [],
   classifierJobId: null,
+  classifierLogs: [],
   metrics: null,
   downloadUrl: null,
   workflowStage: 'upload',
@@ -91,6 +93,7 @@ export const useSessionStore = create<SessionState>()(
         approvedItems: state.approvedItems,
         rejectedItemIds: state.rejectedItemIds,
         classifierJobId: state.classifierJobId,
+        classifierLogs: state.classifierLogs,
         metrics: state.metrics,
         downloadUrl: state.downloadUrl,
         workflowStage: state.workflowStage,
