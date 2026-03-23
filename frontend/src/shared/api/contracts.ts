@@ -230,6 +230,7 @@ export const generationResultsResponseSchema = z.object({
 })
 
 export const metricsResponseSchema = z.object({
+  ready: z.boolean().default(true),
   precision: z.array(metricsPointSchema),
   recall: z.array(metricsPointSchema),
 })

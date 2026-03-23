@@ -26,9 +26,10 @@ export function AppRouter() {
   const canTrainClassifier =
     Boolean(classifierJobId) ||
     Boolean(metrics) ||
+    workflowStage === 'review' ||
     workflowStage === 'classifier-train' ||
     workflowStage === 'metrics'
-  const canShowMetrics = Boolean(metrics) || workflowStage === 'metrics'
+  const canShowMetrics = Boolean(classifierJobId) || Boolean(metrics) || workflowStage === 'metrics'
 
   return (
     <Routes>

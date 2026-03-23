@@ -3,16 +3,26 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+NOVOSIBIRSK_TZ = ZoneInfo("Asia/Novosibirsk")
+
+
+class NovosibirskFormatter(logging.Formatter):
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        dt = datetime.fromtimestamp(record.created, NOVOSIBIRSK_TZ)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat(timespec="milliseconds")
 
 
 def configure_logging(level_name: str) -> None:
     level = getattr(logging, level_name.upper(), logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
-    )
+    handler = logging.StreamHandler()
+    handler.setFormatter(NovosibirskFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=level, handlers=[handler], force=True)
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -21,7 +31,7 @@ def get_logger(name: str) -> logging.Logger:
 
 def log_event(logger: logging.Logger, level: int, event: str, **fields: object) -> None:
     payload = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(NOVOSIBIRSK_TZ).isoformat(),
         "event": event,
         **{key: value for key, value in fields.items() if value is not None},
     }

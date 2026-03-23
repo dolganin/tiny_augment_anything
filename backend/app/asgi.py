@@ -107,6 +107,7 @@ class TinyAugmentBackend:
     def __init__(self) -> None:
         self.router = build_router()
         self.state: RuntimeState | None = None
+        self.startup_error: str | None = None
 
     async def __call__(self, scope, receive, send) -> None:
         scope_type = scope["type"]
@@ -135,9 +136,16 @@ class TinyAugmentBackend:
                     runtime_dir=settings.runtime_dir,
                     log_level=settings.app_log_level,
                 )
-                self.state = await bootstrap_runtime(settings)
-                log_event(logger, 20, "app.startup.ready", runtime_dir=self.state.settings.runtime_dir)
-                await send({"type": "lifespan.startup.complete"})
+                try:
+                    self.state = await bootstrap_runtime(settings)
+                    self.startup_error = None
+                    log_event(logger, 20, "app.startup.ready", runtime_dir=self.state.settings.runtime_dir)
+                    await send({"type": "lifespan.startup.complete"})
+                except Exception as error:
+                    self.state = None
+                    self.startup_error = str(error)
+                    log_event(logger, 40, "app.startup.failed", error=str(error))
+                    await send({"type": "lifespan.startup.failed", "message": str(error)})
                 continue
             if message_type == "lifespan.shutdown":
                 if self.state is not None:
@@ -153,7 +161,7 @@ class TinyAugmentBackend:
             await json_response(404, {"message": "Route not found"}).send(send)
             return
         if self.state is None:
-            await json_response(503, {"message": "Application is not ready"}).send(send)
+            await json_response(503, {"message": self.startup_error or "Application is not ready"}).send(send)
             return
         handler, params = route
         request = Request(scope=scope, body=await read_body(receive))

@@ -320,8 +320,10 @@ async def metrics(request: Request, params: dict[str, str], state: object):
     async with runtime_state.database.connection() as connection:
         result = await get_latest_metrics(connection, session_id)
     if result is None:
-        raise AppError(404, "Метрики ещё не готовы.")
-    return json_response(200, result)
+        return json_response(200, {"ready": False, "precision": [], "recall": []})
+    if not isinstance(result, dict):
+        return json_response(200, {"ready": False, "precision": [], "recall": []})
+    return json_response(200, {"ready": True, **result})
 
 
 async def classifier_summary(request: Request, params: dict[str, str], state: object):

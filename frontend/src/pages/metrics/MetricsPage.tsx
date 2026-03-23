@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import { adaptMetrics } from '@/shared/api/adapters'
 import { useMetricsQuery, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
@@ -10,11 +11,14 @@ import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { useSessionStore } from '@/store/session/session.store'
 import { MetricsChart } from '@/features/classifier-metrics/MetricsChart'
+import { Button } from '@/shared/ui/buttons/Button'
 
 export function MetricsPage() {
+  const navigate = useNavigate()
   const metrics = useSessionStore((state) => state.metrics)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const classifierLogs = useSessionStore((state) => state.classifierLogs)
+  const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
   const sessionId = useSessionStore((state) => state.sessionId)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -121,7 +125,7 @@ export function MetricsPage() {
   }, [classifierJobId, setSession, taskStatusQuery.data])
 
   useEffect(() => {
-    if (!metricsQuery.data) {
+    if (!metricsQuery.data || metricsQuery.data.ready === false) {
       return
     }
     setSession({ metrics: adaptMetrics(metricsQuery.data) })
@@ -131,17 +135,29 @@ export function MetricsPage() {
     if (!metricsQuery.error) {
       return
     }
-    if (axios.isAxiosError(metricsQuery.error) && metricsQuery.error.response?.status === 404) {
-      return
-    }
     setErrorMessage(getErrorMessage(metricsQuery.error))
   }, [metricsQuery.error])
 
   const visibleMetrics = useMemo(() => metrics ?? { precision: [], recall: [] }, [metrics])
+  const metricsReady = metricsQuery.data?.ready !== false
+  const hasClassifierState =
+    Boolean(classifierJobId) || classifierLogs.length > 0 || Boolean(metrics) || workflowStage === 'metrics'
   const isTrainingActive =
     Boolean(classifierJobId) ||
     taskStatusQuery.data?.status === 'pending' ||
     taskStatusQuery.data?.status === 'running'
+  const isStaleTrainingState = !isTrainingActive && !metricsReady && hasClassifierState
+
+  const resetClassifierState = () => {
+    setSession({
+      classifierJobId: null,
+      classifierLogs: [],
+      metrics: null,
+      workflowStage: 'classifier-train',
+    })
+    setErrorMessage(null)
+    navigate('/classifier/train')
+  }
 
   return (
     <>
@@ -157,7 +173,25 @@ export function MetricsPage() {
               logs={classifierLogs}
               title="Поток логов классификатора"
             />
+            <div className="generation-form__actions">
+              <Button onClick={resetClassifierState} type="button" variant="secondary">
+                Сбросить обучение
+              </Button>
+            </div>
           </>
+        ) : null}
+
+        {isStaleTrainingState ? (
+          <div className="upload-stage">
+            <p className="upload-stage__status">
+              Активная задача обучения не найдена, а метрики ещё не готовы. Скорее всего, состояние классификатора зависло после перезапуска.
+            </p>
+            <div className="generation-form__actions">
+              <Button onClick={resetClassifierState} type="button" variant="secondary">
+                Сбросить обучение
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {!isTrainingActive && metricsQuery.isLoading ? (
@@ -166,7 +200,7 @@ export function MetricsPage() {
           </div>
         ) : null}
 
-        {!isTrainingActive && !metricsQuery.isLoading ? (
+        {!isTrainingActive && !isStaleTrainingState && !metricsQuery.isLoading ? (
           <div className="metrics-grid">
             <MetricsChart items={visibleMetrics.recall} title="Recall" tone="recall" />
             <MetricsChart items={visibleMetrics.precision} title="Precision" tone="precision" />
