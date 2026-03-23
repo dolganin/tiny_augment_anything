@@ -37,7 +37,10 @@ export function MetricsPage() {
 
   return (
     <>
-      <PageFrame title="Метрики по классам">
+      <PageFrame
+        title="Метрики по классам"
+        description="После обучения классификатора показываются Precision и Recall по каждому классу. Скачать актуальный архив можно из карточки датасета в каталоге."
+      >
         {metricsQuery.isLoading ? (
           <div className="upload-stage__loading">
             <Spinner label="Загружаю метрики валидации по классам." />

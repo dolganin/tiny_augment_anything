@@ -58,7 +58,10 @@ export function ReviewPage() {
   }
 
   return (
-    <PageFrame title="Отбор результатов">
+    <PageFrame
+      title="Отбор результатов"
+      description="Этот экран оставлен как fallback. Основной цикл теперь удобнее проходить прямо из модификации."
+    >
       <ReviewWorkspace onClose={() => void closeReview()} onStartClassifier={() => void startClassifier()} open />
       <Modal
         onClose={() => setErrorMessage(null)}
