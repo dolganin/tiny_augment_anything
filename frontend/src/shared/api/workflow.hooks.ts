@@ -53,6 +53,8 @@ export function useRestoreSessionQuery(sessionId: string | null) {
     queryKey: sessionId ? workflowKeys.session(sessionId) : ['workflow', 'session', 'empty'],
     queryFn: () => workflowApi.restoreSession(sessionId!),
     enabled: Boolean(sessionId),
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -176,11 +178,9 @@ export function useStartClassifierTrainingMutation(sessionId: string) {
     mutationFn: ({
       payload,
       signal,
-      onUploadProgress,
     }: {
-      payload: FormData
+      payload: Record<string, unknown>
       signal?: AbortSignal
-      onUploadProgress?: (progress: number) => void
-    }) => workflowApi.startClassifierTraining(sessionId, payload, { signal, onUploadProgress }),
+    }) => workflowApi.startClassifierTraining(sessionId, payload, { signal }),
   })
 }

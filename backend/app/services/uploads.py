@@ -58,30 +58,94 @@ class ChunkUploadStatus:
     uploaded_bytes: int
 
 
+@dataclass(frozen=True, slots=True)
+class CompletedClassifierWeightsUpload:
+    file_name: str
+    weights_path: str
+
+
 DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024
+CLASSIFIER_WEIGHTS_EXTENSIONS = {".bin", ".ckpt", ".pt", ".pth", ".safetensors"}
 logger = get_logger(__name__)
 
 
 def init_chunk_upload(runtime_paths: RuntimePaths, file_name: str, file_size: int) -> ChunkUploadInit:
     if not file_name.lower().endswith(".zip"):
         raise AppError(400, "Нужен архив формата .zip.")
+    return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="source.zip")
+
+
+def init_classifier_weights_upload(runtime_paths: RuntimePaths, file_name: str, file_size: int) -> ChunkUploadInit:
+    suffix = Path(file_name).suffix.lower()
+    if suffix not in CLASSIFIER_WEIGHTS_EXTENSIONS:
+        raise AppError(400, "Нужны веса формата .bin, .ckpt, .pt, .pth или .safetensors.")
+    return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="weights.bin")
+
+
+def complete_classifier_weights_upload(
+    runtime_paths: RuntimePaths,
+    runtime_root: Path,
+    session_id: UUID,
+    upload_id: UUID,
+) -> CompletedClassifierWeightsUpload:
+    upload_dir = staged_upload_dir(runtime_paths, upload_id)
+    meta_path = upload_dir / "meta.json"
+    if not meta_path.exists():
+        raise AppError(404, "Загрузка весов не найдена.")
+    meta = _read_upload_meta(meta_path)
+    weights_path = upload_dir / _meta_target_name(meta)
+    if not weights_path.exists():
+        raise AppError(404, "Загруженные веса не найдены.")
+    if int(meta["next_part"]) != int(meta["total_parts"]):
+        raise AppError(400, "Файл весов ещё не загружен полностью.")
+    file_name = str(meta["file_name"])
+    target_dir = runtime_paths.temp / "classifier-weights" / str(session_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / f"{uuid4()}_{Path(file_name).name}"
+    weights_path.replace(target_path)
+    try:
+        meta_path.unlink(missing_ok=True)
+        upload_dir.rmdir()
+    except OSError:
+        pass
+    relative_path = make_relative_path(runtime_root, target_path)
+    log_event(
+        logger,
+        20,
+        "upload.classifier-weights.complete",
+        upload_id=upload_id,
+        session_id=session_id,
+        file_name=file_name,
+        weights_path=relative_path,
+    )
+    return CompletedClassifierWeightsUpload(file_name=file_name, weights_path=relative_path)
+
+
+def _init_staged_upload(
+    runtime_paths: RuntimePaths,
+    file_name: str,
+    file_size: int,
+    *,
+    staged_file_name: str,
+) -> ChunkUploadInit:
     if file_size <= 0:
         raise AppError(400, "Размер файла должен быть положительным.")
     upload_id = uuid4()
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    archive_path = upload_dir / "source.zip"
+    archive_path = upload_dir / staged_file_name
     archive_path.write_bytes(b"")
     total_parts = max(1, (file_size + DEFAULT_CHUNK_SIZE - 1) // DEFAULT_CHUNK_SIZE)
     _write_upload_meta(
         upload_dir / "meta.json",
         {
-            "file_name": file_name,
+            "file_name": Path(file_name).name,
             "file_size": file_size,
             "chunk_size": DEFAULT_CHUNK_SIZE,
             "total_parts": total_parts,
             "next_part": 0,
             "uploaded_bytes": 0,
+            "target_name": staged_file_name,
         },
     )
     log_event(
@@ -101,10 +165,12 @@ def init_chunk_upload(runtime_paths: RuntimePaths, file_name: str, file_size: in
 def append_chunk(runtime_paths: RuntimePaths, upload_id: UUID, part_number: int, total_parts: int, payload: bytes) -> float:
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
     meta_path = upload_dir / "meta.json"
-    archive_path = upload_dir / "source.zip"
-    if not meta_path.exists() or not archive_path.exists():
+    if not meta_path.exists():
         raise AppError(404, "Загрузка не найдена.")
     meta = _read_upload_meta(meta_path)
+    archive_path = upload_dir / _meta_target_name(meta)
+    if not archive_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
     if int(meta["total_parts"]) != total_parts:
         raise AppError(400, "Некорректное число частей.")
     if int(meta["next_part"]) != part_number:
@@ -142,10 +208,12 @@ def discard_chunk_upload(runtime_paths: RuntimePaths, upload_id: UUID) -> None:
 def get_chunk_upload_status(runtime_paths: RuntimePaths, upload_id: UUID) -> ChunkUploadStatus:
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
     meta_path = upload_dir / "meta.json"
-    archive_path = upload_dir / "source.zip"
-    if not meta_path.exists() or not archive_path.exists():
+    if not meta_path.exists():
         raise AppError(404, "Загрузка не найдена.")
     meta = _read_upload_meta(meta_path)
+    archive_path = upload_dir / _meta_target_name(meta)
+    if not archive_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
     return ChunkUploadStatus(
         upload_id=upload_id,
         file_name=str(meta["file_name"]),
@@ -165,10 +233,12 @@ async def prepare_dataset_upload_from_staged_archive(
 ) -> UploadPreparation:
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
     meta_path = upload_dir / "meta.json"
-    archive_path = upload_dir / "source.zip"
-    if not meta_path.exists() or not archive_path.exists():
+    if not meta_path.exists():
         raise AppError(404, "Загрузка не найдена.")
     meta = _read_upload_meta(meta_path)
+    archive_path = upload_dir / _meta_target_name(meta)
+    if not archive_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
     if int(meta["next_part"]) != int(meta["total_parts"]):
         raise AppError(400, "Архив ещё не загружен полностью.")
     file_name = str(meta["file_name"])
@@ -376,6 +446,13 @@ def _read_upload_meta(meta_path: Path) -> dict[str, int | str]:
 
 def _write_upload_meta(meta_path: Path, payload: dict[str, int | str]) -> None:
     meta_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _meta_target_name(meta: dict[str, int | str]) -> str:
+    target_name = meta.get("target_name")
+    if isinstance(target_name, str) and target_name:
+        return target_name
+    return "source.zip"
 
 
 async def _extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID, archive_path, task_id: UUID | None) -> list[dict]:

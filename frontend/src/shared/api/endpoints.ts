@@ -14,6 +14,15 @@ export const endpoints = {
   cancelUpload: (uploadId: string) => `/uploads/${uploadId}`,
   uploadDataset: '/sessions/upload',
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
+  initClassifierWeightsUpload: (sessionId: string) => `/sessions/${sessionId}/classifier/weights/init`,
+  classifierWeightsUploadStatus: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/classifier/weights/${uploadId}`,
+  uploadClassifierWeightsChunk: (sessionId: string, uploadId: string, partNumber: number, totalParts: number) =>
+    `/sessions/${sessionId}/classifier/weights/${uploadId}/parts?partNumber=${partNumber}&totalParts=${totalParts}`,
+  completeClassifierWeightsUpload: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/classifier/weights/${uploadId}/complete`,
+  cancelClassifierWeightsUpload: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/classifier/weights/${uploadId}`,
   taskStatus: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}`,
   cancelTask: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}/cancel`,
   datasetStats: (sessionId: string) => `/sessions/${sessionId}/dataset/stats`,

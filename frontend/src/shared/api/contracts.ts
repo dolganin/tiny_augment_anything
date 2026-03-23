@@ -155,6 +155,12 @@ export const statusResponseSchema = z.object({
   status: z.literal('success'),
 })
 
+export const classifierWeightsUploadResponseSchema = z.object({
+  status: z.literal('success'),
+  fileName: z.string(),
+  weightsPath: z.string(),
+})
+
 export const taskStatusResponseSchema = z.object({
   jobId: z.string(),
   status: apiTaskStatusSchema,

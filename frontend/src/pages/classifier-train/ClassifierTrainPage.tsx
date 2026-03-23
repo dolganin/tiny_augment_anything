@@ -1,7 +1,18 @@
-import { ChangeEvent, useEffect, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
+import { workflowApi } from '@/shared/api/workflow.api'
 import { useStartClassifierTrainingMutation } from '@/shared/api/workflow.hooks'
+import {
+  clearClassifierWeightsUploadSession,
+  createClassifierWeightsUploadSession,
+  loadClassifierWeightsUploadSession,
+  type PersistedClassifierWeightsUploadSession,
+} from '@/shared/lib/classifier-weights-upload-storage'
+import {
+  isClassifierWeightsAbortError,
+  runClassifierWeightsUpload,
+} from '@/shared/lib/classifier-weights-upload-runtime'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Modal } from '@/shared/ui/feedback/Modal'
@@ -30,8 +41,9 @@ export function ClassifierTrainPage() {
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const setSession = useSessionStore((state) => state.setSession)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [weightsFile, setWeightsFile] = useState<File | null>(null)
+  const [weightsUploadSession, setWeightsUploadSession] = useState<PersistedClassifierWeightsUploadSession | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploadingWeights, setIsUploadingWeights] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const uploadAbortRef = useRef<AbortController | null>(null)
@@ -57,77 +69,105 @@ export function ClassifierTrainPage() {
     }
   }, [classifierJobId, navigate])
 
-  const handleWeightsChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setUploadProgress(0)
-    setIsCancelling(false)
-    setWeightsFile(event.target.files?.[0] ?? null)
-  }
-
-  const openWeightsDialog = () => {
-    if (classifierMutation.isPending) {
-      return
-    }
-    fileInputRef.current?.click()
-  }
-
-  const submitForm = form.handleSubmit(async (values) => {
+  useEffect(() => {
     if (!sessionId) {
+      setWeightsUploadSession(null)
+      setUploadProgress(0)
       return
     }
-
-    const payload = new FormData()
-    payload.append('modelKey', values.modelKey)
-    payload.append('trainBatchSize', String(values.trainBatchSize))
-    payload.append('valBatchSize', String(values.valBatchSize))
-    payload.append('learningRate', String(values.learningRate))
-    payload.append('weightDecay', String(values.weightDecay))
-    payload.append('epochs', String(values.epochs))
-    if (weightsFile) {
-      payload.append('weights', weightsFile)
+    let cancelled = false
+    void (async () => {
+      try {
+        const storedSession = await loadClassifierWeightsUploadSession(sessionId)
+        if (cancelled || !storedSession) {
+          return
+        }
+        setWeightsUploadSession(storedSession)
+        setUploadProgress(storedSession.phase === 'uploaded' ? 100 : 0)
+        if (storedSession.phase === 'uploading' && storedSession.file) {
+          await resumeWeightsUpload(storedSession)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(getErrorMessage(error))
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
     }
+  }, [sessionId])
 
+  useEffect(() => {
+    const handleWakeup = () => {
+      if (document.hidden) {
+        return
+      }
+      if (!sessionId || isUploadingWeights || weightsUploadSession?.phase !== 'uploading' || !weightsUploadSession.file) {
+        return
+      }
+      void resumeWeightsUpload(weightsUploadSession)
+    }
+    document.addEventListener('visibilitychange', handleWakeup)
+    window.addEventListener('focus', handleWakeup)
+    window.addEventListener('online', handleWakeup)
+    return () => {
+      document.removeEventListener('visibilitychange', handleWakeup)
+      window.removeEventListener('focus', handleWakeup)
+      window.removeEventListener('online', handleWakeup)
+    }
+  }, [isUploadingWeights, sessionId, weightsUploadSession])
+
+  const resumeWeightsUpload = async (session: PersistedClassifierWeightsUploadSession) => {
+    if (!sessionId) {
+      setErrorMessage('Сессия потеряна. Сначала восстанови проект, потом выбери веса заново.')
+      return
+    }
     try {
       const controller = new AbortController()
       uploadAbortRef.current = controller
-      setUploadProgress(0)
+      setIsUploadingWeights(true)
       setIsCancelling(false)
-      const response = await classifierMutation.mutateAsync({
-        payload,
+      const result = await runClassifierWeightsUpload({
+        sessionId,
+        session,
         signal: controller.signal,
-        onUploadProgress: (progress) => {
-          setUploadProgress(Math.round(progress * 100))
-        },
+        onProgress: setUploadProgress,
       })
-      setSession({
-        classifierJobId: response.jobId,
-        classifierLogs: [
-          weightsFile
-            ? `Задача обучения классификатора отправлена. Загружены веса ${weightsFile.name}.`
-            : 'Задача обучения классификатора отправлена без внешних весов.',
-        ],
-        metrics: null,
-        workflowStage: 'metrics',
-      })
-      setErrorMessage(null)
+      setWeightsUploadSession(result.session)
       setUploadProgress(100)
-      navigate('/metrics')
+      setErrorMessage(null)
     } catch (error) {
-      if (isClassifierAbortError(error)) {
-        setUploadProgress(0)
+      if (isClassifierWeightsAbortError(error)) {
         return
       }
       setErrorMessage(getErrorMessage(error))
     } finally {
       uploadAbortRef.current = null
+      setIsUploadingWeights(false)
       setIsCancelling(false)
     }
-  })
+  }
 
-  const resetWeights = () => {
-    if (classifierMutation.isPending) {
+  const clearWeightsSelection = async () => {
+    if (!sessionId) {
+      setWeightsUploadSession(null)
+      setUploadProgress(0)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       return
     }
-    setWeightsFile(null)
+    const currentUploadId = weightsUploadSession?.uploadId ?? null
+    if (currentUploadId) {
+      try {
+        await workflowApi.cancelClassifierWeightsUpload(sessionId, currentUploadId)
+      } catch {
+        // Best-effort cleanup for abandoned staged uploads.
+      }
+    }
+    await clearClassifierWeightsUploadSession(sessionId)
+    setWeightsUploadSession(null)
     setUploadProgress(0)
     setIsCancelling(false)
     if (fileInputRef.current) {
@@ -135,24 +175,114 @@ export function ClassifierTrainPage() {
     }
   }
 
-  const abortUpload = () => {
-    if (!uploadAbortRef.current) {
+  const startWeightsUpload = async (file: File) => {
+    if (!sessionId) {
+      setErrorMessage('Сессия потеряна. Сначала выбери датасет заново.')
+      return
+    }
+    await clearWeightsSelection()
+    const nextSession = createClassifierWeightsUploadSession(sessionId, file)
+    setWeightsUploadSession(nextSession)
+    setUploadProgress(0)
+    await resumeWeightsUpload(nextSession)
+  }
+
+  const handleWeightsChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null
+    if (!file) {
+      return
+    }
+    void startWeightsUpload(file)
+  }
+
+  const openWeightsDialog = () => {
+    if (classifierMutation.isPending || isUploadingWeights || isCancelling) {
+      return
+    }
+    fileInputRef.current?.click()
+  }
+
+  const submitForm = form.handleSubmit(async (values) => {
+    if (!sessionId) {
+      setErrorMessage('Сессия потеряна. Сначала восстанови проект.')
+      return
+    }
+    if (isUploadingWeights) {
+      return
+    }
+
+    try {
+      const controller = new AbortController()
+      uploadAbortRef.current = controller
+      const response = await classifierMutation.mutateAsync({
+        payload: {
+          modelKey: values.modelKey,
+          trainBatchSize: values.trainBatchSize,
+          valBatchSize: values.valBatchSize,
+          learningRate: values.learningRate,
+          weightDecay: values.weightDecay,
+          epochs: values.epochs,
+          pretrainedWeightsPath: weightsUploadSession?.weightsPath ?? undefined,
+        },
+        signal: controller.signal,
+      })
+      setSession({
+        classifierJobId: response.jobId,
+        classifierLogs: [
+          weightsUploadSession?.weightsPath
+            ? `Задача обучения классификатора отправлена. Pretrain-веса ${weightsUploadSession.fileName} уже загружены.`
+            : 'Задача обучения классификатора отправлена без внешних весов.',
+        ],
+        metrics: null,
+        workflowStage: 'metrics',
+      })
+      setErrorMessage(null)
+      navigate('/metrics')
+    } catch (error) {
+      if (isClassifierAbortError(error)) {
+        return
+      }
+      setErrorMessage(getErrorMessage(error))
+    } finally {
+      uploadAbortRef.current = null
+    }
+  })
+
+  const abortUpload = async () => {
+    if (!sessionId) {
       return
     }
     setIsCancelling(true)
-    uploadAbortRef.current.abort()
+    uploadAbortRef.current?.abort()
     uploadAbortRef.current = null
+    await clearWeightsSelection()
   }
 
-  const weightsStatusLabel = classifierMutation.isPending
-    ? uploadProgress >= 100
-      ? 'Веса на сервере, запускаю обучение'
-      : `Загрузка весов: ${uploadProgress}%`
-    : isCancelling
-      ? 'Останавливаю отправку'
-      : weightsFile
-        ? `${weightsFile.name} готов к отправке`
-        : 'Файл весов не выбран'
+  const weightsStatusLabel = useMemo(() => {
+    if (!sessionId) {
+      return 'Сессия потеряна'
+    }
+    if (isCancelling) {
+      return 'Останавливаю загрузку весов'
+    }
+    if (isUploadingWeights) {
+      return uploadProgress >= 100 ? 'Веса на сервере, завершаю загрузку' : `Загрузка весов: ${uploadProgress}%`
+    }
+    if (weightsUploadSession?.phase === 'uploaded' && weightsUploadSession.weightsPath) {
+      return `Веса ${weightsUploadSession.fileName} загружены`
+    }
+    if (weightsUploadSession?.fileName) {
+      return `${weightsUploadSession.fileName} ожидает отправки`
+    }
+    return 'Файл весов не выбран'
+  }, [isCancelling, isUploadingWeights, sessionId, uploadProgress, weightsUploadSession])
+
+  const isSubmitDisabled =
+    classifierMutation.isPending ||
+    isUploadingWeights ||
+    isCancelling ||
+    !sessionId ||
+    (weightsUploadSession !== null && weightsUploadSession.phase !== 'uploaded')
 
   return (
     <>
@@ -183,7 +313,7 @@ export function ClassifierTrainPage() {
               <span className="generation-form__label">Pretrain-веса (опционально)</span>
               <div className="upload-stage upload-stage--compact classifier-weights">
                 <input
-                  accept=".bin,.ckpt,.pt,.pth"
+                  accept=".bin,.ckpt,.pt,.pth,.safetensors"
                   className="upload-stage__input"
                   onChange={handleWeightsChange}
                   ref={fileInputRef}
@@ -191,21 +321,23 @@ export function ClassifierTrainPage() {
                 />
                 <button
                   className="upload-stage__dropzone classifier-weights__dropzone"
-                  disabled={classifierMutation.isPending}
+                  disabled={classifierMutation.isPending || isUploadingWeights || isCancelling}
                   onClick={openWeightsDialog}
                   type="button"
                 >
                   <WeightUploadIllustration />
                   <span className="upload-stage__title">
-                    {weightsFile ? 'Файл выбран' : 'Выбрать веса'}
+                    {weightsUploadSession?.phase === 'uploaded' ? 'Веса загружены' : weightsUploadSession ? 'Идёт загрузка' : 'Выбрать веса'}
                   </span>
                   <span className="upload-stage__hint">
-                    {weightsFile
-                      ? `${weightsFile.name} готов к запуску обучения.`
-                      : 'Поддерживаются .bin, .ckpt, .pt, .pth. Можно пропустить.'}
+                    {weightsUploadSession
+                      ? weightsUploadSession.phase === 'uploaded'
+                        ? `${weightsUploadSession.fileName} уже на сервере и готов к обучению.`
+                        : `Передаю ${weightsUploadSession.fileName} на сервер.`
+                      : 'Поддерживаются .bin, .ckpt, .pt, .pth, .safetensors. Можно пропустить.'}
                   </span>
                 </button>
-                {classifierMutation.isPending ? (
+                {isUploadingWeights || isCancelling ? (
                   <div className="upload-stage__loading">
                     <div className="upload-stage__loading-head">
                       <Spinner label={weightsStatusLabel} />
@@ -299,11 +431,11 @@ export function ClassifierTrainPage() {
               </p>
             </div>
 
-            <Button disabled={classifierMutation.isPending} type="submit">
+            <Button disabled={isSubmitDisabled} type="submit">
               Запустить обучение
             </Button>
-            {weightsFile ? (
-              <Button disabled={classifierMutation.isPending} onClick={resetWeights} type="button" variant="ghost">
+            {weightsUploadSession ? (
+              <Button disabled={classifierMutation.isPending || isUploadingWeights} onClick={() => void clearWeightsSelection()} type="button" variant="ghost">
                 Сбросить веса
               </Button>
             ) : null}

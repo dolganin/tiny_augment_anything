@@ -2,6 +2,7 @@ import {
   datasetsCatalogResponseSchema,
   datasetStatsResponseSchema,
   datasetUploadResponseSchema,
+  classifierWeightsUploadResponseSchema,
   finalizeReviewPayloadSchema,
   finalizeReviewResponseSchema,
   generationConfigResponseSchema,
@@ -163,29 +164,66 @@ export const workflowApi = {
   },
   async startClassifierTraining(
     sessionId: string,
-    payload: FormData,
+    payload: Record<string, unknown>,
     options?: {
       signal?: AbortSignal
-      onUploadProgress?: (progress: number) => void
     },
   ) {
-    const weightsEntry = payload.get('weights')
-    const weightsSize =
-      typeof File !== 'undefined' && weightsEntry instanceof File
-        ? weightsEntry.size
-        : typeof Blob !== 'undefined' && weightsEntry instanceof Blob
-          ? weightsEntry.size
-          : undefined
     const response = await http.post(endpoints.startClassifierTraining(sessionId), payload, {
       timeout: 0,
       signal: options?.signal,
-      onUploadProgress: (event) => {
-        const total = event.total ?? weightsSize ?? event.loaded ?? 1
-        const progress = total === 0 ? 1 : Math.min(1, (event.loaded ?? 0) / total)
-        options?.onUploadProgress?.(progress)
-      },
     })
     return taskStartedResponseSchema.parse(response.data)
+  },
+  async initClassifierWeightsUpload(sessionId: string, fileName: string, fileSize: number, signal?: AbortSignal) {
+    const response = await http.post(
+      endpoints.initClassifierWeightsUpload(sessionId),
+      { fileName, fileSize },
+      { timeout: 30_000, signal },
+    )
+    return uploadInitResponseSchema.parse(response.data)
+  },
+  async getClassifierWeightsUploadStatus(sessionId: string, uploadId: string) {
+    const response = await http.get(endpoints.classifierWeightsUploadStatus(sessionId, uploadId))
+    return uploadStatusResponseSchema.parse(response.data)
+  },
+  async uploadClassifierWeightsChunk(
+    sessionId: string,
+    uploadId: string,
+    partNumber: number,
+    totalParts: number,
+    chunk: Blob,
+    signal?: AbortSignal,
+    onProgress?: (progress: number) => void,
+  ) {
+    const response = await http.put(
+      endpoints.uploadClassifierWeightsChunk(sessionId, uploadId, partNumber, totalParts),
+      chunk,
+      {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+        timeout: 0,
+        signal,
+        onUploadProgress: (event) => {
+          const loaded = event.loaded ?? chunk.size
+          const progress = chunk.size === 0 ? 1 : loaded / chunk.size
+          onProgress?.(Math.min(1, progress))
+        },
+      },
+    )
+    return statusResponseSchema.parse(response.data)
+  },
+  async completeClassifierWeightsUpload(sessionId: string, uploadId: string, signal?: AbortSignal) {
+    const response = await http.post(endpoints.completeClassifierWeightsUpload(sessionId, uploadId), null, {
+      timeout: 0,
+      signal,
+    })
+    return classifierWeightsUploadResponseSchema.parse(response.data)
+  },
+  async cancelClassifierWeightsUpload(sessionId: string, uploadId: string) {
+    const response = await http.delete(endpoints.cancelClassifierWeightsUpload(sessionId, uploadId))
+    return statusResponseSchema.parse(response.data)
   },
   async getMetrics(sessionId: string) {
     const response = await http.get(endpoints.getMetrics(sessionId))

@@ -360,7 +360,11 @@ def _parse_classifier_payload(
         "epochs": _parse_positive_int(raw_payload.get("epochs"), "epochs", 10),
     }
 
-    pretrained_weights_path = None
+    pretrained_weights_path = _resolve_pretrained_weights_path(
+        runtime_state,
+        session_id,
+        raw_payload.get("pretrainedWeightsPath"),
+    )
     if weights_file is not None and weights_file.file_name:
         weights_dir = runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)
         weights_dir.mkdir(parents=True, exist_ok=True)
@@ -376,6 +380,26 @@ def _parse_classifier_payload(
         "hparams": hparams,
         "pretrainedWeightsPath": pretrained_weights_path,
     }
+
+
+def _resolve_pretrained_weights_path(
+    runtime_state: RuntimeState,
+    session_id: UUID,
+    raw_path: object,
+) -> str | None:
+    if raw_path is None or raw_path == "":
+        return None
+    if not isinstance(raw_path, str):
+        raise AppError(400, "pretrainedWeightsPath должен быть строкой.")
+    candidate = (runtime_state.settings.runtime_dir / Path(raw_path)).resolve()
+    allowed_root = (runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)).resolve()
+    try:
+        candidate.relative_to(allowed_root)
+    except ValueError as error:
+        raise AppError(400, "pretrainedWeightsPath не принадлежит текущей сессии.") from error
+    if not candidate.exists():
+        raise AppError(400, "Файл предобученных весов не найден.")
+    return make_relative_path(runtime_state.settings.runtime_dir, candidate)
 
 
 def _parse_positive_int(raw_value: object, field_name: str, default: int) -> int:

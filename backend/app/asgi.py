@@ -6,7 +6,21 @@ from backend.app.api.dataset_handlers import dataset_stats
 from backend.app.api.download_handlers import download_dataset
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, finalize_review, reject_asset_handler
-from backend.app.api.session_handlers import cancel_dataset_upload, complete_dataset_upload, get_dataset_upload_status, get_session, init_dataset_upload, save_classes, upload_dataset, upload_dataset_chunk
+from backend.app.api.session_handlers import (
+    cancel_classifier_weights,
+    cancel_dataset_upload,
+    complete_classifier_weights,
+    complete_dataset_upload,
+    get_classifier_weights_status,
+    get_dataset_upload_status,
+    get_session,
+    init_classifier_weights,
+    init_dataset_upload,
+    save_classes,
+    upload_classifier_weights_chunk,
+    upload_dataset,
+    upload_dataset_chunk,
+)
 from backend.app.api.workflow_handlers import (
     generation_config,
     generation_results,
@@ -54,6 +68,11 @@ def build_router() -> Router:
     router.add_http("PUT", "/api/uploads/{upload_id}/parts", upload_dataset_chunk)
     router.add_http("POST", "/api/uploads/{upload_id}/complete", complete_dataset_upload)
     router.add_http("DELETE", "/api/uploads/{upload_id}", cancel_dataset_upload)
+    router.add_http("POST", "/api/sessions/{session_id}/classifier/weights/init", init_classifier_weights)
+    router.add_http("GET", "/api/sessions/{session_id}/classifier/weights/{upload_id}", get_classifier_weights_status)
+    router.add_http("PUT", "/api/sessions/{session_id}/classifier/weights/{upload_id}/parts", upload_classifier_weights_chunk)
+    router.add_http("POST", "/api/sessions/{session_id}/classifier/weights/{upload_id}/complete", complete_classifier_weights)
+    router.add_http("DELETE", "/api/sessions/{session_id}/classifier/weights/{upload_id}", cancel_classifier_weights)
     router.add_http("POST", "/api/sessions/upload", upload_dataset)
     router.add_http("GET", "/api/sessions/{session_id}", get_session)
     router.add_http("GET", "/api/sessions/{session_id}/tasks/{task_id}", task_status)
