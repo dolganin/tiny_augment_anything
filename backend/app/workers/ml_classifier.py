@@ -299,7 +299,7 @@ def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
         "dataloader.weights_root=null",
         f"dataloader.num_workers={0}",
         "dataloader.prefetch_factor=null",
-        "dataloader.persistent_workers=false",
+        "+dataloader.persistent_workers=false",
         f"optimizer.lr={float(hparams.get('learning_rate', 3e-4))}",
         f"optimizer.weight_decay={float(hparams.get('weight_decay', 1e-6))}",
         f"train.epochs={int(hparams.get('epochs', 10))}",
