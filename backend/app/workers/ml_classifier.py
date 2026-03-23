@@ -56,6 +56,13 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     env["MLFLOW_TRACKING_URI"] = f"file:{(bundle.run_dir / 'mlruns').resolve()}"
+    classifier_root = str(runtime_state.settings.classifier_pipeline_root)
+    existing_pythonpath = env.get("PYTHONPATH", "").strip()
+    env["PYTHONPATH"] = (
+        classifier_root
+        if not existing_pythonpath
+        else f"{classifier_root}:{existing_pythonpath}"
+    )
 
     total_epochs = int(config.get("hparams", {}).get("epochs", 10))
     write_state(
@@ -77,6 +84,7 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
         run_dir=bundle.run_dir,
         command=command,
         cwd=runtime_state.settings.classifier_pipeline_root,
+        pythonpath=env["PYTHONPATH"],
     )
 
     with bundle.stdout_log_path.open("w", encoding="utf-8") as stdout_file, bundle.stderr_log_path.open(
