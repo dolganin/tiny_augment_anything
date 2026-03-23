@@ -82,18 +82,64 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
     with bundle.stdout_log_path.open("w", encoding="utf-8") as stdout_file, bundle.stderr_log_path.open(
         "w", encoding="utf-8"
     ) as stderr_file:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            cwd=str(runtime_state.settings.classifier_pipeline_root),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                cwd=str(runtime_state.settings.classifier_pipeline_root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+        except FileNotFoundError as error:
+            message = (
+                f"Не удалось запустить classifier subprocess: {error}. "
+                f"Команда: {' '.join(command)}"
+            )
+            log_event(
+                logger,
+                40,
+                "ml_worker.classifier.spawn_failed",
+                run_dir=bundle.run_dir,
+                command=command,
+                cwd=runtime_state.settings.classifier_pipeline_root,
+                error=str(error),
+            )
+            write_state(
+                bundle,
+                {
+                    "status": "error",
+                    "phase": "failed",
+                    "progress": 1.0,
+                    "message": message,
+                    "epoch": 0,
+                    "totalEpochs": total_epochs,
+                },
+            )
+            return
+        log_event(
+            logger,
+            20,
+            "ml_worker.classifier.spawned",
+            run_dir=bundle.run_dir,
+            pid=process.pid,
+        )
+        write_state(
+            bundle,
+            {
+                "status": "running",
+                "phase": "bootstrapping",
+                "progress": 0.18,
+                "message": f"Classifier subprocess запущен, pid={process.pid}. Жду первые логи.",
+                "epoch": 0,
+                "totalEpochs": total_epochs,
+            },
         )
         stdout_task = asyncio.create_task(
             _consume_stdout(process, bundle, stdout_file, total_epochs)
         )
-        stderr_task = asyncio.create_task(_consume_stderr(process, stderr_file))
+        stderr_task = asyncio.create_task(_consume_stderr(process, bundle, stderr_file, total_epochs))
         try:
+            idle_polls = 0
             while True:
                 if is_cancellation_requested(bundle):
                     process.terminate()
@@ -113,6 +159,24 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
                 try:
                     await asyncio.wait_for(process.wait(), timeout=0.5)
                 except TimeoutError:
+                    idle_polls += 1
+                    if idle_polls % 20 == 0:
+                        current_state = _load_json_dict(bundle.state_path)
+                        current_progress = float(current_state.get("progress") or 0.18)
+                        current_message = current_state.get("message")
+                        if not isinstance(current_message, str) or not current_message.strip():
+                            current_message = "Classifier subprocess работает, ожидаю логов."
+                        write_state(
+                            bundle,
+                            {
+                                "status": "running",
+                                "phase": str(current_state.get("phase") or "bootstrapping"),
+                                "progress": current_progress,
+                                "message": current_message,
+                                "epoch": int(current_state.get("epoch") or 0),
+                                "totalEpochs": total_epochs,
+                            },
+                        )
                     continue
             await stdout_task
             await stderr_task
@@ -182,6 +246,8 @@ async def _consume_stdout(process, bundle, stdout_file, total_epochs: int) -> No
         stdout_file.write(text)
         stdout_file.flush()
         stripped = text.strip()
+        if stripped:
+            _write_runtime_line(bundle, "bootstrapping", stripped, total_epochs, progress=0.2)
         match = EPOCH_RE.search(stripped)
         if match:
             epoch = int(match.group("epoch"))
@@ -201,14 +267,18 @@ async def _consume_stdout(process, bundle, stdout_file, total_epochs: int) -> No
             )
 
 
-async def _consume_stderr(process, stderr_file) -> None:
+async def _consume_stderr(process, bundle, stderr_file, total_epochs: int) -> None:
     assert process.stderr is not None
     while True:
         line = await process.stderr.readline()
         if not line:
             return
-        stderr_file.write(line.decode("utf-8", errors="ignore"))
+        text = line.decode("utf-8", errors="ignore")
+        stderr_file.write(text)
         stderr_file.flush()
+        stripped = text.strip()
+        if stripped:
+            _write_runtime_line(bundle, "bootstrapping", f"stderr | {stripped}", total_epochs, progress=0.2)
 
 
 def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
@@ -254,3 +324,27 @@ def _read_log_tail(path: Path, limit: int = 3000) -> str:
         return ""
     content = path.read_text(encoding="utf-8", errors="ignore")
     return content[-limit:].strip()
+
+
+def _write_runtime_line(
+    bundle,
+    phase: str,
+    message: str,
+    total_epochs: int,
+    *,
+    progress: float,
+) -> None:
+    current_state = _load_json_dict(bundle.state_path)
+    current_epoch = int(current_state.get("epoch") or 0)
+    current_progress = max(progress, float(current_state.get("progress") or 0.0))
+    write_state(
+        bundle,
+        {
+            "status": "running",
+            "phase": phase,
+            "progress": current_progress,
+            "message": message[:4000],
+            "epoch": current_epoch,
+            "totalEpochs": total_epochs,
+        },
+    )

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import axios from 'axios'
 import { adaptMetrics } from '@/shared/api/adapters'
 import { useMetricsQuery, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
@@ -128,6 +129,9 @@ export function MetricsPage() {
 
   useEffect(() => {
     if (!metricsQuery.error) {
+      return
+    }
+    if (axios.isAxiosError(metricsQuery.error) && metricsQuery.error.response?.status === 404) {
       return
     }
     setErrorMessage(getErrorMessage(metricsQuery.error))
