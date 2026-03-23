@@ -177,10 +177,11 @@ export function ModifyPage() {
 
   const fields = useMemo(() => configQuery.data?.fields ?? [], [configQuery.data?.fields])
   const samPromptValue = fieldValues.sam_prompt ?? ''
+  const negativePromptValue = fieldValues.negative_prompt ?? ''
   const priorityFields = useMemo(
     () =>
       fields.filter((field) =>
-        ['negative_prompt', 'size', 'strength', 'inpaint_strength', 'num_inference_steps', 'guidance_scale'].includes(
+        ['size', 'strength', 'inpaint_strength', 'num_inference_steps', 'guidance_scale'].includes(
           field.key,
         ),
       ),
@@ -239,8 +240,8 @@ export function ModifyPage() {
   )
   const isModificationActive =
     modificationMutation.isPending ||
-    taskStatusQuery.data?.status === 'pending' ||
-    taskStatusQuery.data?.status === 'running'
+    (Boolean(generationJobId) &&
+      (taskStatusQuery.data?.status === 'pending' || taskStatusQuery.data?.status === 'running'))
   const reviewPendingCount = reviewResultsQuery.data?.items.length ?? 0
   const isReviewOpen = workflowStage === 'review'
 
@@ -363,6 +364,16 @@ export function ModifyPage() {
               </label>
 
               <label className="generation-form__group">
+                <span className="generation-form__label">Negative prompt</span>
+                <textarea
+                  className="generation-form__textarea"
+                  onChange={(event) => updateFieldValue('negative_prompt', event.target.value)}
+                  placeholder="Опиши, чего не должно быть в результате."
+                  value={negativePromptValue}
+                />
+              </label>
+
+              <label className="generation-form__group">
                 <span className="generation-form__label">SAM prompt</span>
                 <textarea
                   className="generation-form__textarea modify-workbench__sam-prompt"
@@ -427,23 +438,14 @@ export function ModifyPage() {
                 </Button>
               </div>
 
-              {priorityFields.length > 0 ? (
-                <section className="generation-form generation-form--stacked modify-panel modify-panel--inline">
-                  <GenerationConfigFields fields={priorityFields} onChange={updateFieldValue} values={fieldValues} />
-                </section>
-              ) : null}
             </div>
 
             <section className="generation-form generation-form--stacked modify-controls modify-panel modify-panel--secondary">
-              <div className="info-card">
-                <p className="info-card__text">
-                  Полигон: <strong>{areaConfirmed ? 'область применена' : areaPoints.length >= 3 ? 'готов к применению' : 'ещё не замкнут'}</strong>.
-                </p>
-                <p className="info-card__text">
-                  Если заполнен <strong>SAM prompt</strong>, backend попробует сделать текстовую сегментацию. Если runtime EVF-SAM не установлен, будет показана явная ошибка.
-                </p>
-              </div>
-
+              {priorityFields.length > 0 ? (
+                <div className="generation-form generation-form--stacked modify-panel modify-panel--inline">
+                  <GenerationConfigFields fields={priorityFields} onChange={updateFieldValue} values={fieldValues} />
+                </div>
+              ) : null}
               <div className="modify-controls__actions">
                 <Button
                   disabled={areaPoints.length < 3 || areaConfirmed}
