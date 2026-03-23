@@ -121,7 +121,6 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
             20,
             "ml_worker.classifier.spawned",
             run_dir=bundle.run_dir,
-            pid=process.pid,
         )
         write_state(
             bundle,
@@ -129,7 +128,7 @@ async def execute_classifier_training(runtime_state, task_payload: dict[str, Any
                 "status": "running",
                 "phase": "bootstrapping",
                 "progress": 0.18,
-                "message": f"Classifier subprocess запущен, pid={process.pid}. Жду первые логи.",
+                "message": "Classifier subprocess запущен. Жду первые логи.",
                 "epoch": 0,
                 "totalEpochs": total_epochs,
             },
@@ -300,6 +299,7 @@ def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
         "dataloader.weights_root=null",
         f"dataloader.num_workers={0}",
         "dataloader.prefetch_factor=null",
+        "dataloader.persistent_workers=false",
         f"optimizer.lr={float(hparams.get('learning_rate', 3e-4))}",
         f"optimizer.weight_decay={float(hparams.get('weight_decay', 1e-6))}",
         f"train.epochs={int(hparams.get('epochs', 10))}",
