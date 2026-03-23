@@ -176,20 +176,30 @@ export function ModifyPage() {
   }, [generationJobId, setSession, taskStatusQuery.data])
 
   const fields = useMemo(() => configQuery.data?.fields ?? [], [configQuery.data?.fields])
-  const promptFields = useMemo(
+  const samPromptValue = fieldValues.sam_prompt ?? ''
+  const priorityFields = useMemo(
     () =>
-      fields.filter((field) => {
-        const haystack = `${field.key} ${field.label}`.toLowerCase()
-        return haystack.includes('prompt')
-      }),
+      fields.filter((field) =>
+        ['negative_prompt', 'size', 'strength', 'inpaint_strength', 'num_inference_steps', 'guidance_scale'].includes(
+          field.key,
+        ),
+      ),
     [fields],
   )
-  const advancedFields = useMemo(
+  const secondaryFields = useMemo(
     () =>
-      fields.filter((field) => {
-        const haystack = `${field.key} ${field.label}`.toLowerCase()
-        return !haystack.includes('prompt')
-      }),
+      fields.filter(
+        (field) =>
+          ![
+            'sam_prompt',
+            'negative_prompt',
+            'size',
+            'strength',
+            'inpaint_strength',
+            'num_inference_steps',
+            'guidance_scale',
+          ].includes(field.key),
+      ),
     [fields],
   )
   const sourceItems = useMemo<ModificationSourceAsset[]>(() => {
@@ -341,7 +351,52 @@ export function ModifyPage() {
         )}
 
         {!configQuery.isLoading && !sourceQuery.isLoading && source ? (
-          <div className="modify-layout">
+          <form className="modify-layout modify-workbench" onSubmit={submitForm}>
+            <section className="generation-form generation-form--stacked modify-panel modify-panel--primary">
+              <label className="generation-form__group">
+                <span className="generation-form__label">Промпт модификации</span>
+                <textarea
+                  className="generation-form__textarea generation-form__textarea--hero"
+                  placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
+                  {...form.register('prompt', { required: true })}
+                />
+              </label>
+
+              <label className="generation-form__group">
+                <span className="generation-form__label">SAM prompt</span>
+                <textarea
+                  className="generation-form__textarea modify-workbench__sam-prompt"
+                  onChange={(event) => updateFieldValue('sam_prompt', event.target.value)}
+                  placeholder="Опиши область для текстовой сегментации, если хочешь использовать SAM по тексту вместо полигона."
+                  value={samPromptValue}
+                />
+              </label>
+
+              <div className="info-card">
+                <p className="info-card__text">
+                  План генерации взят со страницы статистики: <strong>{totalTargetCount}</strong> изображений суммарно.
+                </p>
+                <p className="info-card__text">
+                  Источник: <strong>{source.className}</strong>
+                </p>
+              </div>
+
+              <div className="modify-panel__actions">
+                <Button disabled={modificationMutation.isPending} type="submit">
+                  Запустить модификацию
+                </Button>
+                {reviewPendingCount > 0 && !isReviewOpen ? (
+                  <Button
+                    onClick={() => setSession({ workflowStage: 'review' })}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Открыть отбор ({reviewPendingCount})
+                  </Button>
+                ) : null}
+              </div>
+            </section>
+
             <div className="modify-layout__viewer">
               <ModificationCanvas
                 areaConfirmed={areaConfirmed}
@@ -371,45 +426,21 @@ export function ModifyPage() {
                   Следующее
                 </Button>
               </div>
+
+              {priorityFields.length > 0 ? (
+                <section className="generation-form generation-form--stacked modify-panel modify-panel--inline">
+                  <GenerationConfigFields fields={priorityFields} onChange={updateFieldValue} values={fieldValues} />
+                </section>
+              ) : null}
             </div>
 
-            <form className="generation-form generation-form--stacked modify-controls" onSubmit={submitForm}>
-              <label className="generation-form__group">
-                <span className="generation-form__label">Промпт модификации</span>
-                <textarea
-                  className="generation-form__textarea generation-form__textarea--hero"
-                  placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
-                  {...form.register('prompt', { required: true })}
-                />
-              </label>
-
-              {promptFields.length > 0 ? (
-                <div className="modify-controls__prompt-fields">
-                  <GenerationConfigFields fields={promptFields} onChange={updateFieldValue} values={fieldValues} />
-                </div>
-              ) : null}
-
+            <section className="generation-form generation-form--stacked modify-controls modify-panel modify-panel--secondary">
               <div className="info-card">
                 <p className="info-card__text">
-                  План генерации взят со страницы статистики: <strong>{totalTargetCount}</strong> изображений суммарно.
-                </p>
-                {reviewPendingCount > 0 && !isReviewOpen ? (
-                  <Button
-                    onClick={() => setSession({ workflowStage: 'review' })}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Открыть отбор ({reviewPendingCount})
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="info-card">
-                <p className="info-card__text">
-                  Источник: <strong>{source.className}</strong>
+                  Полигон: <strong>{areaConfirmed ? 'область применена' : areaPoints.length >= 3 ? 'готов к применению' : 'ещё не замкнут'}</strong>.
                 </p>
                 <p className="info-card__text">
-                  Полигон: <strong>{areaConfirmed ? 'область применена' : areaPoints.length >= 3 ? 'готов к применению' : 'ещё не замкнут'}</strong>
+                  Если заполнен <strong>SAM prompt</strong>, backend попробует сделать текстовую сегментацию. Если runtime EVF-SAM не установлен, будет показана явная ошибка.
                 </p>
               </div>
 
@@ -443,15 +474,11 @@ export function ModifyPage() {
                 </Button>
               </div>
 
-              {advancedFields.length > 0 ? (
-                <GenerationConfigFields fields={advancedFields} onChange={updateFieldValue} values={fieldValues} />
+              {secondaryFields.length > 0 ? (
+                <GenerationConfigFields fields={secondaryFields} onChange={updateFieldValue} values={fieldValues} />
               ) : null}
-
-              <Button disabled={modificationMutation.isPending} type="submit">
-                Запустить модификацию
-              </Button>
-            </form>
-          </div>
+            </section>
+          </form>
         ) : null}
 
         {isModificationActive && !errorMessage ? (

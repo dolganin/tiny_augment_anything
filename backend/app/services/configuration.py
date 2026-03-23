@@ -21,6 +21,7 @@ def generation_defaults(settings: Settings) -> dict:
             {"key": "inpaint_strength", "label": "Сила inpaint", "value": "1.0", "type": "number"},
             {"key": "num_inference_steps", "label": "Шаги инференса", "value": "9", "type": "number"},
             {"key": "guidance_scale", "label": "Guidance scale", "value": "0.0", "type": "number"},
+            {"key": "sam_prompt", "label": "SAM prompt", "value": "", "type": "string"},
             {"key": "negative_prompt", "label": "Negative prompt", "value": "", "type": "string"},
             {"key": "precision", "label": "Precision", "value": "bf16", "type": "string"},
             {"key": "seed", "label": "Seed", "value": "42", "type": "number"},

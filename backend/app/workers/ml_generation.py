@@ -15,6 +15,7 @@ from backend.app.services.zimage import (
 )
 from backend.app.services.zimage_executor import (
     generate_results,
+    prepare_prompt_segmented_input,
     prepare_polygon_segmented_input,
 )
 
@@ -116,6 +117,10 @@ async def _run_generation(runtime_state, bundle) -> None:
         str(item) for item in manifest.get("classPool", []) if isinstance(item, str)
     ] or ["unknown"]
     area_points = manifest.get("areaPoints")
+    has_seg_prompt = any(
+        isinstance(item, dict) and isinstance(item.get("seg_prompt"), str) and item.get("seg_prompt").strip()
+        for item in _load_json_list(bundle.input_json_path)
+    )
 
     log_event(
         logger,
@@ -168,6 +173,60 @@ async def _run_generation(runtime_state, bundle) -> None:
             )
         except RuntimeError as error:
             _write_terminal_state(bundle, error)
+            return
+
+    elif has_seg_prompt:
+        log_event(
+            logger,
+            20,
+            "ml_worker.generation.segment.begin",
+            run_dir=bundle.run_dir,
+            mode="prompt_mask",
+        )
+        write_state(
+            bundle,
+            {
+                "status": "running",
+                "phase": "segmenting",
+                "progress": 0.15,
+                "message": "Строю маску области по SAM prompt.",
+            },
+        )
+        try:
+            input_json_path = await prepare_prompt_segmented_input(
+                runtime_state.settings,
+                bundle.input_json_path,
+                bundle.segmented_json_path,
+                bundle.masks_dir,
+                is_cancelled=lambda: _is_cancelled(bundle),
+                on_progress=lambda current, total: _write_progress(
+                    bundle,
+                    phase="segmenting",
+                    progress=min(0.28, 0.15 + current / max(total, 1) * 0.13),
+                    message=f"Подготовил prompt-маски {current}/{total}",
+                    current_count=current,
+                ),
+            )
+        except RuntimeError as error:
+            _write_terminal_state(bundle, error)
+            return
+
+        if not has_mask_records(bundle):
+            log_event(
+                logger,
+                40,
+                "ml_worker.generation.segment.empty",
+                run_dir=bundle.run_dir,
+            )
+            write_state(
+                bundle,
+                {
+                    "status": "error",
+                    "phase": "segmenting",
+                    "progress": 1.0,
+                    "message": "Не удалось построить маску по SAM prompt.",
+                },
+            )
             return
 
         if not has_mask_records(bundle):
@@ -436,3 +495,12 @@ def _load_json_dict(path: Path) -> dict[str, Any]:
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
+
+
+def _load_json_list(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]

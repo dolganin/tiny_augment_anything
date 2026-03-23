@@ -523,7 +523,7 @@ export function ClassifierTrainPage() {
                 <h3 className="classifier-summary-card__title">Сохранённые модели датасета</h3>
               </div>
               {(classifierSummary?.models ?? []).length === 0 ? (
-                <p className="info-card__text">Пока нет завершённых запусков классификатора для этого датасета.</p>
+                <p className="info-card__text">Для этого датасета ещё не сохранено ни одной конфигурации классификатора.</p>
               ) : (
                 <div className="classifier-model-history__list">
                   {(classifierSummary?.models ?? []).map((model) => (

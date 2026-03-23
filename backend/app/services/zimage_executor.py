@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -51,6 +53,74 @@ async def prepare_polygon_segmented_input(
         stem = segment_module.utils.sanitize_stem(str(rec.get("id", index)))
         saved_masks = segment_module.save_masks(
             mask_stack,
+            out_dir=mask_dir,
+            stem=stem,
+            save_all=False,
+            compress_level=3,
+        )
+        rec["mask_path"] = saved_masks[0] if saved_masks else None
+        rec["mask_paths"] = saved_masks
+        prepared.append(rec)
+        await on_progress(index + 1, len(records))
+
+    output_json_path.write_text(
+        json.dumps(prepared, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return output_json_path
+
+
+async def prepare_prompt_segmented_input(
+    settings: Settings,
+    input_json_path: Path,
+    output_json_path: Path,
+    mask_dir: Path,
+    *,
+    is_cancelled: Callable[[], Awaitable[bool]],
+    on_progress: Callable[[int, int], Awaitable[None]],
+) -> Path:
+    records = _load_json_list(input_json_path)
+    if not records:
+        raise RuntimeError("Не найден input.json для построения маски.")
+
+    segment_module = _load_evf_segment_module(settings)
+    device = segment_module.utils.choose_device(None)
+    dtype = segment_module.utils.choose_dtype(device, "fp16")
+    segmenter = segment_module.EVFSegmenter(
+        version="YxZhang/evf-sam2-multitask",
+        model_type="sam2",
+        device=device,
+        dtype=dtype,
+    )
+    prepared: list[dict[str, Any]] = []
+
+    for index, record in enumerate(records):
+        if await is_cancelled():
+            raise RuntimeError("cancelled")
+
+        rec = dict(record)
+        org_img = rec.get("org_img")
+        seg_prompt = rec.get("seg_prompt")
+        if not isinstance(org_img, str) or not org_img or not isinstance(seg_prompt, str) or not seg_prompt.strip():
+            prepared.append(rec)
+            await on_progress(index + 1, len(records))
+            continue
+
+        image_path = segment_module.utils.resolve_path(org_img, input_json_path.parent)
+        if not image_path.exists():
+            prepared.append(rec)
+            await on_progress(index + 1, len(records))
+            continue
+
+        image_np = segment_module.np.array(segment_module.Image.open(image_path).convert("RGB"))
+        masks = segmenter.predict(
+            image_np=image_np,
+            prompt=seg_prompt.strip(),
+            semantic_type=bool(rec.get("seg_semantic")),
+        )
+        stem = segment_module.utils.sanitize_stem(str(rec.get("id", index)))
+        saved_masks = segment_module.save_masks(
+            masks,
             out_dir=mask_dir,
             stem=stem,
             save_all=False,
@@ -240,3 +310,26 @@ def _as_bool(value: object) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return False
+
+
+def _load_evf_segment_module(settings: Settings):
+    script_path = (settings.executor_segment_script_path.parent / "segment_evf_sam2_json.py").resolve()
+    evf_repo_path = script_path.parent / "EVF-SAM"
+    if not script_path.exists():
+        raise RuntimeError(f"Не найден script для SAM prompt: {script_path}")
+    if not evf_repo_path.exists():
+        raise RuntimeError(
+            "SAM prompt недоступен: рядом со скриптами нет директории scripts_for_gen/EVF-SAM. "
+            "Сейчас доступна только сегментация полигоном."
+        )
+    module_name = f"segment_evf_sam2_json_{abs(hash(script_path))}"
+    cached = sys.modules.get(module_name)
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Не удалось загрузить модуль сегментации из {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
