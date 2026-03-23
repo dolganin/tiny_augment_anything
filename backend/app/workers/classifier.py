@@ -82,10 +82,12 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             split = analyze_training_layout(assets, val_ratio=runtime_state.settings.classifier_val_ratio)
             layout = prepare_training_layout(bundle, runtime_state.settings.runtime_dir, assets, val_ratio=runtime_state.settings.classifier_val_ratio)
         except RuntimeError as error:
+            _cleanup_classifier_checkpoints(bundle)
             await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
             await emit_failure(runtime_state, connection, session_id, task_id, str(error))
             return
         if layout["valCount"] == 0:
+            _cleanup_classifier_checkpoints(bundle)
             await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
             await emit_failure(runtime_state, connection, session_id, task_id, "Не удалось подготовить валидационную выборку без синтетики.")
             return
@@ -174,10 +176,12 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
                         message=str(state.get("message") or "classifier running"),
                     )
                 if status == "cancelled":
+                    _cleanup_classifier_checkpoints(bundle)
                     await update_classifier_run_status(connection, run_id, TaskStatus.CANCELLED)
                     await emit_cancelled(runtime_state, connection, session_id, task_id, "Обучение классификатора было остановлено пользователем.")
                     return
                 if status == "error":
+                    _cleanup_classifier_checkpoints(bundle)
                     await update_classifier_run_status(connection, run_id, TaskStatus.ERROR)
                     await emit_failure(
                         runtime_state,
@@ -198,7 +202,7 @@ async def run_classifier(runtime_state, session_id: UUID, task_id: UUID) -> None
             metrics,
             checkpoint_path=None,
         )
-        shutil.rmtree(bundle.checkpoints_dir, ignore_errors=True)
+        _cleanup_classifier_checkpoints(bundle)
         archive_path, _ = await build_dataset_download_archive(
             connection=connection,
             runtime_paths=runtime_state.runtime_paths,
@@ -228,3 +232,7 @@ def _adapt_metrics(raw_metrics: dict, class_names: list[str]) -> dict:
         "precision": precision,
         "recall": recall,
     }
+
+
+def _cleanup_classifier_checkpoints(bundle) -> None:
+    shutil.rmtree(bundle.checkpoints_dir, ignore_errors=True)

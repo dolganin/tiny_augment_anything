@@ -101,8 +101,13 @@ def complete_classifier_weights_upload(
     file_name = str(meta["file_name"])
     target_dir = runtime_paths.temp / "classifier-weights" / str(session_id)
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / f"{uuid4()}_{Path(file_name).name}"
-    weights_path.replace(target_path)
+    file_hash = _sha256_file(weights_path)
+    target_path = target_dir / f"{file_hash}_{Path(file_name).name}"
+    if target_path.exists():
+        weights_path.unlink(missing_ok=True)
+    else:
+        weights_path.replace(target_path)
+    _remove_duplicate_classifier_weights(target_dir, target_path, file_hash)
     try:
         meta_path.unlink(missing_ok=True)
         upload_dir.rmdir()
@@ -453,6 +458,28 @@ def _meta_target_name(meta: dict[str, int | str]) -> str:
     if isinstance(target_name, str) and target_name:
         return target_name
     return "source.zip"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as file_object:
+        while True:
+            chunk = file_object.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _remove_duplicate_classifier_weights(target_dir: Path, canonical_path: Path, expected_hash: str) -> None:
+    for candidate in target_dir.iterdir():
+        if candidate == canonical_path or not candidate.is_file():
+            continue
+        try:
+            if _sha256_file(candidate) == expected_hash:
+                candidate.unlink(missing_ok=True)
+        except OSError:
+            continue
 
 
 async def _extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID, archive_path, task_id: UUID | None) -> list[dict]:
