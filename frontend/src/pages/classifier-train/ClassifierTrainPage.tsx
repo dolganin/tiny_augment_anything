@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useStartClassifierTrainingMutation, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
@@ -183,21 +183,18 @@ export function ClassifierTrainPage() {
     }
   })
 
-  const statusLabel = useMemo(() => {
-    if (classifierJobId) {
-      return 'идёт обучение'
-    }
-
-    return 'ожидание запуска'
-  }, [classifierJobId])
-
   return (
     <>
-      <PageFrame
-        title="Обучение классификатора"
-        description="Сначала при необходимости загрузи pretrain-веса, затем backend соберёт честный train/val layout и запустит `uv run do-finetune` из корня проекта."
-        aside={<ClassifierAside statusLabel={statusLabel} />}
-      >
+      <PageFrame title="Обучение классификатора">
+        <div className="info-card">
+          <p className="info-card__text">
+            Head checkpoint подменяется автоматически: старый classifier head не загружается.
+          </p>
+          <p className="info-card__text">
+            Новый head собирается вне `src` каскадом <strong>backbone dim → 512 → 256 → классы текущего датасета</strong>.
+          </p>
+        </div>
+
         {!classifierJobId ? (
           <form className="generation-form generation-form--stacked" onSubmit={submitForm}>
             <label className="generation-form__group">
@@ -319,21 +316,5 @@ export function ClassifierTrainPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
     </>
-  )
-}
-
-function ClassifierAside({ statusLabel }: { statusLabel: string }) {
-  return (
-    <div className="info-card">
-      <p className="info-card__text">
-        Канал логов: <strong>WebSocket</strong>
-      </p>
-      <p className="info-card__text">
-        Статус обучения: <strong>{statusLabel}</strong>
-      </p>
-      <p className="info-card__text">
-        Head checkpoint подменяется автоматически: несовместимый `Linear` не загружается, новый head берётся под классы текущего датасета.
-      </p>
-    </div>
   )
 }

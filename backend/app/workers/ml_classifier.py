@@ -220,6 +220,7 @@ def _build_command(settings, config: dict[str, Any], bundle) -> list[str]:
         "run",
         "do-finetune",
         f"model={config['modelKey']}",
+        "model.object._target_=backend.app.services.classifier_head_override.build_model",
         f"model.object.num_classes={len(class_names)}",
         f"dataloader.train_root={config['trainRoot']}",
         f"dataloader.val_root={config['valRoot']}",

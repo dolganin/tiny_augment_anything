@@ -40,10 +40,7 @@ export function ModeSelectPage() {
   }
 
   return (
-    <PageFrame
-      title="Выбор режима"
-      description="После этапа fine-tune пользователь выбирает генерацию по промпту или модификацию существующих изображений."
-    >
+    <PageFrame title="Выбор режима">
       <div className="mode-grid">
         <article className={clsx('mode-card', !fineTuneEnabled && 'mode-card--disabled')}>
           <h3 className="mode-card__title">Генерировать</h3>
