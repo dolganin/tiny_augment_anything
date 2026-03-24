@@ -215,8 +215,11 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-            cross_attention_kwargs={"scale": self.lora_scale},
-        ).images[0]
+        )
+        if self.lora_path:
+            kwargs["cross_attention_kwargs"] = {"scale": self.lora_scale}
+
+        return pipe(**kwargs).images[0]
 
     def generate_inpaint(
         self,
@@ -239,8 +242,11 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-            cross_attention_kwargs={"scale": self.lora_scale},
-        ).images[0]
+        )
+        if self.lora_path:
+            kwargs["cross_attention_kwargs"] = {"scale": self.lora_scale}
+
+        return pipe(**kwargs).images[0]
 
 
 def main():
