@@ -27,16 +27,15 @@
 По текущему коду фронтенда backend должен поддержать как минимум следующие сущности и сценарии:
 
 - `sessionId`, который хранится в persisted store и используется для восстановления через `GET /sessions/{sessionId}`
-- workflow-стадии: `upload`, `dataset-stats`, `fine-tune`, `mode-select`, `generate`, `modify`, `review`, `classifier-train`, `metrics`, `download`
+- workflow-стадии: `upload`, `dataset-stats`, `modify`, `review`, `classifier-train`, `metrics`
 - WebSocket-канал `.../sessions/{sessionId}/stream`
 - получение статистики классов
 - сохранение выбранных классов
-- запуск fine-tune
 - получение редактируемой конфигурации генерации
-- запуск генерации и модификации
+- запуск модификации
 - review с подтверждением и отклонением каждого результата по одному
 - запуск обучения классификатора
-- получение метрик и готового архива
+- получение метрик и скачивание готового архива из dataset catalog
 - выдачу файлов по пути внутри backend storage через `/assets?path=...`
 
 Из этого следует, что backend должен быть session-centric, а не job-centric.
@@ -114,11 +113,8 @@ backend/
       metrics_repository.py
     workers/
       queue_consumer.py
-      fine_tune_worker.py
-      generation_worker.py
       modification_worker.py
       classifier_worker.py
-      export_worker.py
     integrations/
       ml_contracts.py
       file_storage.py
@@ -201,9 +197,6 @@ runtime_data/
 - `dataset_id`
 - `current_dataset_version_id`
 - `selected_classes`
-- `current_mode`
-- `fine_tune_enabled`
-- `fine_tune_resolved`
 - `active_task_id`
 - `last_error`
 - `revision`
@@ -253,9 +246,6 @@ runtime_data/
 - `dataset_id uuid null`
 - `current_dataset_version_id uuid null`
 - `selected_classes jsonb not null default '[]'`
-- `current_mode text null`
-- `fine_tune_enabled boolean not null default false`
-- `fine_tune_resolved boolean not null default false`
 - `last_error jsonb null`
 - `revision bigint not null`
 - `created_at timestamptz`
