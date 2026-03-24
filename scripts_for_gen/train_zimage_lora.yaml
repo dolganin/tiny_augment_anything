@@ -1,0 +1,42 @@
+imagedataset:
+  path: imagedataset.json
+  src_key: src_img
+  tgt_key: tgt_img
+  prompt_key: gen_prompt
+  resolution: 256
+  num_workers: 8
+
+model:
+  id: Tongyi-MAI/Z-Image-Turbo
+
+train:
+  output_dir: zimage_lora_out
+  batch_size: 4
+  learning_rate: 1.0e-4
+  max_train_steps: 51
+  gradient_accumulation_steps: 4
+  save_every: 50
+  strength_min: 0.4
+  strength_max: 0.8
+  text_max_length: 64
+
+lora:
+  rank: 8
+  alpha: 8
+  dropout: 0.0
+  target_modules: all-linear
+
+eval:
+  path: null
+  num_items: 8
+  every: 50
+  num_inference_steps: 9
+  guidance_scale: 0.0
+  strength: 0.6
+  lpips_backbone: alex
+
+
+system:
+  seed: 42
+  device: null
+  precision: bf16

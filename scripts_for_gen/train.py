@@ -242,6 +242,9 @@ def main():
         )
     )
 
+    pipe.transformer.set_adapter("default")
+    pipe.transformer.train()
+
     params = [p for p in pipe.transformer.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(params, lr=float(train_cfg.get("learning_rate", 1e-4)))
 
@@ -304,12 +307,16 @@ def main():
                 tgt_latents = pipe.vae.encode(tgt_pixel_values).latent_dist.sample()
                 tgt_latents = tgt_latents * pipe.vae.config.scaling_factor
 
-                prompt_batch = ["" if x is None else str(x) for x in batch["prompt"]]
+                prompt_batch = []
+                for x in batch["prompt"]:
+                    text = "" if x is None else str(x).strip()
+                    prompt_batch.append(text if text else "edit")
+
                 tokenized = pipe.tokenizer(
                     prompt_batch,
                     padding="max_length",
                     truncation=True,
-                    max_length=pipe.tokenizer.model_max_length,
+                    max_length=128,
                     return_tensors="pt",
                 )
                 input_ids = tokenized.input_ids.to(device)
@@ -327,13 +334,27 @@ def main():
             noisy_src_latents = (1.0 - sigmas) * src_latents + sigmas * noise
             target = noise - tgt_latents
 
-            model_pred = pipe.transformer(
-                hidden_states=noisy_src_latents,
-                encoder_hidden_states=encoder_hidden_states,
-                timestep=timesteps,
-                encoder_attention_mask=attention_mask,
-                return_dict=False,
-            )[0]
+            x_list = [z.unsqueeze(1) for z in noisy_src_latents]
+
+            cap_feats_list = []
+            for i in range(encoder_hidden_states.shape[0]):
+                valid_len = max(1, int(attention_mask[i].sum().item()))
+                cap_feats_list.append(encoder_hidden_states[i, :valid_len])
+
+            transformer_out = pipe.transformer(
+                x=x_list,
+                t=timesteps,
+                cap_feats=cap_feats_list,
+                return_dict=True,
+            )
+
+            model_pred = transformer_out.sample if hasattr(transformer_out, "sample") else transformer_out[0]
+
+            if isinstance(model_pred, list):
+                model_pred = torch.stack(
+                    [m[:, 0] if m.ndim == 4 and m.shape[1] == 1 else m for m in model_pred],
+                    dim=0,
+                )
 
             loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="mean")
             (loss / gradient_accumulation_steps).backward()
