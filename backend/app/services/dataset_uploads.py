@@ -1,0 +1,271 @@
+from __future__ import annotations
+
+import json
+from hashlib import sha256
+from pathlib import Path
+from uuid import UUID, uuid4
+from zipfile import ZipFile
+
+from backend.app.domain.enums import TaskStatus
+from backend.app.repositories.datasets import create_assets, create_dataset, create_initial_version, get_dataset_stats, update_dataset_status
+from backend.app.repositories.sessions import create_pending_session, finalize_import_session
+from backend.app.repositories.tasks import get_task
+from backend.app.runtime.errors import AppError
+from backend.app.runtime.logging import get_logger, log_event
+from backend.app.services.archive_layout import collect_dataset_archive_images
+from backend.app.services.filesystem import RuntimePaths, dataset_manifest_dir, dataset_originals_dir, make_relative_path, session_upload_dir, staged_upload_dir
+from backend.app.services.upload_models import UploadPreparation, UploadResult
+from backend.app.services.upload_utils import meta_target_name, read_upload_meta
+
+
+logger = get_logger(__name__)
+
+
+async def prepare_dataset_upload_from_staged_archive(
+    connection,
+    runtime_paths: RuntimePaths,
+    runtime_root,
+    upload_id: UUID,
+) -> UploadPreparation:
+    upload_dir = staged_upload_dir(runtime_paths, upload_id)
+    meta_path = upload_dir / "meta.json"
+    if not meta_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
+    meta = read_upload_meta(meta_path)
+    archive_path = upload_dir / meta_target_name(meta)
+    if not archive_path.exists():
+        raise AppError(404, "Загрузка не найдена.")
+    if int(meta["next_part"]) != int(meta["total_parts"]):
+        raise AppError(400, "Архив ещё не загружен полностью.")
+    file_name = str(meta["file_name"])
+    if not file_name.lower().endswith(".zip"):
+        raise AppError(400, "Нужен архив формата .zip.")
+    session_id = uuid4()
+    dataset_id = uuid4()
+    version_id = uuid4()
+    dataset_name = file_name[:-4]
+    session_dir = session_upload_dir(runtime_paths, session_id)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    target_archive_path = session_dir / "source.zip"
+    log_event(
+        logger,
+        20,
+        "upload.complete.begin",
+        upload_id=upload_id,
+        source_archive_path=archive_path,
+        target_archive_path=target_archive_path,
+        session_id=session_id,
+        dataset_id=dataset_id,
+    )
+    archive_path.replace(target_archive_path)
+    if not target_archive_path.exists():
+        raise AppError(500, "Архив не удалось перенести в рабочее хранилище.")
+    archive_relative_path = make_relative_path(runtime_root, target_archive_path)
+    await create_pending_session(connection, session_id, dataset_id)
+    await create_dataset(
+        connection,
+        dataset_id=dataset_id,
+        session_id=session_id,
+        name=dataset_name,
+        source_archive_path=archive_relative_path,
+        status="importing",
+    )
+    try:
+        meta_path.unlink(missing_ok=True)
+        upload_dir.rmdir()
+    except OSError:
+        pass
+    log_event(
+        logger,
+        20,
+        "upload.complete.ready",
+        upload_id=upload_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        archive_path=archive_relative_path,
+    )
+    return UploadPreparation(
+        session_id=session_id,
+        dataset_id=dataset_id,
+        version_id=version_id,
+        dataset_name=dataset_name,
+        archive_path=archive_relative_path,
+    )
+
+
+async def prepare_dataset_upload(
+    connection,
+    runtime_paths: RuntimePaths,
+    runtime_root,
+    file_name: str,
+    file_bytes: bytes,
+) -> UploadPreparation:
+    if not file_name.lower().endswith(".zip"):
+        raise AppError(400, "Нужен архив формата .zip.")
+    session_id = uuid4()
+    dataset_id = uuid4()
+    version_id = uuid4()
+    upload_dir = session_upload_dir(runtime_paths, session_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    source_archive_path = upload_dir / "source.zip"
+    source_archive_path.write_bytes(file_bytes)
+    dataset_name = file_name[:-4] if file_name.lower().endswith(".zip") else file_name
+    archive_relative_path = make_relative_path(runtime_root, source_archive_path)
+    await create_pending_session(connection, session_id, dataset_id)
+    await create_dataset(
+        connection,
+        dataset_id=dataset_id,
+        session_id=session_id,
+        name=dataset_name,
+        source_archive_path=archive_relative_path,
+        status="importing",
+    )
+    return UploadPreparation(
+        session_id=session_id,
+        dataset_id=dataset_id,
+        version_id=version_id,
+        dataset_name=dataset_name,
+        archive_path=archive_relative_path,
+    )
+
+
+async def process_dataset_upload(
+    connection,
+    runtime_paths: RuntimePaths,
+    runtime_root,
+    file_name: str,
+    file_bytes: bytes,
+) -> UploadResult:
+    preparation = await prepare_dataset_upload(
+        connection=connection,
+        runtime_paths=runtime_paths,
+        runtime_root=runtime_root,
+        file_name=file_name,
+        file_bytes=file_bytes,
+    )
+    await import_prepared_dataset(
+        connection,
+        runtime_paths=runtime_paths,
+        runtime_root=runtime_root,
+        session_id=preparation.session_id,
+        dataset_id=preparation.dataset_id,
+        version_id=preparation.version_id,
+        archive_path=preparation.archive_path,
+    )
+    return UploadResult(
+        session_id=preparation.session_id,
+        dataset_id=preparation.dataset_id,
+        dataset_name=preparation.dataset_name,
+    )
+
+
+async def import_prepared_dataset(
+    connection,
+    runtime_paths: RuntimePaths,
+    runtime_root,
+    session_id: UUID,
+    dataset_id: UUID,
+    version_id: UUID,
+    archive_path: str,
+    task_id: UUID | None = None,
+) -> dict[str, int | str]:
+    source_archive_path = runtime_root / archive_path
+    log_event(
+        logger,
+        20,
+        "upload.import.begin",
+        task_id=task_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        archive_path=archive_path,
+        resolved_archive_path=source_archive_path,
+        archive_exists=source_archive_path.exists(),
+    )
+    assets = await extract_assets(connection, runtime_paths, runtime_root, dataset_id, source_archive_path, task_id)
+    if not assets:
+        raise AppError(422, "Архив не содержит изображений в ожидаемой структуре.")
+    manifest_dir = dataset_manifest_dir(runtime_paths, dataset_id)
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / "v1.json"
+    class_stats = class_stats_from_assets(assets)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "datasetId": str(dataset_id),
+                "versionIndex": 1,
+                "classes": class_stats,
+                "assets": [
+                    {"id": str(asset["id"]), "className": asset["class_name"], "storagePath": asset["storage_path"]}
+                    for asset in assets
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    await create_initial_version(
+        connection,
+        version_id=version_id,
+        dataset_id=dataset_id,
+        manifest_path=make_relative_path(runtime_root, manifest_path),
+        summary={"classes": class_stats, "assetCount": len(assets)},
+    )
+    await create_assets(connection, assets, version_id)
+    await finalize_import_session(connection, session_id, version_id)
+    await update_dataset_status(connection, dataset_id, "ready")
+    await get_dataset_stats(connection, dataset_id, version_id)
+    log_event(
+        logger,
+        20,
+        "upload.import.complete",
+        task_id=task_id,
+        session_id=session_id,
+        dataset_id=dataset_id,
+        asset_count=len(assets),
+        class_count=len(class_stats),
+    )
+    return {"assetCount": len(assets), "classCount": len(class_stats)}
+
+
+async def fail_prepared_dataset_import(connection, dataset_id: UUID) -> None:
+    await update_dataset_status(connection, dataset_id, "error")
+
+
+async def extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, dataset_id: UUID, archive_path, task_id: UUID | None) -> list[dict]:
+    originals_dir = dataset_originals_dir(runtime_paths, dataset_id)
+    originals_dir.mkdir(parents=True, exist_ok=True)
+    assets: list[dict] = []
+    archive_entries = collect_dataset_archive_images(archive_path)
+    with ZipFile(archive_path, "r") as archive:
+        for index, entry in enumerate(archive_entries):
+            if task_id is not None and index % 8 == 0:
+                task = await get_task(connection, task_id)
+                if task is None or task["status"] == TaskStatus.CANCELLED.value:
+                    raise AppError(409, "Импорт датасета отменён.")
+            asset_id = uuid4()
+            class_dir = originals_dir / entry.class_name
+            class_dir.mkdir(parents=True, exist_ok=True)
+            target_path = class_dir / f"{asset_id}{entry.suffix}"
+            with archive.open(entry.member_name, "r") as source_file:
+                data = source_file.read()
+            target_path.write_bytes(data)
+            relative_path = make_relative_path(runtime_root, target_path)
+            assets.append(
+                {
+                    "id": asset_id,
+                    "dataset_id": dataset_id,
+                    "class_name": entry.class_name,
+                    "storage_path": relative_path,
+                    "preview_path": relative_path,
+                    "checksum": sha256(data).hexdigest(),
+                }
+            )
+    return assets
+
+
+def class_stats_from_assets(assets: list[dict]) -> list[dict[str, int | str]]:
+    counts: dict[str, int] = {}
+    for asset in assets:
+        class_name = str(asset["class_name"])
+        counts[class_name] = counts.get(class_name, 0) + 1
+    return [{"name": class_name, "count": count} for class_name, count in sorted(counts.items(), key=lambda item: (item[1], item[0]))]
