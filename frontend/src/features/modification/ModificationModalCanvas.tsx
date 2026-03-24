@@ -18,7 +18,6 @@ type ModificationModalCanvasProps = {
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
-  onDeleteTemplate: (templateId: string) => void
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
@@ -49,7 +48,6 @@ export function ModificationModalCanvas({
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
-  onDeleteTemplate,
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
@@ -110,7 +108,6 @@ export function ModificationModalCanvas({
         negativePromptValue={negativePromptValue}
         onApplyTemplate={onApplyTemplate}
         onApplyPromptToAllChange={onApplyPromptToAllChange}
-        onDeleteTemplate={onDeleteTemplate}
         onNegativePromptChange={onNegativePromptChange}
         onPromptChange={onPromptChange}
         onSamPromptChange={onSamPromptChange}

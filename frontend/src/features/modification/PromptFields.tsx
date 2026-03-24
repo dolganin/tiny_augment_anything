@@ -9,7 +9,6 @@ type PromptFieldsProps = {
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
   negativePromptValue: string
-  onDeleteTemplate: (templateId: string) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onNegativePromptChange: (value: string) => void
   onPromptChange: (value: string) => void
@@ -21,13 +20,14 @@ type PromptFieldsProps = {
   textTemplates: PromptTemplate[]
 }
 
+const EMPTY_TEMPLATE_VALUE = '__none__'
+
 export function PromptFields({
   applyPromptToAll,
   onApplyTemplate,
   form,
   launchMode,
   negativePromptValue,
-  onDeleteTemplate,
   onApplyPromptToAllChange,
   onNegativePromptChange,
   onPromptChange,
@@ -49,6 +49,31 @@ export function PromptFields({
         <span className="generation-form__label modification-prompts__label-row">
           <span>Промпт модификации</span>
           <span className="modification-prompts__field-actions">
+            {textTemplates.length > 0 ? (
+              <select
+                aria-label="Выбрать текстовый шаблон"
+                className="modification-prompts__template-select"
+                defaultValue={EMPTY_TEMPLATE_VALUE}
+                onChange={(event) => {
+                  const selectedId = event.target.value
+                  if (selectedId === EMPTY_TEMPLATE_VALUE) {
+                    return
+                  }
+                  const template = textTemplates.find((item) => item.id === selectedId)
+                  if (template) {
+                    onApplyTemplate(template)
+                  }
+                  event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+                }}
+              >
+                <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option>
+                {textTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <Button
               aria-label="Сохранить текстовый шаблон"
               className="modification-prompts__save-button"
@@ -71,27 +96,6 @@ export function PromptFields({
             ) : null}
           </span>
         </span>
-        {textTemplates.length > 0 ? (
-          <div className="modification-prompts__template-list">
-            {textTemplates.map((template) => (
-              <div className="modification-prompts__template-chip" key={template.id}>
-                <button onClick={() => onApplyTemplate(template)} type="button">
-                  {template.name}
-                </button>
-                {template.id.startsWith('user:') ? (
-                  <button
-                    aria-label={`Удалить шаблон ${template.name}`}
-                    className="modification-prompts__template-delete"
-                    onClick={() => onDeleteTemplate(template.id)}
-                    type="button"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
         <textarea
           className="generation-form__textarea modification-prompts__input"
           placeholder={`Опиши, какую вариацию нужно получить для ${sourceClassName}. Поддерживается placeholder {className} в шаблонах.`}
@@ -124,6 +128,31 @@ export function PromptFields({
       <label className="generation-form__group modification-prompts__field">
         <span className="generation-form__label modification-prompts__label-row">
           <span>SAM prompt</span>
+          {selectionTemplates.length > 0 ? (
+            <select
+              aria-label="Выбрать selection шаблон"
+              className="modification-prompts__template-select"
+              defaultValue={EMPTY_TEMPLATE_VALUE}
+              onChange={(event) => {
+                const selectedId = event.target.value
+                if (selectedId === EMPTY_TEMPLATE_VALUE) {
+                  return
+                }
+                const template = selectionTemplates.find((item) => item.id === selectedId)
+                if (template) {
+                  onApplyTemplate(template)
+                }
+                event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+              }}
+            >
+              <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option>
+              {selectionTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <Button
             aria-label="Сохранить selection шаблон"
             className="modification-prompts__save-button"
@@ -135,27 +164,6 @@ export function PromptFields({
             <PromptSaveIcon />
           </Button>
         </span>
-        {selectionTemplates.length > 0 ? (
-          <div className="modification-prompts__template-list">
-            {selectionTemplates.map((template) => (
-              <div className="modification-prompts__template-chip" key={template.id}>
-                <button onClick={() => onApplyTemplate(template)} type="button">
-                  {template.name}
-                </button>
-                {template.id.startsWith('user:') ? (
-                  <button
-                    aria-label={`Удалить шаблон ${template.name}`}
-                    className="modification-prompts__template-delete"
-                    onClick={() => onDeleteTemplate(template.id)}
-                    type="button"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
         <textarea
           className="generation-form__textarea modification-prompts__input"
           onChange={(event) => onSamPromptChange(event.target.value)}

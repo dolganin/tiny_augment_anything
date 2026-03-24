@@ -60,7 +60,6 @@ export function ModifyPage() {
     selectedSourceIds,
     selectedSourceItems,
     secondaryFields,
-    deletePromptTemplate,
     setApplyPromptToAll,
     setAreaConfirmed,
     setBatchMaskPreviewPoints,
@@ -163,6 +162,12 @@ export function ModifyPage() {
               negativePromptValue={negativePromptValue}
               onAreaConfirm={setAreaConfirmed}
               onAreaPointsChange={updateAreaPoints}
+              onApplyTextTemplate={(templateId) => {
+                const template = textPromptTemplates.find((item) => item.id === templateId)
+                if (template) {
+                  applyPromptTemplate(template)
+                }
+              }}
               onContinue={() => setBatchStep('select-sources')}
               onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
               onPolygonClear={() => updateAreaPoints([])}
@@ -171,6 +176,7 @@ export function ModifyPage() {
               onPromptChange={updatePromptValue}
               onSaveTextTemplate={() => savePromptTemplate('text')}
               promptValue={form.watch('prompt')}
+              textTemplates={textPromptTemplates}
             />
 
             {batchStep === 'select-sources' ? (
@@ -254,7 +260,6 @@ export function ModifyPage() {
         onAreaConfirm={setAreaConfirmed}
         onAreaPointsChange={updateAreaPoints}
         onClose={() => setIsModificationModalOpen(false)}
-        onDeleteTemplate={deletePromptTemplate}
         onFieldValueChange={updateFieldValue}
         onModeChange={setModificationMode}
         onOpenReview={() => setSession({ workflowStage: 'review' })}

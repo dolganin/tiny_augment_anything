@@ -33,35 +33,6 @@ type UseModifyPageParams = {
 const PRIORITY_FIELD_KEYS = ['size', 'strength', 'inpaint_strength', 'num_inference_steps', 'guidance_scale']
 const HIDDEN_SECONDARY_KEYS = ['sam_prompt', 'negative_prompt', 'lora_path', ...PRIORITY_FIELD_KEYS]
 
-const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
-  {
-    id: 'text-accessory-mask',
-    name: 'Маска на лице',
-    scope: 'text',
-    text: 'add a clean medical mask to the {className}, keep photorealistic details',
-    negativeText: 'blurry, deformed, extra accessories, duplicate face',
-  },
-  {
-    id: 'text-accessory-glasses',
-    name: 'Очки',
-    scope: 'text',
-    text: 'add stylish sunglasses to the {className}, keep natural lighting and anatomy',
-    negativeText: 'blurry, warped glasses, duplicate objects',
-  },
-  {
-    id: 'selection-face',
-    name: 'Выделение лица',
-    scope: 'selection',
-    text: 'face area of the {className}',
-  },
-  {
-    id: 'selection-head',
-    name: 'Выделение головы',
-    scope: 'selection',
-    text: 'head and hair area of the {className}',
-  },
-]
-
 const interpolateTemplateText = (value: string, source: ModificationSourceAsset | null) =>
   value.replaceAll('{className}', source?.className ?? 'object')
 
@@ -258,9 +229,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     return sourceItems.find((item) => item.assetId === selectedSourceAssetId) ?? sourceItems[0]
   }, [selectedSourceAssetId, sourceItems])
 
-  const promptTemplates = useMemo(() => {
-    return [...DEFAULT_PROMPT_TEMPLATES, ...storedPromptTemplates]
-  }, [storedPromptTemplates])
+  const promptTemplates = useMemo(() => storedPromptTemplates, [storedPromptTemplates])
 
   const textPromptTemplates = useMemo(
     () => promptTemplates.filter((template) => template.scope === 'text'),
@@ -412,10 +381,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
       return
     }
     updateFieldValue('sam_prompt', interpolateTemplateText(template.text, source))
-  }
-
-  const deletePromptTemplate = (templateId: string) => {
-    setSession({ promptTemplates: storedPromptTemplates.filter((template) => template.id !== templateId) })
   }
 
   const createDatasetPolygonTemplate = async (name: string) => {
@@ -638,7 +603,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setBatchMaskPreviewPoints,
     setBatchStep,
     setIsBatchValidationModalOpen,
-    deletePromptTemplate,
     focusSource,
     selectAllSources,
     setApplyPromptToAll: updateApplyPromptToAll,

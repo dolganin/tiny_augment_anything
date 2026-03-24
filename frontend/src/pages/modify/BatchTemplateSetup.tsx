@@ -4,6 +4,8 @@ import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
 import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { type AreaPoint, type BatchPreviewSource } from '@/pages/modify/modify.types'
 
+const EMPTY_TEMPLATE_VALUE = '__none__'
+
 type BatchTemplateSetupProps = {
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
@@ -11,6 +13,7 @@ type BatchTemplateSetupProps = {
   negativePromptValue: string
   onAreaConfirm: () => void
   onAreaPointsChange: (points: AreaPoint[]) => void
+  onApplyTextTemplate: (templateId: string) => void
   onContinue: () => void
   onNegativePromptChange: (value: string) => void
   onPolygonClear: () => void
@@ -19,6 +22,7 @@ type BatchTemplateSetupProps = {
   onPreviewMaskChange: (points: AreaPoint[]) => void
   onSaveTextTemplate: () => void
   promptValue: string
+  textTemplates: Array<{ id: string; name: string }>
 }
 
 export function BatchTemplateSetup({
@@ -28,6 +32,7 @@ export function BatchTemplateSetup({
   negativePromptValue,
   onAreaConfirm,
   onAreaPointsChange,
+  onApplyTextTemplate,
   onContinue,
   onNegativePromptChange,
   onPolygonClear,
@@ -36,6 +41,7 @@ export function BatchTemplateSetup({
   onPreviewMaskChange,
   onSaveTextTemplate,
   promptValue,
+  textTemplates,
 }: BatchTemplateSetupProps) {
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
 
@@ -73,16 +79,40 @@ export function BatchTemplateSetup({
           <label className="batch-setup__field">
             <span className="batch-setup__label-row">
               <span>Промпт модификации</span>
-              <Button
-                aria-label="Сохранить текстовый шаблон"
-                className="modification-prompts__save-button"
-                onClick={onSaveTextTemplate}
-                title="Сохранить текстовый шаблон"
-                type="button"
-                variant="ghost"
-              >
-                <PromptSaveIcon />
-              </Button>
+              <span className="modification-prompts__field-actions">
+                {textTemplates.length > 0 ? (
+                  <select
+                    aria-label="Выбрать текстовый шаблон"
+                    className="modification-prompts__template-select"
+                    defaultValue={EMPTY_TEMPLATE_VALUE}
+                    onChange={(event) => {
+                      const selectedId = event.target.value
+                      if (selectedId === EMPTY_TEMPLATE_VALUE) {
+                        return
+                      }
+                      onApplyTextTemplate(selectedId)
+                      event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+                    }}
+                  >
+                    <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option>
+                    {textTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                <Button
+                  aria-label="Сохранить текстовый шаблон"
+                  className="modification-prompts__save-button"
+                  onClick={onSaveTextTemplate}
+                  title="Сохранить текстовый шаблон"
+                  type="button"
+                  variant="ghost"
+                >
+                  <PromptSaveIcon />
+                </Button>
+              </span>
             </span>
             <textarea
               onChange={(event) => onPromptChange(event.target.value)}

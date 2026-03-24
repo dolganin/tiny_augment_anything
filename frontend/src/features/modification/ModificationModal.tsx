@@ -30,7 +30,6 @@ type ModificationModalProps = {
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
   onClose: () => void
-  onDeleteTemplate: (templateId: string) => void
   onFieldValueChange: (key: string, value: string) => void
   onModeChange: (mode: ModificationMode) => void
   onOpenReview: () => void
@@ -73,7 +72,6 @@ export function ModificationModal({
   onAreaConfirm,
   onAreaPointsChange,
   onClose,
-  onDeleteTemplate,
   onFieldValueChange,
   fieldValues,
   onModeChange,
@@ -152,7 +150,6 @@ export function ModificationModal({
             onApplyPromptToAllChange={onApplyPromptToAllChange}
             onAreaConfirm={onAreaConfirm}
             onAreaPointsChange={onAreaPointsChange}
-            onDeleteTemplate={onDeleteTemplate}
             onPolygonClear={onPolygonClear}
             onPolygonUndo={onPolygonUndo}
             onPromptChange={onPromptChange}
