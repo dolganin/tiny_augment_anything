@@ -1,4 +1,5 @@
 import { Button } from '@/shared/ui/buttons/Button'
+import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { UseFormReturn } from 'react-hook-form'
 import { type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
 
@@ -48,8 +49,15 @@ export function PromptFields({
         <span className="generation-form__label modification-prompts__label-row">
           <span>Промпт модификации</span>
           <span className="modification-prompts__field-actions">
-            <Button onClick={() => onSaveTemplate('text')} type="button" variant="ghost">
-              Сохранить шаблон
+            <Button
+              aria-label="Сохранить текстовый шаблон"
+              className="modification-prompts__save-button"
+              onClick={() => onSaveTemplate('text')}
+              title="Сохранить текстовый шаблон"
+              type="button"
+              variant="ghost"
+            >
+              <PromptSaveIcon />
             </Button>
             {launchMode === 'batch' ? (
             <span className="modification-prompts__checkbox">
@@ -92,7 +100,19 @@ export function PromptFields({
       </label>
 
       <label className="generation-form__group modification-prompts__field">
-        <span className="generation-form__label">Negative prompt</span>
+        <span className="generation-form__label modification-prompts__label-row">
+          <span>Negative prompt</span>
+          <Button
+            aria-label="Сохранить текстовый шаблон"
+            className="modification-prompts__save-button"
+            onClick={() => onSaveTemplate('text')}
+            title="Сохранить текстовый шаблон"
+            type="button"
+            variant="ghost"
+          >
+            <PromptSaveIcon />
+          </Button>
+        </span>
         <textarea
           className="generation-form__textarea modification-prompts__input"
           onChange={(event) => onNegativePromptChange(event.target.value)}
@@ -104,8 +124,15 @@ export function PromptFields({
       <label className="generation-form__group modification-prompts__field">
         <span className="generation-form__label modification-prompts__label-row">
           <span>SAM prompt</span>
-          <Button onClick={() => onSaveTemplate('selection')} type="button" variant="ghost">
-            Сохранить шаблон
+          <Button
+            aria-label="Сохранить selection шаблон"
+            className="modification-prompts__save-button"
+            onClick={() => onSaveTemplate('selection')}
+            title="Сохранить selection шаблон"
+            type="button"
+            variant="ghost"
+          >
+            <PromptSaveIcon />
           </Button>
         </span>
         {selectionTemplates.length > 0 ? (

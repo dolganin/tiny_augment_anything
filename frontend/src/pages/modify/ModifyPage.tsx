@@ -169,6 +169,7 @@ export function ModifyPage() {
               onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
               onPreviewMaskChange={setBatchMaskPreviewPoints}
               onPromptChange={updatePromptValue}
+              onSaveTextTemplate={() => savePromptTemplate('text')}
               promptValue={form.watch('prompt')}
             />
 

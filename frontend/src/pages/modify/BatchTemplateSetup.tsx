@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
+import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { type AreaPoint, type BatchPreviewSource } from '@/pages/modify/modify.types'
 
 type BatchTemplateSetupProps = {
@@ -16,6 +17,7 @@ type BatchTemplateSetupProps = {
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
   onPreviewMaskChange: (points: AreaPoint[]) => void
+  onSaveTextTemplate: () => void
   promptValue: string
 }
 
@@ -32,6 +34,7 @@ export function BatchTemplateSetup({
   onPolygonUndo,
   onPromptChange,
   onPreviewMaskChange,
+  onSaveTextTemplate,
   promptValue,
 }: BatchTemplateSetupProps) {
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
@@ -68,7 +71,19 @@ export function BatchTemplateSetup({
       <div className="batch-setup__content">
         <div className="batch-setup__prompts">
           <label className="batch-setup__field">
-            <span>Промпт модификации</span>
+            <span className="batch-setup__label-row">
+              <span>Промпт модификации</span>
+              <Button
+                aria-label="Сохранить текстовый шаблон"
+                className="modification-prompts__save-button"
+                onClick={onSaveTextTemplate}
+                title="Сохранить текстовый шаблон"
+                type="button"
+                variant="ghost"
+              >
+                <PromptSaveIcon />
+              </Button>
+            </span>
             <textarea
               onChange={(event) => onPromptChange(event.target.value)}
               placeholder="Опиши изменение для всей batch-пачки"
@@ -77,7 +92,19 @@ export function BatchTemplateSetup({
             />
           </label>
           <label className="batch-setup__field">
-            <span>Негативный промпт</span>
+            <span className="batch-setup__label-row">
+              <span>Негативный промпт</span>
+              <Button
+                aria-label="Сохранить текстовый шаблон"
+                className="modification-prompts__save-button"
+                onClick={onSaveTextTemplate}
+                title="Сохранить текстовый шаблон"
+                type="button"
+                variant="ghost"
+              >
+                <PromptSaveIcon />
+              </Button>
+            </span>
             <textarea
               onChange={(event) => onNegativePromptChange(event.target.value)}
               placeholder="Чего не должно быть в результате"

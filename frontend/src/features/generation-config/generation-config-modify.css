@@ -612,12 +612,12 @@
 .batch-validation-modal__params {
   flex: 0 0 320px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .batch-setup__field {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .batch-setup__field span {
@@ -626,6 +626,13 @@
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.batch-setup__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .batch-setup__field textarea {
