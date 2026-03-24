@@ -31,6 +31,9 @@ RUN uv sync --frozen --no-dev \
 
 RUN pip install --no-cache-dir -r /tmp/requirements.generate.txt
 
+# Keep late add-ons isolated so rebuilds don't reinstall the full generate stack.
+RUN pip install --no-cache-dir peft
+
 COPY backend ./backend
 COPY config ./config
 COPY scripts_for_gen ./scripts_for_gen
