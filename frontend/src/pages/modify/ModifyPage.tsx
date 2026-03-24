@@ -9,6 +9,7 @@ import { DiffusionLoraPanel } from '@/features/diffusion-lora/DiffusionLoraPanel
 import { ReviewWorkspace } from '@/features/generation-review/ReviewWorkspace'
 import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModal } from '@/features/modification/ModificationModal'
+import { useDiffusionLoraAdaptersQuery } from '@/shared/api/workflow.hooks'
 import { BatchProgressPanel } from '@/pages/modify/BatchProgressPanel'
 import { BatchSourceSelector } from '@/pages/modify/BatchSourceSelector'
 import { BatchTemplateSetup } from '@/pages/modify/BatchTemplateSetup'
@@ -21,6 +22,7 @@ import '@/features/modification/modification-modal.css'
 
 export function ModifyPage() {
   const sessionId = useSessionStore((state) => state.sessionId)
+  const loraAdaptersQuery = useDiffusionLoraAdaptersQuery(sessionId)
   const form = useForm<ModifyFormValues>({
     defaultValues: {
       prompt: '',
@@ -118,12 +120,19 @@ export function ModifyPage() {
         }
     }
   }, [templateModal.kind])
+  const loraAdapters = loraAdaptersQuery.data?.items ?? []
 
   return (
     <>
       <PageFrame
         title="Модификация"
       >
+        <DiffusionLoraPanel
+          onError={(message) => setErrorMessage(message)}
+          onSelectAdapter={(adapterPath) => updateFieldValue('lora_path', adapterPath)}
+          sessionId={sessionId}
+        />
+
         <section className="info-card">
           <div className="modify-launch-toggle" role="tablist" aria-label="Режим запуска модификации">
             <button
@@ -173,19 +182,14 @@ export function ModifyPage() {
           </div>
         </section>
 
-        <DiffusionLoraPanel
-          onError={(message) => setErrorMessage(message)}
-          onSelectAdapter={(adapterPath) => updateFieldValue('lora_path', adapterPath)}
-          selectedAdapterPath={fieldValues.lora_path ?? ''}
-          sessionId={sessionId}
-        />
-
         {launchMode === 'batch' ? (
           <>
             <BatchTemplateSetup
               areaConfirmed={areaConfirmed}
               areaPoints={areaPoints}
               currentSource={source}
+              loraAdapters={loraAdapters}
+              mode={modificationMode}
               negativePromptValue={negativePromptValue}
               onAreaConfirm={setAreaConfirmed}
               onAreaPointsChange={updateAreaPoints}
@@ -202,6 +206,8 @@ export function ModifyPage() {
                 }
               }}
               onContinue={() => setBatchStep('select-sources')}
+              onLoraChange={(value) => updateFieldValue('lora_path', value)}
+              onModeChange={setModificationMode}
               onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
               onPolygonClear={() => updateAreaPoints([])}
               onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
@@ -217,6 +223,7 @@ export function ModifyPage() {
               onSaveTextTemplate={() => setTemplateModal({ open: true, kind: 'text' })}
               onSaveSelectionTemplate={() => setTemplateModal({ open: true, kind: 'selection' })}
               promptValue={form.watch('prompt')}
+              selectedLoraPath={fieldValues.lora_path ?? ''}
               samPromptValue={samPromptValue}
               selectionTemplates={selectionPromptTemplates}
               textTemplates={textPromptTemplates}
@@ -226,7 +233,6 @@ export function ModifyPage() {
               <BatchSourceSelector
                 currentSourceId={source?.assetId ?? null}
                 onClearSelection={clearSourceSelection}
-                onFocusSource={focusSource}
                 onSelectAll={selectAllSources}
                 onToggleSourceSelection={toggleSourceSelection}
                 onValidate={() => setIsBatchValidationModalOpen(true)}
@@ -292,14 +298,13 @@ export function ModifyPage() {
 
       <BatchValidationModal
         fieldValues={fieldValues}
-        negativePromptValue={negativePromptValue}
+        mode={modificationMode}
         onClose={() => setIsBatchValidationModalOpen(false)}
         onFieldValueChange={updateFieldValue}
-        onSubmit={(mode) => void submitBatchModification(mode)}
+        onSubmit={() => void submitBatchModification(modificationMode)}
         open={launchMode === 'batch' && isBatchValidationModalOpen}
         previewMask={batchMaskPreviewPoints}
         priorityFields={priorityFields}
-        promptValue={form.watch('prompt')}
         secondaryFields={secondaryFields}
         selectedSources={selectedSourceItems}
         startPending={isModificationActive}
@@ -312,6 +317,7 @@ export function ModifyPage() {
         fieldValues={fieldValues}
         form={form}
         launchMode={launchMode}
+        loraAdapters={loraAdapters}
         mode={modificationMode}
         negativePromptValue={negativePromptValue}
         onApplyTemplate={applyPromptTemplate}
@@ -320,6 +326,7 @@ export function ModifyPage() {
         onAreaPointsChange={updateAreaPoints}
         onClose={() => setIsModificationModalOpen(false)}
         onFieldValueChange={updateFieldValue}
+        onLoraChange={(value) => updateFieldValue('lora_path', value)}
         onModeChange={setModificationMode}
         onOpenReview={() => setSession({ workflowStage: 'review' })}
         onPolygonClear={() => updateAreaPoints([])}
@@ -334,6 +341,7 @@ export function ModifyPage() {
         open={launchMode === 'single' && !configQuery.isLoading && !sourceQuery.isLoading && isModificationModalOpen}
         priorityFields={priorityFields}
         reviewPendingCount={reviewPendingCount}
+        selectedLoraPath={fieldValues.lora_path ?? ''}
         selectedSourceCount={selectedSourceCount}
         selectedSourceIds={selectedSourceIds}
         secondaryFields={secondaryFields}

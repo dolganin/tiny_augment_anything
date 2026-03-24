@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
+import { ModificationMode, ModificationModeToggle } from '@/features/modification/ModificationModeToggle'
 import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { type AreaPoint, type BatchPreviewSource } from '@/pages/modify/modify.types'
 
@@ -11,12 +12,16 @@ type BatchTemplateSetupProps = {
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
   currentSource: BatchPreviewSource | null
+  loraAdapters: Array<{ adapterPath: string; displayName: string }>
+  mode: ModificationMode
   negativePromptValue: string
   onAreaConfirm: () => void
   onAreaPointsChange: (points: AreaPoint[]) => void
   onApplyTextTemplate: (templateId: string) => void
   onApplyNegativeTemplate: (templateId: string) => void
   onContinue: () => void
+  onLoraChange: (value: string) => void
+  onModeChange: (mode: ModificationMode) => void
   onNegativePromptChange: (value: string) => void
   onPolygonClear: () => void
   onPolygonUndo: () => void
@@ -27,6 +32,7 @@ type BatchTemplateSetupProps = {
   onSaveTextTemplate: () => void
   onSaveSelectionTemplate: () => void
   promptValue: string
+  selectedLoraPath: string
   samPromptValue: string
   selectionTemplates: Array<{ id: string; name: string }>
   textTemplates: Array<{ id: string; name: string }>
@@ -36,12 +42,16 @@ export function BatchTemplateSetup({
   areaConfirmed,
   areaPoints,
   currentSource,
+  loraAdapters,
+  mode,
   negativePromptValue,
   onAreaConfirm,
   onAreaPointsChange,
   onApplyTextTemplate,
   onApplyNegativeTemplate,
   onContinue,
+  onLoraChange,
+  onModeChange,
   onNegativePromptChange,
   onPolygonClear,
   onPolygonUndo,
@@ -52,6 +62,7 @@ export function BatchTemplateSetup({
   onSaveTextTemplate,
   onSaveSelectionTemplate,
   promptValue,
+  selectedLoraPath,
   samPromptValue,
   selectionTemplates,
   textTemplates,
@@ -73,7 +84,7 @@ export function BatchTemplateSetup({
     onPreviewMaskChange(normalizedMask)
   }, [normalizedMask, onPreviewMaskChange])
 
-  const canContinue = promptValue.trim().length > 0 && areaConfirmed && areaPoints.length >= 3
+  const canContinue = promptValue.trim().length > 0 && (mode === 'full' || (areaConfirmed && areaPoints.length >= 3))
 
   return (
     <section className="info-card batch-setup">
@@ -89,6 +100,10 @@ export function BatchTemplateSetup({
 
       <div className="batch-setup__content">
         <div className="batch-setup__prompts">
+          <label className="batch-setup__field">
+            <span className="generation-form__label">Режим модификации</span>
+            <ModificationModeToggle mode={mode} onChange={onModeChange} />
+          </label>
           <label className="batch-setup__field">
             <span className="batch-setup__label-row">
               <span>Промпт модификации</span>
@@ -217,30 +232,53 @@ export function BatchTemplateSetup({
               ))}
             </select>
           </label>
+          <label className="batch-setup__field">
+            <span className="generation-form__label">LoRA adapter</span>
+            <select
+              className="modification-prompts__template-select modification-prompts__template-select--below"
+              onChange={(event) => onLoraChange(event.target.value)}
+              value={selectedLoraPath}
+            >
+              <option value="">Без LoRA</option>
+              {loraAdapters.map((adapter) => (
+                <option key={adapter.adapterPath} value={adapter.adapterPath}>
+                  {adapter.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="batch-setup__canvas">
           {currentSource ? (
             <>
-              <ModificationCanvas
-                areaConfirmed={areaConfirmed}
-                areaPoints={areaPoints}
-                className={currentSource.className}
-                imageUrl={currentSource.assetUrl}
-                onAreaPointsChange={onAreaPointsChange}
-                onImageMetricsChange={setImageSize}
-              />
-              <div className="batch-setup__actions">
-                <Button disabled={areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
-                  Применить область
-                </Button>
-                <Button disabled={areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
-                  Удалить вершину
-                </Button>
-                <Button disabled={areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
-                  Очистить
-                </Button>
-              </div>
+              {mode === 'inpaint' ? (
+                <>
+                  <ModificationCanvas
+                    areaConfirmed={areaConfirmed}
+                    areaPoints={areaPoints}
+                    className={currentSource.className}
+                    imageUrl={currentSource.assetUrl}
+                    onAreaPointsChange={onAreaPointsChange}
+                    onImageMetricsChange={setImageSize}
+                  />
+                  <div className="batch-setup__actions">
+                    <Button disabled={areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
+                      Применить область
+                    </Button>
+                    <Button disabled={areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
+                      Удалить вершину
+                    </Button>
+                    <Button disabled={areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
+                      Очистить
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="batch-setup__empty">
+                  Режим full remodification выбран. Маска для batch-запуска не используется.
+                </div>
+              )}
             </>
           ) : (
             <div className="batch-setup__empty">Нет доступных approved-источников для batch-модификации.</div>

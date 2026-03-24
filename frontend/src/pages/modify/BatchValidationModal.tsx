@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
 import { GenerationConfigFields } from '@/features/generation-config/GenerationConfigFields'
-import { ModificationMode, ModificationModeToggle } from '@/features/modification/ModificationModeToggle'
+import { ModificationMode } from '@/features/modification/ModificationModeToggle'
 import { MaskOverlay } from '@/pages/modify/MaskOverlay'
 import { type AreaPoint, type BatchPreviewSource } from '@/pages/modify/modify.types'
 
@@ -15,14 +15,13 @@ type ConfigField = {
 
 type BatchValidationModalProps = {
   fieldValues: Record<string, string>
-  negativePromptValue: string
+  mode: ModificationMode
   onClose: () => void
   onFieldValueChange: (key: string, value: string) => void
-  onSubmit: (mode: ModificationMode) => void
+  onSubmit: () => void
   open: boolean
   previewMask: AreaPoint[]
   priorityFields: ConfigField[]
-  promptValue: string
   secondaryFields: ConfigField[]
   selectedSources: BatchPreviewSource[]
   startPending: boolean
@@ -30,19 +29,17 @@ type BatchValidationModalProps = {
 
 export function BatchValidationModal({
   fieldValues,
-  negativePromptValue,
+  mode,
   onClose,
   onFieldValueChange,
   onSubmit,
   open,
   previewMask,
   priorityFields,
-  promptValue,
   secondaryFields,
   selectedSources,
   startPending,
 }: BatchValidationModalProps) {
-  const [mode, setMode] = useState<ModificationMode>('inpaint')
   const [secondaryOpen, setSecondaryOpen] = useState(false)
 
   const totalGenerations = useMemo(() => {
@@ -96,7 +93,10 @@ export function BatchValidationModal({
               <div className="modification-modal__section-head">
                 <h3 className="modification-modal__section-title">Параметры генерации</h3>
               </div>
-              <ModificationModeToggle mode={mode} onChange={setMode} />
+              <div className="modification-modal__summary">
+                <span className="modification-modal__summary-label">Режим</span>
+                <strong className="modification-modal__summary-value">{mode === 'inpaint' ? 'Inpaint' : 'Full remodification'}</strong>
+              </div>
               <GenerationConfigFields
                 className="modification-modal__fields"
                 fields={priorityFields}
@@ -123,21 +123,6 @@ export function BatchValidationModal({
                 ) : null}
               </section>
             ) : null}
-
-            <section className="modification-modal__panel">
-              <div className="modification-modal__section-head">
-                <h3 className="modification-modal__section-title">Промпт</h3>
-              </div>
-              <p className="batch-validation-modal__prompt">{promptValue}</p>
-              {negativePromptValue.trim() ? (
-                <>
-                  <div className="modification-modal__section-head">
-                    <h3 className="modification-modal__section-title">Негативный промпт</h3>
-                  </div>
-                  <p className="batch-validation-modal__prompt">{negativePromptValue}</p>
-                </>
-              ) : null}
-            </section>
           </aside>
         </div>
 
@@ -145,7 +130,7 @@ export function BatchValidationModal({
           <Button onClick={onClose} type="button" variant="ghost">
             Отмена
           </Button>
-          <Button disabled={startPending} onClick={() => onSubmit(mode)} type="button">
+          <Button disabled={startPending} onClick={onSubmit} type="button">
             Запустить batch-модификацию
           </Button>
         </footer>

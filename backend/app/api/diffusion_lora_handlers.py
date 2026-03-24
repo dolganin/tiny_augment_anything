@@ -6,7 +6,11 @@ from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.repositories.workflow_session import get_session_context
 from backend.app.services.bootstrap import RuntimeState
-from backend.app.services.lora_adapters import list_lora_adapters, update_lora_adapter_display_name
+from backend.app.services.lora_adapters import (
+    ensure_lora_adapter_belongs_to_dataset,
+    list_lora_adapters,
+    update_lora_adapter_display_name,
+)
 from backend.app.services.sessions import parse_session_id
 from backend.app.services.staged_uploads import (
     append_chunk,
@@ -128,12 +132,19 @@ async def cancel_diffusion_lora_upload(request: Request, params: dict[str, str],
 
 async def save_diffusion_lora_name(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
-    _ = parse_session_id(params["session_id"])
+    session_id = parse_session_id(params["session_id"])
+    dataset_id = await _require_dataset_id(runtime_state, session_id)
     payload = request.json()
     if not isinstance(payload, dict):
         raise AppError(400, "Некорректное тело запроса.")
     adapter_path = payload.get("adapterPath")
     display_name = payload.get("displayName")
+    ensure_lora_adapter_belongs_to_dataset(
+        runtime_state.runtime_paths,
+        runtime_state.settings.runtime_dir,
+        dataset_id,
+        adapter_path,
+    )
     saved_name = update_lora_adapter_display_name(runtime_state.settings.runtime_dir, adapter_path, display_name)
     return json_response(200, {"status": "success", "displayName": saved_name})
 

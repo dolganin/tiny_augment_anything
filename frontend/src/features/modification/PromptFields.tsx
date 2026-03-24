@@ -8,11 +8,14 @@ type PromptFieldsProps = {
   onApplyTemplate: (template: PromptTemplate) => void
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
+  loraAdapters: Array<{ adapterPath: string; displayName: string }>
   negativePromptValue: string
   onApplyPromptToAllChange: (value: boolean) => void
+  onLoraChange: (value: string) => void
   onNegativePromptChange: (value: string) => void
   onPromptChange: (value: string) => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
+  selectedLoraPath: string
   sourceClassName: string
   textTemplates: PromptTemplate[]
 }
@@ -29,11 +32,14 @@ export function PromptFields({
   onApplyTemplate,
   form,
   launchMode,
+  loraAdapters,
   negativePromptValue,
   onApplyPromptToAllChange,
+  onLoraChange,
   onNegativePromptChange,
   onPromptChange,
   onSaveTemplate,
+  selectedLoraPath,
   sourceClassName,
   textTemplates,
 }: PromptFieldsProps) {
@@ -142,6 +148,22 @@ export function PromptFields({
           {textTemplates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="generation-form__group modification-prompts__field">
+        <span className="generation-form__label">LoRA adapter</span>
+        <select
+          className="modification-prompts__template-select modification-prompts__template-select--below"
+          onChange={(event) => onLoraChange(event.target.value)}
+          value={selectedLoraPath}
+        >
+          <option value="">Без LoRA</option>
+          {loraAdapters.map((adapter) => (
+            <option key={adapter.adapterPath} value={adapter.adapterPath}>
+              {adapter.displayName}
             </option>
           ))}
         </select>

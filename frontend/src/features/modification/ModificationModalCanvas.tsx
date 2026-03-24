@@ -12,12 +12,14 @@ type ModificationModalCanvasProps = {
   areaPoints: AreaPoint[]
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
+  loraAdapters: Array<{ adapterPath: string; displayName: string }>
   negativePromptValue: string
   mode: ModificationMode
   onApplyTemplate: (template: PromptTemplate) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
+  onLoraChange: (value: string) => void
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
@@ -25,6 +27,7 @@ type ModificationModalCanvasProps = {
   onSourceMove: (direction: -1 | 1) => void
   onToggleSourceSelection: (assetId: string) => void
   onNegativePromptChange: (value: string) => void
+  selectedLoraPath: string
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   source: ModificationSourceAsset
@@ -39,12 +42,14 @@ export function ModificationModalCanvas({
   areaPoints,
   form,
   launchMode,
+  loraAdapters,
   mode,
   negativePromptValue,
   onApplyTemplate,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
+  onLoraChange,
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
@@ -52,6 +57,7 @@ export function ModificationModalCanvas({
   onSourceMove,
   onToggleSourceSelection,
   onNegativePromptChange,
+  selectedLoraPath,
   selectedSourceCount,
   selectedSourceIds,
   source,
@@ -99,12 +105,15 @@ export function ModificationModalCanvas({
         applyPromptToAll={applyPromptToAll}
         form={form}
         launchMode={launchMode}
+        loraAdapters={loraAdapters}
         negativePromptValue={negativePromptValue}
         onApplyTemplate={onApplyTemplate}
         onApplyPromptToAllChange={onApplyPromptToAllChange}
+        onLoraChange={onLoraChange}
         onNegativePromptChange={onNegativePromptChange}
         onPromptChange={onPromptChange}
         onSaveTemplate={onSaveTemplate}
+        selectedLoraPath={selectedLoraPath}
         sourceClassName={source.className}
         textTemplates={textTemplates}
       />

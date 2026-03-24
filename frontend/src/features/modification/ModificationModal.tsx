@@ -23,6 +23,7 @@ type ModificationModalProps = {
   fieldValues: Record<string, string>
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
+  loraAdapters: Array<{ adapterPath: string; displayName: string }>
   mode: ModificationMode
   negativePromptValue: string
   onApplyTemplate: (template: PromptTemplate) => void
@@ -31,6 +32,7 @@ type ModificationModalProps = {
   onAreaPointsChange: (value: AreaPoint[]) => void
   onClose: () => void
   onFieldValueChange: (key: string, value: string) => void
+  onLoraChange: (value: string) => void
   onModeChange: (mode: ModificationMode) => void
   onOpenReview: () => void
   onPolygonClear: () => void
@@ -45,6 +47,7 @@ type ModificationModalProps = {
   open: boolean
   priorityFields: ConfigField[]
   reviewPendingCount: number
+  selectedLoraPath: string
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   secondaryFields: ConfigField[]
@@ -61,7 +64,10 @@ export function ModificationModal({
   applyPromptToAll,
   areaConfirmed,
   areaPoints,
+  fieldValues,
   form,
+  launchMode,
+  loraAdapters,
   mode,
   negativePromptValue,
   onApplyTemplate,
@@ -70,10 +76,9 @@ export function ModificationModal({
   onAreaPointsChange,
   onClose,
   onFieldValueChange,
-  fieldValues,
+  onLoraChange,
   onModeChange,
   onOpenReview,
-  launchMode,
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
@@ -86,6 +91,7 @@ export function ModificationModal({
   open,
   priorityFields,
   reviewPendingCount,
+  selectedLoraPath,
   selectedSourceCount,
   selectedSourceIds,
   secondaryFields,
@@ -138,18 +144,21 @@ export function ModificationModal({
             areaPoints={areaPoints}
             form={form}
             launchMode={launchMode}
+            loraAdapters={loraAdapters}
             mode={mode}
             negativePromptValue={negativePromptValue}
             onApplyTemplate={onApplyTemplate}
             onApplyPromptToAllChange={onApplyPromptToAllChange}
             onAreaConfirm={onAreaConfirm}
             onAreaPointsChange={onAreaPointsChange}
+            onLoraChange={onLoraChange}
             onPolygonClear={onPolygonClear}
             onPolygonUndo={onPolygonUndo}
             onPromptChange={onPromptChange}
             onSaveTemplate={onSaveTemplate}
             onSourceMove={onSourceMove}
             onNegativePromptChange={onNegativePromptChange}
+            selectedLoraPath={selectedLoraPath}
             selectedSourceIds={selectedSourceIds}
             selectedSourceCount={selectedSourceCount}
             source={source}

@@ -20,6 +20,8 @@ async def generate_results(
 ) -> int:
     items = load_json_list(input_json_path)
     output_dir.mkdir(parents=True, exist_ok=True)
+    modification_mode = str(config.get("modification_mode", "inpaint")).strip().lower()
+    force_img2img = modification_mode == "full"
 
     args_size = as_int(config.get("size"), 1024)
     args_default_strength = as_float(config.get("strength"), 0.6)
@@ -57,7 +59,7 @@ async def generate_results(
             await on_progress(index + 1, total_items)
             continue
 
-        mask_candidates = _resolve_mask_candidates(warmed, rec, input_json_path.parent, args_use_all_masks)
+        mask_candidates = [] if force_img2img else _resolve_mask_candidates(warmed, rec, input_json_path.parent, args_use_all_masks)
         seed = as_int(rec.get("seed"), args_seed)
         steps = as_int(rec.get("num_inference_steps"), args_default_steps)
         guidance_scale = as_float(rec.get("guidance_scale"), args_default_guidance_scale)

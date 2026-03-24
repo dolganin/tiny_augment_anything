@@ -59,7 +59,10 @@ export function ReviewPage() {
   }
 
   return (
-    <PageFrame title="Отбор результатов">
+    <PageFrame
+      description="Проверь результаты генерации, сохрани удачные изображения в датасет или передай их дальше в обучение классификатора."
+      title="Отбор результатов"
+    >
       <ReviewWorkspace
         onClose={() => void closeReview()}
         onSaveToDataset={() => void saveReviewToDataset()}

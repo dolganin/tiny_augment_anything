@@ -17,6 +17,20 @@ from backend.app.api.workflow_handler_utils import is_valid_class_targets, requi
 from backend.app.repositories.workflow_session import get_session_context
 
 
+def _resolve_modification_mode(config: object) -> str:
+    if not isinstance(config, dict):
+        return "inpaint"
+    raw_value = config.get("modification_mode")
+    if raw_value is None:
+        return "inpaint"
+    if not isinstance(raw_value, str):
+        raise AppError(400, "config.modification_mode должен быть строкой.")
+    resolved = raw_value.strip().lower()
+    if resolved not in {"inpaint", "full"}:
+        raise AppError(400, "config.modification_mode должен быть inpaint или full.")
+    return resolved
+
+
 async def generation_config(request: Request, params: dict[str, str], state: object):
     runtime_state = require_runtime_state(state)
     return json_response(200, generation_defaults(runtime_state.settings))
@@ -107,6 +121,7 @@ async def start_modification(request: Request, params: dict[str, str], state: ob
         raise AppError(400, "classTargets должен быть объектом с положительными целыми значениями.")
     if not isinstance(config, dict):
         raise AppError(400, "Нужен объект config.")
+    _resolve_modification_mode(config)
     normalized_area_points = _normalize_area_points(area_points)
     async with runtime_state.database.connection() as connection:
         context = await get_session_context(connection, session_id)
@@ -148,7 +163,9 @@ async def start_batch_modification(request: Request, params: dict[str, str], sta
     class_targets = payload.get("classTargets")
     common_area_points = payload.get("areaPoints")
     negative_prompt = payload.get("negativePrompt")
+    modification_mode = _resolve_modification_mode(config)
     has_sam_prompt = isinstance(config, dict) and isinstance(config.get("sam_prompt"), str) and bool(config.get("sam_prompt").strip())
+    requires_mask = modification_mode != "full"
 
     if not isinstance(prompt, str) or not prompt.strip():
         raise AppError(400, "Для batch-модификации нужен commonPrompt.")
@@ -161,9 +178,13 @@ async def start_batch_modification(request: Request, params: dict[str, str], sta
     if isinstance(negative_prompt, str) and negative_prompt.strip() and "negative_prompt" not in config:
         config = {**config, "negative_prompt": negative_prompt.strip()}
 
-    normalized_sources = _normalize_batch_sources(sources, batch_mode, allow_missing_area_points=has_sam_prompt)
+    normalized_sources = _normalize_batch_sources(
+        sources,
+        batch_mode,
+        allow_missing_area_points=has_sam_prompt or not requires_mask,
+    )
     normalized_common_area_points = _normalize_area_points(common_area_points)
-    if batch_mode == "common_mask" and not has_sam_prompt and normalized_common_area_points is None and not all(
+    if batch_mode == "common_mask" and requires_mask and not has_sam_prompt and normalized_common_area_points is None and not all(
         item["areaPoints"] is not None for item in normalized_sources
     ):
         raise AppError(400, "Для режима common_mask нужна общая маска areaPoints или маска у каждого source.")

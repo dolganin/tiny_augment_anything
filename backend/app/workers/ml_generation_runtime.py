@@ -3,16 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.diffusion_runtime import (
-    preload_diffusion_pipe,
-    release_all_diffusion_runtimes,
-    release_warm_diffusion_runtime,
-    warm_diffusion_runtime,
-)
 from backend.app.services.lora_adapters import resolve_lora_adapter_path
-from backend.app.services.zimage import has_mask_records, load_config, write_state
+from backend.app.services.zimage import (
+    build_command,
+    has_mask_records,
+    load_config,
+    read_log_tail,
+    resolve_modification_mode,
+    run_command,
+    write_state,
+)
 from backend.app.services.zimage_executor import (
-    generate_results,
     prepare_polygon_segmented_input,
     prepare_prompt_segmented_input,
 )
@@ -32,6 +33,7 @@ logger = get_logger(__name__)
 async def run_generation(runtime_state, bundle) -> None:
     manifest = load_json_dict(bundle.manifest_path)
     config = load_config(bundle)
+    modification_mode = resolve_modification_mode(config)
     sample_count = int(manifest.get("sampleCount", 1))
     source_path = Path(str(manifest.get("sourcePath", "")))
     class_pool = [str(item) for item in manifest.get("classPool", []) if isinstance(item, str)] or ["unknown"]
@@ -50,6 +52,7 @@ async def run_generation(runtime_state, bundle) -> None:
         source_path=source_path,
         class_pool=class_pool,
         has_area=area_points is not None,
+        modification_mode=modification_mode,
     )
 
     if runtime_state.settings.executor_mode == "stub":
@@ -57,7 +60,9 @@ async def run_generation(runtime_state, bundle) -> None:
         return
 
     input_json_path = bundle.input_json_path
-    if area_points is not None:
+    if modification_mode == "full":
+        log_event(logger, 20, "ml_worker.generation.mode.full", run_dir=bundle.run_dir)
+    elif area_points is not None:
         try:
             input_json_path = await _prepare_polygon_input(runtime_state, bundle, area_points)
         except RuntimeError as error:
@@ -89,33 +94,32 @@ async def run_generation(runtime_state, bundle) -> None:
             "status": "running",
             "phase": "warming_up",
             "progress": 0.3,
-            "message": "Поднимаю генератор из generate_zimage_json.py.",
+            "message": "Подготавливаю запуск generate_zimage_json.py.",
         },
     )
-    warmed = None
     resolved_lora_path = None
     try:
         resolved_lora_path = resolve_lora_adapter_path(runtime_state.settings.runtime_dir, config.get("lora_path"))
-        warmed = warm_diffusion_runtime(runtime_state.settings, config, lora_path=resolved_lora_path)
-        preload_diffusion_pipe(warmed, "img2img")
     except Exception as error:
         write_terminal_state(bundle, RuntimeError(str(error)))
         return
 
-    ready_message = (
-        f"img2img runtime уже был прогрет на {warmed.key.device}, начинаю генерацию."
-        if warmed.cache_hit
-        else f"img2img runtime загружен на {warmed.key.device}, начинаю генерацию."
+    command = build_command(
+        runtime_state.settings,
+        bundle,
+        config,
+        resolved_lora_path,
+        input_json_path,
     )
     log_event(
         logger,
         20,
-        "ml_worker.generation.runtime_ready",
+        "ml_worker.generation.executor_ready",
         run_dir=bundle.run_dir,
-        cache_hit=warmed.cache_hit,
-        model_id=warmed.key.model_id,
-        device=warmed.key.device,
-        offload=warmed.key.offload,
+        command=command,
+        model_id=config.get("model_id"),
+        device=config.get("device"),
+        offload=config.get("offload"),
         lora_path=str(resolved_lora_path) if resolved_lora_path is not None else None,
     )
     write_state(
@@ -124,39 +128,41 @@ async def run_generation(runtime_state, bundle) -> None:
             "status": "running",
             "phase": "runtime_ready",
             "progress": 0.35,
-            "message": ready_message,
-            "cacheHit": warmed.cache_hit,
-            "modelId": warmed.key.model_id,
-            "device": warmed.key.device,
-            "offload": warmed.key.offload,
+            "message": "Запускаю generate_zimage_json.py.",
+            "modelId": str(config.get("model_id", "Tongyi-MAI/Z-Image-Turbo")),
+            "device": str(config.get("device", runtime_state.settings.executor_default_device)),
+            "offload": str(config.get("offload", "none")),
             "loraPath": str(resolved_lora_path) if resolved_lora_path is not None else None,
+            "modificationMode": modification_mode,
             "generatedCount": 0,
         },
     )
 
     try:
-        generated_count = await generate_results(
-            warmed,
-            config,
-            input_json_path,
-            bundle.output_json_path,
-            bundle.output_dir,
+        expected_outputs = max(sample_count, 1)
+        await run_command(
+            command,
+            bundle,
+            expected_outputs=expected_outputs,
             is_cancelled=lambda: is_cancelled(bundle),
             on_progress=lambda current, total: write_progress(
                 bundle,
                 phase="generating",
                 progress=min(0.95, 0.35 + current / max(total, 1) * 0.6),
-                message=f"Готово {current}/{total} записей генерации",
+                message=f"Сгенерировано {current}/{total} файлов",
                 current_count=current,
             ),
         )
     except RuntimeError as error:
         write_terminal_state(bundle, error)
         return
-    finally:
-        if warmed is not None:
-            release_warm_diffusion_runtime(warmed)
-        release_all_diffusion_runtimes()
+
+    output_items = load_json_list(bundle.output_json_path)
+    generated_count = sum(
+        len(item.get("result_paths", []))
+        for item in output_items
+        if isinstance(item, dict) and isinstance(item.get("result_paths"), list)
+    )
 
     log_event(
         logger,
@@ -164,6 +170,8 @@ async def run_generation(runtime_state, bundle) -> None:
         "ml_worker.generation.completed",
         run_dir=bundle.run_dir,
         generated_count=generated_count,
+        stdout=read_log_tail(bundle.stdout_log_path, 1200),
+        stderr=read_log_tail(bundle.stderr_log_path, 1200),
     )
     write_state(
         bundle,
@@ -173,11 +181,11 @@ async def run_generation(runtime_state, bundle) -> None:
             "progress": 1.0,
             "message": f"Изображения готовы: {generated_count} файлов.",
             "generatedCount": generated_count,
-            "cacheHit": warmed.cache_hit,
-            "modelId": warmed.key.model_id,
-            "device": warmed.key.device,
-            "offload": warmed.key.offload,
+            "modelId": str(config.get("model_id", "Tongyi-MAI/Z-Image-Turbo")),
+            "device": str(config.get("device", runtime_state.settings.executor_default_device)),
+            "offload": str(config.get("offload", "none")),
             "loraPath": str(resolved_lora_path) if resolved_lora_path is not None else None,
+            "modificationMode": modification_mode,
         },
     )
 

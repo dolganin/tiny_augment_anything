@@ -55,6 +55,25 @@
   gap: 12px;
 }
 
+.diffusion-lora-panel {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.diffusion-lora-panel__header {
+  display: grid;
+  gap: 6px;
+  max-width: 640px;
+}
+
+.diffusion-lora-panel__actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
 .modify-launch-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -102,7 +121,6 @@
 .batch-source-selector__toolbar,
 .batch-source-selector__summary,
 .batch-source-card__meta,
-.batch-source-card__checkbox,
 .batch-progress-panel__head,
 .batch-progress-panel__summary,
 .batch-progress-panel__stats,
@@ -148,10 +166,6 @@
   background: #ffffff;
 }
 
-.batch-source-selector__filter--search {
-  flex: 1 1 260px;
-}
-
 .batch-source-selector__actions {
   display: flex;
   gap: 10px;
@@ -188,7 +202,8 @@
 }
 
 .batch-source-card--selected {
-  border-color: rgba(55, 111, 216, 0.34);
+  border-color: rgba(46, 160, 106, 0.34);
+  background: linear-gradient(180deg, rgba(246, 255, 249, 0.98), rgba(235, 249, 240, 0.94));
   box-shadow: 0 14px 28px rgba(17, 37, 72, 0.06);
 }
 
@@ -203,6 +218,7 @@
   background: transparent;
   overflow: hidden;
   border-radius: 16px;
+  cursor: pointer;
 }
 
 .batch-source-card__preview img {
@@ -224,9 +240,20 @@
   margin-bottom: 4px;
 }
 
-.batch-source-card__checkbox {
+.batch-source-card__status {
+  display: inline-flex;
   align-items: center;
-  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(234, 239, 246, 0.9);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.batch-source-card__status--selected {
+  background: rgba(46, 160, 106, 0.12);
+  color: #24784f;
 }
 
 .batch-mask-overlay {
@@ -690,11 +717,13 @@
   width: min(1240px, 100%);
   max-height: min(92vh, 920px);
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 20px;
   padding: 24px;
   border-radius: 28px;
   background: rgba(251, 253, 255, 0.97);
   box-shadow: 0 28px 80px rgba(15, 30, 64, 0.22);
+  overflow: hidden;
 }
 
 .batch-validation-modal__header {
@@ -720,6 +749,9 @@
   gap: 18px;
   grid-template-columns: minmax(0, 1fr) 340px;
   align-items: start;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .batch-validation-modal__summary {
@@ -767,14 +799,9 @@
   font-size: 12px;
 }
 
-.batch-validation-modal__prompt {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid var(--color-border);
-  background: #ffffff;
-  color: var(--color-text-muted);
-  white-space: pre-wrap;
+.batch-validation-modal__preview,
+.batch-validation-modal__params {
+  min-height: 0;
 }
 
 @media (max-width: 1180px) {

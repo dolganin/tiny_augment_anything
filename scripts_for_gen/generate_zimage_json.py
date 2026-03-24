@@ -91,6 +91,12 @@ def parse_args():
         default="none",
         choices=["none", "model", "sequential"],
     )
+    p.add_argument(
+        "--mode",
+        default="inpaint",
+        choices=["inpaint", "full"],
+        help="Generation mode. 'full' forces img2img even if mask is present.",
+    )
     return p.parse_args()
 
 
@@ -285,7 +291,9 @@ def main():
         stem = utils.sanitize_stem(str(rec.get("id", idx)))
         results = []
 
-        if mask_candidates:
+        use_inpaint = bool(mask_candidates) and args.mode != "full"
+
+        if use_inpaint:
             for m_idx, mask_path in enumerate(mask_candidates):
                 if not mask_path.exists():
                     continue

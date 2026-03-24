@@ -58,6 +58,21 @@ def update_lora_adapter_display_name(runtime_root: Path, raw_path: object, displ
     return normalized_name
 
 
+def ensure_lora_adapter_belongs_to_dataset(
+    runtime_paths: RuntimePaths,
+    runtime_root: Path,
+    dataset_id: UUID,
+    raw_path: object,
+) -> Path:
+    candidate = resolve_lora_adapter_path(runtime_root, raw_path)
+    if candidate is None:
+        raise AppError(400, "Нужно указать путь к LoRA adapter.")
+    dataset_dir = dataset_lora_dir(runtime_paths, dataset_id).resolve()
+    if candidate != dataset_dir and dataset_dir not in candidate.parents:
+        raise AppError(404, "Выбранный LoRA adapter не принадлежит текущему датасету.")
+    return candidate
+
+
 def _original_name(file_name: str) -> str:
     parts = file_name.split("_", 1)
     if len(parts) == 2 and len(parts[0]) == 64:

@@ -7,7 +7,6 @@ import { type ModificationSourceAsset } from '@/shared/types/workflow'
 type BatchSourceSelectorProps = {
   currentSourceId: string | null
   onClearSelection: () => void
-  onFocusSource: (assetId: string) => void
   onSelectAll: () => void
   onToggleSourceSelection: (assetId: string) => void
   onValidate: () => void
@@ -20,7 +19,6 @@ type BatchSourceSelectorProps = {
 export function BatchSourceSelector({
   currentSourceId,
   onClearSelection,
-  onFocusSource,
   onSelectAll,
   onToggleSourceSelection,
   onValidate,
@@ -30,7 +28,6 @@ export function BatchSourceSelector({
   templateMask,
 }: BatchSourceSelectorProps) {
   const [classFilter, setClassFilter] = useState<string>('all')
-  const [query, setQuery] = useState('')
 
   const classOptions = useMemo(
     () => Array.from(new Set(sourceItems.map((item) => item.className))).sort((left, right) => left.localeCompare(right)),
@@ -40,12 +37,9 @@ export function BatchSourceSelector({
   const filteredItems = useMemo(
     () =>
       sourceItems.filter((item) => {
-        const matchesClass = classFilter === 'all' || item.className === classFilter
-        const normalizedQuery = query.trim().toLowerCase()
-        const matchesQuery = normalizedQuery.length === 0 || item.className.toLowerCase().includes(normalizedQuery)
-        return matchesClass && matchesQuery
+        return classFilter === 'all' || item.className === classFilter
       }),
-    [classFilter, query, sourceItems],
+    [classFilter, sourceItems],
   )
 
   const allFilteredSelected =
@@ -85,26 +79,19 @@ export function BatchSourceSelector({
       </div>
 
       <div className="batch-source-selector__toolbar">
-        <label className="batch-source-selector__filter">
-          <span>Класс</span>
-          <select onChange={(event) => setClassFilter(event.target.value)} value={classFilter}>
-            <option value="all">Все</option>
-            {classOptions.map((className) => (
-              <option key={className} value={className}>
-                {className}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="batch-source-selector__filter batch-source-selector__filter--search">
-          <span>Поиск</span>
-          <input
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Фильтр по названию класса"
-            type="search"
-            value={query}
-          />
-        </label>
+        {classOptions.length > 1 ? (
+          <label className="batch-source-selector__filter">
+            <span>Класс</span>
+            <select onChange={(event) => setClassFilter(event.target.value)} value={classFilter}>
+              <option value="all">Все</option>
+              {classOptions.map((className) => (
+                <option key={className} value={className}>
+                  {className}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="batch-source-selector__actions">
           <Button onClick={onSelectAll} type="button" variant="ghost">
             {allSourcesSelected ? 'Снять всё' : 'Выбрать всё'}
@@ -130,7 +117,12 @@ export function BatchSourceSelector({
               className={`batch-source-card${selected ? ' batch-source-card--selected' : ''}${current ? ' batch-source-card--current' : ''}`}
               key={item.assetId}
             >
-              <button className="batch-source-card__preview" onClick={() => onFocusSource(item.assetId)} type="button">
+              <button
+                aria-pressed={selected}
+                className="batch-source-card__preview"
+                onClick={() => onToggleSourceSelection(item.assetId)}
+                type="button"
+              >
                 <img alt={item.className} src={item.assetUrl} />
                 {templateMask.length >= 3 ? <MaskOverlay points={templateMask} /> : null}
               </button>
@@ -139,10 +131,9 @@ export function BatchSourceSelector({
                   <strong>{item.className}</strong>
                   <span>{current ? 'текущий холст' : 'источник batch'}</span>
                 </div>
-                <label className="batch-source-card__checkbox">
-                  <input checked={selected} onChange={() => onToggleSourceSelection(item.assetId)} type="checkbox" />
-                  <span>{selected ? 'в batch' : 'исключён'}</span>
-                </label>
+                <span className={`batch-source-card__status${selected ? ' batch-source-card__status--selected' : ''}`}>
+                  {selected ? 'в batch' : 'исключён'}
+                </span>
               </div>
             </article>
           )

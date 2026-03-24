@@ -161,7 +161,10 @@ export function MetricsPage() {
 
   return (
     <>
-      <PageFrame title="Метрики по классам">
+      <PageFrame
+        description="Следи за логами обучения и смотри итоговые precision/recall по каждому классу."
+        title="Метрики по классам"
+      >
         {isTrainingActive ? (
           <>
             <div className="upload-stage__loading">

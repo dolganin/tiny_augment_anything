@@ -5,18 +5,17 @@ import { useDiffusionLoraAdaptersQuery } from '@/shared/api/workflow.hooks'
 import { workflowApi } from '@/shared/api/workflow.api'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { TextInputModal } from '@/shared/ui/feedback/TextInputModal'
+import '@/features/generation-config/generation-config-modify.css'
 
 type DiffusionLoraPanelProps = {
   onError: (message: string) => void
   onSelectAdapter: (adapterPath: string) => void
-  selectedAdapterPath: string
   sessionId: string | null
 }
 
 export function DiffusionLoraPanel({
   onError,
   onSelectAdapter,
-  selectedAdapterPath,
   sessionId,
 }: DiffusionLoraPanelProps) {
   const queryClient = useQueryClient()
@@ -30,10 +29,7 @@ export function DiffusionLoraPanel({
     defaultName: string
     value: string
   } | null>(null)
-  const selectedAdapter = useMemo(
-    () => (adaptersQuery.data?.items ?? []).find((item) => item.adapterPath === selectedAdapterPath) ?? null,
-    [adaptersQuery.data?.items, selectedAdapterPath],
-  )
+  const adapterCount = useMemo(() => adaptersQuery.data?.items.length ?? 0, [adaptersQuery.data?.items.length])
 
   const uploadLora = async (file: File) => {
     if (!sessionId) {
@@ -108,32 +104,23 @@ export function DiffusionLoraPanel({
 
   return (
     <>
-      <section className="info-card">
-        <div className="modify-panel__actions">
-        <Button
-          disabled={!sessionId || isUploading || isSavingName}
-          onClick={() => fileInputRef.current?.click()}
-          type="button"
-          variant="secondary"
-        >
-          Загрузить LoRA adapter
-        </Button>
-        <label className="generation-form__group" style={{ minWidth: 260 }}>
-          <span className="generation-form__label">LoRA adapter</span>
-          <select
-            className="generation-form__input"
-            disabled={!sessionId || adaptersQuery.isLoading || isUploading || isSavingName}
-            onChange={(event) => onSelectAdapter(event.target.value)}
-            value={selectedAdapterPath}
+      <section className="info-card diffusion-lora-panel">
+        <div className="diffusion-lora-panel__header">
+          <strong>Загрузка LoRA адаптера для диффузии</strong>
+          <p className="info-card__text">
+            Загрузи адаптер один раз, после этого его можно будет выбрать в single и batch модификации.
+          </p>
+        </div>
+
+        <div className="diffusion-lora-panel__actions">
+          <Button
+            disabled={!sessionId || isUploading || isSavingName}
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+            variant="secondary"
           >
-            <option value="">Без LoRA</option>
-            {(adaptersQuery.data?.items ?? []).map((item) => (
-              <option key={item.adapterPath} value={item.adapterPath}>
-                {item.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
+            Загрузить LoRA adapter
+          </Button>
         </div>
 
         <input
@@ -148,11 +135,7 @@ export function DiffusionLoraPanel({
         {!isUploading && pendingRename ? (
           <p className="info-card__text">Загрузка завершена. Теперь задай имя адаптера.</p>
         ) : null}
-        {!isUploading && selectedAdapter ? (
-          <p className="info-card__text">
-            Выбран адаптер: {selectedAdapter.displayName} ({selectedAdapter.fileName})
-          </p>
-        ) : null}
+        {adapterCount > 0 ? <p className="info-card__text">Загружено адаптеров для этого датасета: {adapterCount}</p> : null}
         {adaptersQuery.data && adaptersQuery.data.items.length === 0 ? (
           <p className="info-card__text">Для этого датасета пока нет загруженных LoRA adapter.</p>
         ) : null}

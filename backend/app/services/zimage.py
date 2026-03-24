@@ -16,6 +16,14 @@ from backend.app.services.filesystem import RuntimePaths
 logger = get_logger(__name__)
 
 
+def resolve_modification_mode(config: dict[str, Any]) -> str:
+    raw_value = config.get("modification_mode")
+    if not isinstance(raw_value, str):
+        return "inpaint"
+    resolved = raw_value.strip().lower()
+    return resolved if resolved in {"inpaint", "full"} else "inpaint"
+
+
 @dataclass(frozen=True, slots=True)
 class ZImageRunBundle:
     run_dir: Path
@@ -112,8 +120,9 @@ def build_records(
     config: dict[str, Any],
     area_points: list[list[float]] | None = None,
 ) -> list[dict[str, Any]]:
+    modification_mode = resolve_modification_mode(config)
     negative_prompt = str(config.get("negative_prompt", "")).strip()
-    sam_prompt = str(config.get("sam_prompt", "")).strip()
+    sam_prompt = "" if modification_mode == "full" else str(config.get("sam_prompt", "")).strip()
     sam_semantic = str(config.get("sam_semantic", "")).strip().lower() in {"1", "true", "yes", "on"}
     base_seed = int(_get_number(config, "seed", 42))
     strength = _get_number(config, "strength", 0.6)
@@ -137,7 +146,7 @@ def build_records(
         if sam_prompt:
             record["seg_prompt"] = sam_prompt
             record["seg_semantic"] = sam_semantic
-        if area_points is not None:
+        if modification_mode != "full" and area_points is not None:
             record["area_points"] = [[int(round(value)) for value in point] for point in area_points]
         records.append(record)
     return records
@@ -176,6 +185,14 @@ def build_command(
         str(bundle.output_dir),
         "--model-id",
         str(config.get("model_id", "Tongyi-MAI/Z-Image-Turbo")),
+        "--device",
+        str(config.get("device", settings.executor_default_device)),
+        "--precision",
+        str(config.get("precision", "bf16")),
+        "--offload",
+        str(config.get("offload", "none")),
+        "--mode",
+        resolve_modification_mode(config),
         "--size",
         str(int(_get_number(config, "size", 1024))),
         "--default-strength",
@@ -188,7 +205,17 @@ def build_command(
         str(_get_number(config, "guidance_scale", 0.0)),
         "--seed",
         str(int(_get_number(config, "seed", 42))),
+        "--mask-dilate",
+        str(int(_get_number(config, "mask_dilate", 7))),
+        "--mask-blur",
+        str(_get_number(config, "mask_blur", 6.0)),
     ]
+    use_all_masks = config.get("use_all_masks")
+    if isinstance(use_all_masks, bool):
+        if use_all_masks:
+            command.append("--use-all-masks")
+    elif isinstance(use_all_masks, str) and use_all_masks.strip().lower() in {"1", "true", "yes", "on"}:
+        command.append("--use-all-masks")
     if lora_path is not None:
         command.extend(["--lora-path", str(lora_path), "--lora-scale", str(_get_number(config, "lora_scale", 1.0))])
     return command

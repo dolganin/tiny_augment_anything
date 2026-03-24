@@ -14,6 +14,7 @@ from backend.app.services.zimage import (
     load_state,
     prepare_run_bundle,
     request_cancellation,
+    resolve_modification_mode,
 )
 from backend.app.workers.generation_indexing import index_generated_results
 from backend.app.workers.shared import emit_cancelled, emit_completion, emit_event, emit_failure, ensure_not_cancelled
@@ -94,6 +95,7 @@ async def dispatch_ml_generation(
             "sourcePath": str(source_path),
             "classPool": class_pool,
             "areaPoints": area_points,
+            "modificationMode": resolve_modification_mode(config),
         },
         config,
     )

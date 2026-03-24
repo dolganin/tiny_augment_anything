@@ -36,6 +36,14 @@ const HIDDEN_SECONDARY_KEYS = ['sam_prompt', 'negative_prompt', 'lora_path', ...
 const interpolateTemplateText = (value: string, source: ModificationSourceAsset | null) =>
   value.replaceAll('{className}', source?.className ?? 'object')
 
+const withModificationMode = (
+  config: Record<string, string>,
+  modificationMode: ModificationMode,
+): Record<string, string> => ({
+  ...config,
+  modification_mode: modificationMode,
+})
+
 export function useModifyPage({ form }: UseModifyPageParams) {
   const navigate = useNavigate()
   const sessionId = useSessionStore((state) => state.sessionId)
@@ -430,7 +438,10 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const handleModeChange = (mode: ModificationMode) => {
     setModificationMode(mode)
     if (mode === 'full') {
+      setSharedAreaPoints([])
       setSharedAreaConfirmed(false)
+      setBatchMaskPreviewPoints([])
+      setAreaPointsBySourceId({})
       setAreaConfirmedBySourceId({})
     }
   }
@@ -496,7 +507,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
         sourceAssetId: activeSourceItems[0].assetId,
         sampleCount: totalTargetCount,
         classTargets: selectedClassTargets,
-        config: fieldValues,
+        config: withModificationMode(fieldValues, modificationMode),
         areaPoints: modificationMode === 'inpaint' && areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
       })
       setSession({ generationJobId: response.jobId })
@@ -523,7 +534,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
       const response = await batchModificationMutation.mutateAsync({
         commonPrompt: form.getValues('prompt').trim(),
         negativePrompt: (fieldValues.negative_prompt ?? '').trim() || undefined,
-        config: fieldValues,
+        config: withModificationMode(fieldValues, mode),
         classTargets: selectedClassTargets,
         batchMode: 'common_mask',
         areaPoints: mode === 'inpaint' ? sharedAreaPoints : undefined,
