@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import {
+  useCreateNegativeTemplateMutation,
   useCreatePolygonTemplateMutation,
   useCreateSelectionTemplateMutation,
   useCreateTextTemplateMutation,
@@ -10,13 +11,12 @@ import {
 import {
   type DatasetModificationTemplates,
   type PolygonTemplate,
-  type SelectionPromptTemplate,
-  type TextPromptTemplate,
 } from '@/pages/modify/modify.types'
 import { useSessionStore } from '@/store/session/session.store'
 
 const EMPTY_DATASET_TEMPLATES: DatasetModificationTemplates = {
   textTemplates: [],
+  negativeTemplates: [],
   selectionTemplates: [],
   polygonTemplates: [],
 }
@@ -29,6 +29,7 @@ export function useDatasetTemplateSync(sessionId: string | null) {
   const setSession = useSessionStore((state) => state.setSession)
   const templatesQuery = useDatasetTemplatesQuery(sessionId)
   const createTextTemplateMutation = useCreateTextTemplateMutation(sessionId ?? '')
+  const createNegativeTemplateMutation = useCreateNegativeTemplateMutation(sessionId ?? '')
   const createSelectionTemplateMutation = useCreateSelectionTemplateMutation(sessionId ?? '')
   const createPolygonTemplateMutation = useCreatePolygonTemplateMutation(sessionId ?? '')
   const deleteTemplateMutation = useDeleteTemplateMutation(sessionId ?? '')
@@ -39,6 +40,7 @@ export function useDatasetTemplateSync(sessionId: string | null) {
   const datasetTemplates = useMemo<DatasetModificationTemplates>(
     () => ({
       textTemplates: [...serverTemplates.textTemplates, ...localTemplates.textTemplates],
+      negativeTemplates: [...serverTemplates.negativeTemplates, ...localTemplates.negativeTemplates],
       selectionTemplates: [...serverTemplates.selectionTemplates, ...localTemplates.selectionTemplates],
       polygonTemplates: [...serverTemplates.polygonTemplates, ...localTemplates.polygonTemplates],
     }),
@@ -48,6 +50,7 @@ export function useDatasetTemplateSync(sessionId: string | null) {
   const canMigrateLocalTemplates =
     Boolean(datasetId) &&
     (localTemplates.textTemplates.length > 0 ||
+      localTemplates.negativeTemplates.length > 0 ||
       localTemplates.selectionTemplates.length > 0 ||
       localTemplates.polygonTemplates.length > 0)
 
@@ -63,18 +66,29 @@ export function useDatasetTemplateSync(sessionId: string | null) {
     })
   }
 
-  const createTextTemplate = async (name: string, prompt: string, negativePrompt?: string) => {
+  const createTextTemplate = async (name: string, prompt: string) => {
     if (!sessionId) {
       updateLocalTemplates({
         ...localTemplates,
         textTemplates: [
           ...localTemplates.textTemplates,
-          { id: `text:${Date.now()}`, name, prompt, negativePrompt },
+          { id: `text:${Date.now()}`, name, prompt },
         ],
       })
       return
     }
-    await createTextTemplateMutation.mutateAsync({ name, prompt, negativePrompt })
+    await createTextTemplateMutation.mutateAsync({ name, prompt })
+  }
+
+  const createNegativeTemplate = async (name: string, text: string) => {
+    if (!sessionId) {
+      updateLocalTemplates({
+        ...localTemplates,
+        negativeTemplates: [...localTemplates.negativeTemplates, { id: `negative:${Date.now()}`, name, text }],
+      })
+      return
+    }
+    await createNegativeTemplateMutation.mutateAsync({ name, text })
   }
 
   const createSelectionTemplate = async (name: string, text: string) => {
@@ -140,7 +154,12 @@ export function useDatasetTemplateSync(sessionId: string | null) {
       await createTextTemplateMutation.mutateAsync({
         name: template.name,
         prompt: template.prompt,
-        negativePrompt: template.negativePrompt,
+      })
+    }
+    for (const template of localTemplates.negativeTemplates) {
+      await createNegativeTemplateMutation.mutateAsync({
+        name: template.name,
+        text: template.text,
       })
     }
     for (const template of localTemplates.selectionTemplates) {
@@ -165,6 +184,7 @@ export function useDatasetTemplateSync(sessionId: string | null) {
 
   return {
     canMigrateLocalTemplates,
+    createNegativeTemplate,
     createPolygonTemplate,
     createSelectionTemplate,
     createTextTemplate,
@@ -174,6 +194,7 @@ export function useDatasetTemplateSync(sessionId: string | null) {
     deleteTextTemplate,
     isMutatingTemplates:
       createTextTemplateMutation.isPending ||
+      createNegativeTemplateMutation.isPending ||
       createSelectionTemplateMutation.isPending ||
       createPolygonTemplateMutation.isPending ||
       deleteTemplateMutation.isPending,

@@ -25,6 +25,16 @@ export function useCreateTextTemplateMutation(sessionId: string) {
   })
 }
 
+export function useCreateNegativeTemplateMutation(sessionId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: unknown) => templatesApi.createNegativeTemplate(sessionId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: templateKeys.datasetTemplates(sessionId) })
+    },
+  })
+}
+
 export function useCreateSelectionTemplateMutation(sessionId: string) {
   const queryClient = useQueryClient()
   return useMutation({

@@ -23,6 +23,7 @@ import {
   type BatchStep,
   type ModificationLaunchMode,
   type ModifyFormValues,
+  type PromptTemplateScope,
   type PromptTemplate,
 } from '@/pages/modify/modify.types'
 
@@ -49,7 +50,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const sessionId = useSessionStore((state) => state.sessionId)
   const generationJobId = useSessionStore((state) => state.generationJobId)
   const generationConfig = useSessionStore((state) => state.generationConfig)
-  const storedPromptTemplates = useSessionStore((state) => state.promptTemplates)
   const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
   const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
@@ -80,7 +80,13 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const singleModificationMutation = useStartModificationMutation(sessionId ?? '')
   const finalizeReviewMutation = useFinalizeReviewMutation(sessionId ?? '')
   const taskStatusQuery = useTaskStatusQuery(sessionId, generationJobId)
-  const { createPolygonTemplate } = useDatasetTemplateSync(sessionId)
+  const {
+    createNegativeTemplate,
+    createPolygonTemplate,
+    createSelectionTemplate,
+    createTextTemplate,
+    datasetTemplates,
+  } = useDatasetTemplateSync(sessionId)
 
   useEffect(() => {
     if (workflowStage !== 'review') {
@@ -237,16 +243,37 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     return sourceItems.find((item) => item.assetId === selectedSourceAssetId) ?? sourceItems[0]
   }, [selectedSourceAssetId, sourceItems])
 
-  const promptTemplates = useMemo(() => storedPromptTemplates, [storedPromptTemplates])
-
   const textPromptTemplates = useMemo(
-    () => promptTemplates.filter((template) => template.scope === 'text'),
-    [promptTemplates],
+    () =>
+      datasetTemplates.textTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        scope: 'text' as const,
+        text: template.prompt,
+        prompt: template.prompt,
+      })),
+    [datasetTemplates.textTemplates],
+  )
+
+  const negativePromptTemplates = useMemo(
+    () =>
+      datasetTemplates.negativeTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        text: template.text,
+      })),
+    [datasetTemplates.negativeTemplates],
   )
 
   const selectionPromptTemplates = useMemo(
-    () => promptTemplates.filter((template) => template.scope === 'selection'),
-    [promptTemplates],
+    () =>
+      datasetTemplates.selectionTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        scope: 'selection' as const,
+        text: template.text,
+      })),
+    [datasetTemplates.selectionTemplates],
   )
 
   const activeSourceItems = useMemo(
@@ -352,36 +379,53 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setSession({ generationConfig: nextValues })
   }
 
-  const createPromptTemplate = (scope: PromptTemplate['scope'], name: string) => {
-    const nextTemplate: PromptTemplate =
-      scope === 'text'
-        ? {
-            id: `user:${Date.now()}`,
-            name: name.trim(),
-            scope,
-            text: form.getValues('prompt').trim(),
-            negativeText: (fieldValues.negative_prompt ?? '').trim() || undefined,
-          }
-        : {
-            id: `user:${Date.now()}`,
-            name: name.trim(),
-            scope,
-            text: (fieldValues.sam_prompt ?? '').trim(),
-          }
-    if (!nextTemplate.text) {
-      setErrorMessage(scope === 'text' ? 'Сначала задай текст промпта для шаблона.' : 'Сначала задай SAM prompt для шаблона.')
-      return
+  const createPromptTemplate = async (scope: PromptTemplateScope | 'negative', name: string): Promise<boolean> => {
+    const normalizedName = name.trim()
+    if (scope === 'text') {
+      const prompt = form.getValues('prompt').trim()
+      if (!prompt) {
+        setErrorMessage('Сначала задай текст промпта для шаблона.')
+        return false
+      }
+      try {
+        await createTextTemplate(normalizedName, prompt)
+        return true
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error))
+        return false
+      }
     }
-    setSession({ promptTemplates: [...storedPromptTemplates, nextTemplate] })
+    if (scope === 'negative') {
+      const negativePrompt = (fieldValues.negative_prompt ?? '').trim()
+      if (!negativePrompt) {
+        setErrorMessage('Сначала задай negative prompt для шаблона.')
+        return false
+      }
+      try {
+        await createNegativeTemplate(normalizedName, negativePrompt)
+        return true
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error))
+        return false
+      }
+    }
+    const selectionText = (fieldValues.sam_prompt ?? '').trim()
+    if (!selectionText) {
+      setErrorMessage('Сначала задай SAM prompt для шаблона.')
+      return false
+    }
+    try {
+      await createSelectionTemplate(normalizedName, selectionText)
+      return true
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error))
+      return false
+    }
   }
 
   const applyPromptTemplate = (template: PromptTemplate) => {
     if (template.scope === 'text') {
-      const nextPrompt = interpolateTemplateText(template.text, source)
-      updatePromptValue(nextPrompt)
-      if (template.negativeText) {
-        updateFieldValue('negative_prompt', interpolateTemplateText(template.negativeText, source))
-      }
+      updatePromptValue(interpolateTemplateText(template.text, source))
       return
     }
     updateFieldValue('sam_prompt', interpolateTemplateText(template.text, source))
@@ -604,6 +648,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     createPromptTemplate,
     secondaryFields,
     selectionPromptTemplates,
+    negativePromptTemplates,
     selectedSourceCount: activeSourceItems.length,
     selectedSourceIds,
     selectedSourceItems,

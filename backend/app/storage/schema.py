@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS classifier_runs (
 CREATE TABLE IF NOT EXISTS modification_templates (
     id uuid PRIMARY KEY,
     dataset_id uuid NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    template_type text NOT NULL CHECK (template_type IN ('text', 'selection', 'polygon')),
+    template_type text NOT NULL CHECK (template_type IN ('text', 'negative', 'selection', 'polygon')),
     name text NOT NULL,
     prompt_text text NULL,
     negative_prompt_text text NULL,
@@ -166,6 +166,9 @@ CREATE TABLE IF NOT EXISTS modification_templates (
     updated_at timestamptz NOT NULL,
     CONSTRAINT valid_text_template CHECK (
         template_type != 'text' OR prompt_text IS NOT NULL
+    ),
+    CONSTRAINT valid_negative_template CHECK (
+        template_type != 'negative' OR prompt_text IS NOT NULL
     ),
     CONSTRAINT valid_selection_template CHECK (
         template_type != 'selection' OR prompt_text IS NOT NULL
@@ -207,4 +210,19 @@ ADD COLUMN IF NOT EXISTS is_batch boolean NOT NULL DEFAULT false;
 
 ALTER TABLE augmentation_runs
 ADD COLUMN IF NOT EXISTS batch_mode text NULL;
+
+ALTER TABLE modification_templates
+DROP CONSTRAINT IF EXISTS modification_templates_template_type_check;
+
+ALTER TABLE modification_templates
+ADD CONSTRAINT modification_templates_template_type_check
+CHECK (template_type IN ('text', 'negative', 'selection', 'polygon'));
+
+ALTER TABLE modification_templates
+DROP CONSTRAINT IF EXISTS valid_negative_template;
+
+ALTER TABLE modification_templates
+ADD CONSTRAINT valid_negative_template CHECK (
+    template_type != 'negative' OR prompt_text IS NOT NULL
+);
 """

@@ -2,7 +2,13 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationCanvas } from '@/features/modification/ModificationCanvas'
 import { ModificationMode } from '@/features/modification/ModificationModeToggle'
 import { PromptFields } from '@/features/modification/PromptFields'
-import { type AreaPoint, type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
+import {
+  type AreaPoint,
+  type ModificationLaunchMode,
+  type ModifyFormValues,
+  type NegativePromptTemplate,
+  type PromptTemplate,
+} from '@/pages/modify/modify.types'
 import { type ModificationSourceAsset } from '@/shared/types/workflow'
 import { UseFormReturn } from 'react-hook-form'
 
@@ -13,6 +19,7 @@ type ModificationModalCanvasProps = {
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
   loraAdapters: Array<{ adapterPath: string; displayName: string }>
+  negativeTemplates: NegativePromptTemplate[]
   negativePromptValue: string
   mode: ModificationMode
   onApplyTemplate: (template: PromptTemplate) => void
@@ -23,6 +30,7 @@ type ModificationModalCanvasProps = {
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
+  onSaveNegativeTemplate: () => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
   onSourceMove: (direction: -1 | 1) => void
   onToggleSourceSelection: (assetId: string) => void
@@ -43,6 +51,7 @@ export function ModificationModalCanvas({
   form,
   launchMode,
   loraAdapters,
+  negativeTemplates,
   mode,
   negativePromptValue,
   onApplyTemplate,
@@ -53,6 +62,7 @@ export function ModificationModalCanvas({
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
+  onSaveNegativeTemplate,
   onSaveTemplate,
   onSourceMove,
   onToggleSourceSelection,
@@ -106,12 +116,14 @@ export function ModificationModalCanvas({
         form={form}
         launchMode={launchMode}
         loraAdapters={loraAdapters}
+        negativeTemplates={negativeTemplates}
         negativePromptValue={negativePromptValue}
         onApplyTemplate={onApplyTemplate}
         onApplyPromptToAllChange={onApplyPromptToAllChange}
         onLoraChange={onLoraChange}
         onNegativePromptChange={onNegativePromptChange}
         onPromptChange={onPromptChange}
+        onSaveNegativeTemplate={onSaveNegativeTemplate}
         onSaveTemplate={onSaveTemplate}
         selectedLoraPath={selectedLoraPath}
         sourceClassName={source.className}

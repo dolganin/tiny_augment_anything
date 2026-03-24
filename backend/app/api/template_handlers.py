@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from backend.app.repositories.modification_templates import (
+    create_negative_template,
     create_polygon_template,
     create_selection_template,
     create_text_template,
@@ -33,7 +34,6 @@ async def create_dataset_text_template(request: Request, params: dict[str, str],
     payload = _require_payload(request)
     name = _require_string(payload, "name")
     prompt = _require_string(payload, "prompt")
-    negative_prompt = _optional_string(payload.get("negativePrompt"))
     async with runtime_state.database.connection() as connection:
         dataset_id = await _require_dataset_id(connection, session_id)
         template_id = await create_text_template(
@@ -41,8 +41,19 @@ async def create_dataset_text_template(request: Request, params: dict[str, str],
             dataset_id,
             name=name,
             prompt=prompt,
-            negative_prompt=negative_prompt,
         )
+    return json_response(201, {"id": str(template_id)})
+
+
+async def create_dataset_negative_template(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    session_id = parse_session_id(params["session_id"])
+    payload = _require_payload(request)
+    name = _require_string(payload, "name")
+    text = _require_string(payload, "text")
+    async with runtime_state.database.connection() as connection:
+        dataset_id = await _require_dataset_id(connection, session_id)
+        template_id = await create_negative_template(connection, dataset_id, name=name, text=text)
     return json_response(201, {"id": str(template_id)})
 
 
@@ -121,13 +132,6 @@ def _require_string(payload: dict[str, object], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise AppError(400, f"Нужно непустое поле {key}.")
     return value.strip()
-
-
-def _optional_string(value: object) -> str | None:
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip()
-    return normalized or None
 
 
 def _parse_template_id(raw_template_id: str) -> UUID:

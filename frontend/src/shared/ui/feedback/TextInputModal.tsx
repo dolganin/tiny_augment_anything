@@ -8,7 +8,7 @@ type TextInputModalProps = {
   description?: string
   label: string
   onClose: () => void
-  onConfirm: (value: string) => void
+  onConfirm: (value: string) => void | Promise<void>
   open: boolean
   placeholder?: string
   title: string
@@ -76,7 +76,9 @@ export function TextInputModal({
           </Button>
           <Button
             disabled={isSubmitting || confirmDisabled || !value.trim()}
-            onClick={() => onConfirm(value.trim())}
+            onClick={() => {
+              void onConfirm(value.trim())
+            }}
             type="button"
           >
             {confirmLabel}

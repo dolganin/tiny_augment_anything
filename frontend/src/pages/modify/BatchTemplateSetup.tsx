@@ -14,6 +14,7 @@ type BatchTemplateSetupProps = {
   currentSource: BatchPreviewSource | null
   loraAdapters: Array<{ adapterPath: string; displayName: string }>
   mode: ModificationMode
+  negativeTemplates: Array<{ id: string; name: string }>
   negativePromptValue: string
   onAreaConfirm: () => void
   onAreaPointsChange: (points: AreaPoint[]) => void
@@ -29,6 +30,7 @@ type BatchTemplateSetupProps = {
   onSamPromptChange: (value: string) => void
   onApplySelectionTemplate: (templateId: string) => void
   onPreviewMaskChange: (points: AreaPoint[]) => void
+  onSaveNegativeTemplate: () => void
   onSaveTextTemplate: () => void
   onSaveSelectionTemplate: () => void
   promptValue: string
@@ -44,6 +46,7 @@ export function BatchTemplateSetup({
   currentSource,
   loraAdapters,
   mode,
+  negativeTemplates,
   negativePromptValue,
   onAreaConfirm,
   onAreaPointsChange,
@@ -59,6 +62,7 @@ export function BatchTemplateSetup({
   onSamPromptChange,
   onApplySelectionTemplate,
   onPreviewMaskChange,
+  onSaveNegativeTemplate,
   onSaveTextTemplate,
   onSaveSelectionTemplate,
   promptValue,
@@ -152,10 +156,10 @@ export function BatchTemplateSetup({
             <span className="batch-setup__label-row">
               <span>Негативный промпт</span>
               <Button
-                aria-label="Сохранить текстовый шаблон"
+                aria-label="Сохранить negative шаблон"
                 className="modification-prompts__save-button"
-                onClick={onSaveTextTemplate}
-                title="Сохранить текстовый шаблон"
+                onClick={onSaveNegativeTemplate}
+                title="Сохранить negative шаблон"
                 type="button"
                 variant="ghost"
               >
@@ -171,8 +175,8 @@ export function BatchTemplateSetup({
             <select
               aria-label="Выбрать шаблон для negative prompt"
               className="modification-prompts__template-select modification-prompts__template-select--below"
-              defaultValue={textTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
-              disabled={textTemplates.length === 0}
+              defaultValue={negativeTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
+              disabled={negativeTemplates.length === 0}
               onChange={(event) => {
                 const selectedId = event.target.value
                 if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
@@ -182,8 +186,8 @@ export function BatchTemplateSetup({
                 event.currentTarget.value = EMPTY_TEMPLATE_VALUE
               }}
             >
-              {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
-              {textTemplates.map((template) => (
+              {negativeTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
+              {negativeTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
                 </option>

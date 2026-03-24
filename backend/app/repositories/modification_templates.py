@@ -27,6 +27,7 @@ async def list_dataset_templates(connection, dataset_id: UUID) -> dict[str, list
         rows = await cursor.fetchall()
 
     text_templates: list[dict[str, Any]] = []
+    negative_templates: list[dict[str, Any]] = []
     selection_templates: list[dict[str, Any]] = []
     polygon_templates: list[dict[str, Any]] = []
 
@@ -38,7 +39,15 @@ async def list_dataset_templates(connection, dataset_id: UUID) -> dict[str, list
                     "id": str(row["id"]),
                     "name": row["name"],
                     "prompt": row["prompt_text"] or "",
-                    "negativePrompt": row["negative_prompt_text"],
+                }
+            )
+            continue
+        if template_type == "negative":
+            negative_templates.append(
+                {
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "text": row["prompt_text"] or "",
                 }
             )
             continue
@@ -61,6 +70,7 @@ async def list_dataset_templates(connection, dataset_id: UUID) -> dict[str, list
 
     return {
         "textTemplates": text_templates,
+        "negativeTemplates": negative_templates,
         "selectionTemplates": selection_templates,
         "polygonTemplates": polygon_templates,
     }
@@ -72,7 +82,6 @@ async def create_text_template(
     *,
     name: str,
     prompt: str,
-    negative_prompt: str | None,
 ) -> UUID:
     template_id = uuid4()
     now = datetime.now(timezone.utc)
@@ -84,13 +93,33 @@ async def create_text_template(
             template_type,
             name,
             prompt_text,
-            negative_prompt_text,
             created_at,
             updated_at
         )
-        VALUES (%s, %s, 'text', %s, %s, %s, %s, %s)
+        VALUES (%s, %s, 'text', %s, %s, %s, %s)
         """,
-        (template_id, dataset_id, name, prompt, negative_prompt, now, now),
+        (template_id, dataset_id, name, prompt, now, now),
+    )
+    return template_id
+
+
+async def create_negative_template(connection, dataset_id: UUID, *, name: str, text: str) -> UUID:
+    template_id = uuid4()
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        INSERT INTO modification_templates (
+            id,
+            dataset_id,
+            template_type,
+            name,
+            prompt_text,
+            created_at,
+            updated_at
+        )
+        VALUES (%s, %s, 'negative', %s, %s, %s, %s)
+        """,
+        (template_id, dataset_id, name, text, now, now),
     )
     return template_id
 

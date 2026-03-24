@@ -8,7 +8,12 @@ export const textPromptTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
   prompt: z.string(),
-  negativePrompt: z.string().nullable().optional(),
+})
+
+export const negativePromptTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  text: z.string(),
 })
 
 export const selectionPromptTemplateSchema = z.object({
@@ -25,6 +30,7 @@ export const polygonTemplateSchema = z.object({
 
 export const datasetTemplatesResponseSchema = z.object({
   textTemplates: z.array(textPromptTemplateSchema),
+  negativeTemplates: z.array(negativePromptTemplateSchema),
   selectionTemplates: z.array(selectionPromptTemplateSchema),
   polygonTemplates: z.array(polygonTemplateSchema),
 })
@@ -32,7 +38,11 @@ export const datasetTemplatesResponseSchema = z.object({
 export const createTextTemplatePayloadSchema = z.object({
   name: z.string().min(1),
   prompt: z.string().min(1),
-  negativePrompt: z.string().optional(),
+})
+
+export const createNegativeTemplatePayloadSchema = z.object({
+  name: z.string().min(1),
+  text: z.string().min(1),
 })
 
 export const createSelectionTemplatePayloadSchema = z.object({

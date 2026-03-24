@@ -51,6 +51,7 @@ export function ModifyPage() {
     modificationMode,
     moveSource,
     moveToClassifier,
+    negativePromptTemplates,
     negativePromptValue,
     priorityFields,
     reviewPendingCount,
@@ -88,7 +89,7 @@ export function ModifyPage() {
   } = useModifyPage({ form })
   const [templateModal, setTemplateModal] = useState<{
     open: boolean
-    kind: 'text' | 'selection' | 'polygon'
+    kind: 'text' | 'negative' | 'selection' | 'polygon'
   }>({ open: false, kind: 'text' })
 
   const sourceLabelById = useMemo(
@@ -105,6 +106,12 @@ export function ModifyPage() {
           title: 'Сохранить selection шаблон',
           label: 'Название шаблона',
           placeholder: 'Например, Лицо в маске',
+        }
+      case 'negative':
+        return {
+          title: 'Сохранить negative шаблон',
+          label: 'Название шаблона',
+          placeholder: 'Например, Без артефактов',
         }
       case 'polygon':
         return {
@@ -196,13 +203,13 @@ export function ModifyPage() {
               onApplyTextTemplate={(templateId) => {
                 const template = textPromptTemplates.find((item) => item.id === templateId)
                 if (template) {
-                  applyPromptTemplate(template)
+                  updatePromptValue(template.text.replaceAll('{className}', source?.className ?? 'object'))
                 }
               }}
               onApplyNegativeTemplate={(templateId) => {
-                const template = textPromptTemplates.find((item) => item.id === templateId)
-                if (template?.scope === 'text' && template.negativeText) {
-                  updateFieldValue('negative_prompt', template.negativeText)
+                const template = negativePromptTemplates.find((item) => item.id === templateId)
+                if (template) {
+                  updateFieldValue('negative_prompt', template.text)
                 }
               }}
               onContinue={() => setBatchStep('select-sources')}
@@ -220,8 +227,10 @@ export function ModifyPage() {
               }}
               onPreviewMaskChange={setBatchMaskPreviewPoints}
               onPromptChange={updatePromptValue}
+              onSaveNegativeTemplate={() => setTemplateModal({ open: true, kind: 'negative' })}
               onSaveTextTemplate={() => setTemplateModal({ open: true, kind: 'text' })}
               onSaveSelectionTemplate={() => setTemplateModal({ open: true, kind: 'selection' })}
+              negativeTemplates={negativePromptTemplates}
               promptValue={form.watch('prompt')}
               selectedLoraPath={fieldValues.lora_path ?? ''}
               samPromptValue={samPromptValue}
@@ -283,13 +292,16 @@ export function ModifyPage() {
       <TextInputModal
         label={templateModalCopy.label}
         onClose={() => setTemplateModal((current) => ({ ...current, open: false }))}
-        onConfirm={(value) => {
+        onConfirm={async (value) => {
           if (templateModal.kind === 'polygon') {
-            void createDatasetPolygonTemplate(value)
-          } else {
-            createPromptTemplate(templateModal.kind, value)
+            await createDatasetPolygonTemplate(value)
+            setTemplateModal((current) => ({ ...current, open: false }))
+            return
           }
-          setTemplateModal((current) => ({ ...current, open: false }))
+          const saved = await createPromptTemplate(templateModal.kind, value)
+          if (saved) {
+            setTemplateModal((current) => ({ ...current, open: false }))
+          }
         }}
         open={templateModal.open}
         placeholder={templateModalCopy.placeholder}
@@ -319,6 +331,7 @@ export function ModifyPage() {
         launchMode={launchMode}
         loraAdapters={loraAdapters}
         mode={modificationMode}
+        negativeTemplates={negativePromptTemplates}
         negativePromptValue={negativePromptValue}
         onApplyTemplate={applyPromptTemplate}
         onApplyPromptToAllChange={setApplyPromptToAll}
@@ -332,6 +345,7 @@ export function ModifyPage() {
         onPolygonClear={() => updateAreaPoints([])}
         onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
         onPromptChange={updatePromptValue}
+        onSaveNegativeTemplate={() => setTemplateModal({ open: true, kind: 'negative' })}
         onSaveTemplate={(scope) => setTemplateModal({ open: true, kind: scope })}
         onSavePolygonTemplate={() => setTemplateModal({ open: true, kind: 'polygon' })}
         onSourceMove={moveSource}

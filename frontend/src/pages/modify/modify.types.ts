@@ -13,7 +13,12 @@ export type TextPromptTemplate = {
   id: string
   name: string
   prompt: string
-  negativePrompt?: string
+}
+
+export type NegativePromptTemplate = {
+  id: string
+  name: string
+  text: string
 }
 
 export type SelectionPromptTemplate = {
@@ -29,11 +34,12 @@ export type PolygonTemplate = {
 }
 
 export type PromptTemplate =
-  | (TextPromptTemplate & { scope: 'text'; text: string; negativeText?: string })
+  | (TextPromptTemplate & { scope: 'text'; text: string })
   | (SelectionPromptTemplate & { scope: 'selection' })
 
 export type DatasetModificationTemplates = {
   textTemplates: TextPromptTemplate[]
+  negativeTemplates: NegativePromptTemplate[]
   selectionTemplates: SelectionPromptTemplate[]
   polygonTemplates: PolygonTemplate[]
 }

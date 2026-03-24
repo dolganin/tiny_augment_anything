@@ -20,6 +20,7 @@ from backend.app.api.session_handlers import (
     save_classes,
 )
 from backend.app.api.template_handlers import (
+    create_dataset_negative_template,
     create_dataset_polygon_template,
     create_dataset_selection_template,
     create_dataset_text_template,
@@ -108,6 +109,7 @@ def build_router() -> Router:
     router.add_http("POST", "/api/sessions/{session_id}/tasks/{task_id}/cancel", cancel_running_task)
     router.add_http("GET", "/api/sessions/{session_id}/templates", get_dataset_templates)
     router.add_http("POST", "/api/sessions/{session_id}/templates/text", create_dataset_text_template)
+    router.add_http("POST", "/api/sessions/{session_id}/templates/negative", create_dataset_negative_template)
     router.add_http("POST", "/api/sessions/{session_id}/templates/selection", create_dataset_selection_template)
     router.add_http("POST", "/api/sessions/{session_id}/templates/polygon", create_dataset_polygon_template)
     router.add_http("DELETE", "/api/sessions/{session_id}/templates/{template_id}", delete_dataset_template)

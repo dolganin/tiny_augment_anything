@@ -1,7 +1,12 @@
 import { Button } from '@/shared/ui/buttons/Button'
 import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { UseFormReturn } from 'react-hook-form'
-import { type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
+import {
+  type ModificationLaunchMode,
+  type ModifyFormValues,
+  type NegativePromptTemplate,
+  type PromptTemplate,
+} from '@/pages/modify/modify.types'
 
 type PromptFieldsProps = {
   applyPromptToAll: boolean
@@ -9,11 +14,13 @@ type PromptFieldsProps = {
   form: UseFormReturn<ModifyFormValues>
   launchMode: ModificationLaunchMode
   loraAdapters: Array<{ adapterPath: string; displayName: string }>
+  negativeTemplates: NegativePromptTemplate[]
   negativePromptValue: string
   onApplyPromptToAllChange: (value: boolean) => void
   onLoraChange: (value: string) => void
   onNegativePromptChange: (value: string) => void
   onPromptChange: (value: string) => void
+  onSaveNegativeTemplate: () => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
   selectedLoraPath: string
   sourceClassName: string
@@ -23,7 +30,7 @@ type PromptFieldsProps = {
 const EMPTY_TEMPLATE_VALUE = '__none__'
 const NO_TEMPLATES_VALUE = '__empty__'
 
-function resolveDefaultValue(items: PromptTemplate[]) {
+function resolveDefaultValue(items: Array<{ id: string }>) {
   return items.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE
 }
 
@@ -33,11 +40,13 @@ export function PromptFields({
   form,
   launchMode,
   loraAdapters,
+  negativeTemplates,
   negativePromptValue,
   onApplyPromptToAllChange,
   onLoraChange,
   onNegativePromptChange,
   onPromptChange,
+  onSaveNegativeTemplate,
   onSaveTemplate,
   selectedLoraPath,
   sourceClassName,
@@ -111,10 +120,10 @@ export function PromptFields({
         <span className="generation-form__label modification-prompts__label-row">
           <span>Negative prompt</span>
           <Button
-            aria-label="Сохранить текстовый шаблон"
+            aria-label="Сохранить negative шаблон"
             className="modification-prompts__save-button"
-            onClick={() => onSaveTemplate('text')}
-            title="Сохранить текстовый шаблон"
+            onClick={onSaveNegativeTemplate}
+            title="Сохранить negative шаблон"
             type="button"
             variant="ghost"
           >
@@ -130,22 +139,22 @@ export function PromptFields({
         <select
           aria-label="Выбрать шаблон для negative prompt"
           className="modification-prompts__template-select modification-prompts__template-select--below"
-          defaultValue={resolveDefaultValue(textTemplates)}
-          disabled={textTemplates.length === 0}
+          defaultValue={resolveDefaultValue(negativeTemplates)}
+          disabled={negativeTemplates.length === 0}
           onChange={(event) => {
             const selectedId = event.target.value
             if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
               return
             }
-            const template = textTemplates.find((item) => item.id === selectedId)
-            if (template?.scope === 'text' && template.negativeText) {
-              onNegativePromptChange(template.negativeText)
+            const template = negativeTemplates.find((item) => item.id === selectedId)
+            if (template) {
+              onNegativePromptChange(template.text)
             }
             event.currentTarget.value = EMPTY_TEMPLATE_VALUE
           }}
         >
-          {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
-          {textTemplates.map((template) => (
+          {negativeTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
+          {negativeTemplates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
             </option>

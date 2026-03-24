@@ -3,7 +3,13 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModalCanvas } from '@/features/modification/ModificationModalCanvas'
 import { ModificationMode } from '@/features/modification/ModificationModeToggle'
 import { ModificationModalParams } from '@/features/modification/ModificationModalParams'
-import { type AreaPoint, type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
+import {
+  type AreaPoint,
+  type ModificationLaunchMode,
+  type ModifyFormValues,
+  type NegativePromptTemplate,
+  type PromptTemplate,
+} from '@/pages/modify/modify.types'
 import { type ModificationSourceAsset } from '@/shared/types/workflow'
 import { UseFormReturn } from 'react-hook-form'
 import '@/features/modification/modification-modal.css'
@@ -25,6 +31,7 @@ type ModificationModalProps = {
   launchMode: ModificationLaunchMode
   loraAdapters: Array<{ adapterPath: string; displayName: string }>
   mode: ModificationMode
+  negativeTemplates: NegativePromptTemplate[]
   negativePromptValue: string
   onApplyTemplate: (template: PromptTemplate) => void
   onApplyPromptToAllChange: (value: boolean) => void
@@ -38,6 +45,7 @@ type ModificationModalProps = {
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
+  onSaveNegativeTemplate: () => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
   onSavePolygonTemplate: () => void
   onSourceMove: (direction: -1 | 1) => void
@@ -69,6 +77,7 @@ export function ModificationModal({
   launchMode,
   loraAdapters,
   mode,
+  negativeTemplates,
   negativePromptValue,
   onApplyTemplate,
   onApplyPromptToAllChange,
@@ -82,6 +91,7 @@ export function ModificationModal({
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
+  onSaveNegativeTemplate,
   onSaveTemplate,
   onSavePolygonTemplate,
   onSourceMove,
@@ -146,6 +156,7 @@ export function ModificationModal({
             launchMode={launchMode}
             loraAdapters={loraAdapters}
             mode={mode}
+            negativeTemplates={negativeTemplates}
             negativePromptValue={negativePromptValue}
             onApplyTemplate={onApplyTemplate}
             onApplyPromptToAllChange={onApplyPromptToAllChange}
@@ -155,6 +166,7 @@ export function ModificationModal({
             onPolygonClear={onPolygonClear}
             onPolygonUndo={onPolygonUndo}
             onPromptChange={onPromptChange}
+            onSaveNegativeTemplate={onSaveNegativeTemplate}
             onSaveTemplate={onSaveTemplate}
             onSourceMove={onSourceMove}
             onNegativePromptChange={onNegativePromptChange}
