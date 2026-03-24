@@ -121,54 +121,52 @@ export function ModificationCanvas({
         <span className="modify-stage__class">{className}</span>
         <span className="modify-stage__selection">{selectionLabel}</span>
       </div>
-      <div className="modify-canvas-shell">
-        <div className="modify-canvas">
-          <img
-            alt="Источник для модификации"
-            className="modify-preview modify-preview--hero"
-            onLoad={(event) => {
-              setNaturalSize({
-                width: event.currentTarget.naturalWidth,
-                height: event.currentTarget.naturalHeight,
-              })
-              setRenderSize({
-                width: event.currentTarget.clientWidth,
-                height: event.currentTarget.clientHeight,
-              })
-            }}
-            ref={imageRef}
-            src={imageUrl}
-          />
-          {renderSize ? (
-            <svg
-              className="modify-canvas__svg"
-              height={renderSize.height}
-              onClick={handleAddPoint}
-              onMouseLeave={handleLeave}
-              onMouseMove={handleMove}
-              viewBox={`0 0 ${renderSize.width} ${renderSize.height}`}
-              width={renderSize.width}
-            >
-              <rect className="modify-canvas__veil" height={renderSize.height} width={renderSize.width} x={0} y={0} />
-              {previewPath ? <path className="modify-canvas__line" d={previewPath} /> : null}
-              {polygonPath ? (
-                <path
-                  className={areaConfirmed ? 'modify-canvas__polygon modify-canvas__polygon--confirmed' : 'modify-canvas__polygon'}
-                  d={polygonPath}
-                />
-              ) : null}
-              {activePoints.map((point, index) => (
-                <g className="modify-canvas__vertex" key={`${point[0]}-${point[1]}-${index}`}>
-                  <circle cx={point[0]} cy={point[1]} r={11} />
-                  <circle className="modify-canvas__vertex-core" cx={point[0]} cy={point[1]} r={4} />
-                </g>
-              ))}
-              {hoverPoint && areaPoints.length > 0 ? (
-                <circle className="modify-canvas__hover" cx={hoverPoint[0]} cy={hoverPoint[1]} r={6} />
-              ) : null}
-            </svg>
-          ) : null}
-        </div>
+      <div className="modify-canvas">
+        <img
+          alt="Источник для модификации"
+          className="modify-preview"
+          onLoad={(event) => {
+            setNaturalSize({
+              width: event.currentTarget.naturalWidth,
+              height: event.currentTarget.naturalHeight,
+            })
+            setRenderSize({
+              width: event.currentTarget.clientWidth,
+              height: event.currentTarget.clientHeight,
+            })
+          }}
+          ref={imageRef}
+          src={imageUrl}
+        />
+        {renderSize ? (
+          <svg
+            className="modify-canvas__svg"
+            height={renderSize.height}
+            onClick={handleAddPoint}
+            onMouseLeave={handleLeave}
+            onMouseMove={handleMove}
+            viewBox={`0 0 ${renderSize.width} ${renderSize.height}`}
+            width={renderSize.width}
+          >
+            <rect className="modify-canvas__veil" height={renderSize.height} width={renderSize.width} x={0} y={0} />
+            {previewPath ? <path className="modify-canvas__line" d={previewPath} /> : null}
+            {polygonPath ? (
+              <path
+                className={areaConfirmed ? 'modify-canvas__polygon modify-canvas__polygon--confirmed' : 'modify-canvas__polygon'}
+                d={polygonPath}
+              />
+            ) : null}
+            {activePoints.map((point, index) => (
+              <g className="modify-canvas__vertex" key={`${point[0]}-${point[1]}-${index}`}>
+                <circle cx={point[0]} cy={point[1]} r={11} />
+                <circle className="modify-canvas__vertex-core" cx={point[0]} cy={point[1]} r={4} />
+              </g>
+            ))}
+            {hoverPoint && areaPoints.length > 0 ? (
+              <circle className="modify-canvas__hover" cx={hoverPoint[0]} cy={hoverPoint[1]} r={6} />
+            ) : null}
+          </svg>
+        ) : null}
       </div>
       <div className="modify-stage__actions">
         <p className="modify-stage__hint">Щёлкай по изображению, чтобы поставить вершины полигона для inpaint.</p>

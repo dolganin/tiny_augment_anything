@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
+import { ModificationMode } from '@/features/modification/ModificationModeToggle'
+import { useModificationShortcuts } from '@/features/modification/useModificationShortcuts'
 import { adaptGenerationConfig, adaptModificationSource, adaptModificationSourceItems } from '@/shared/api/adapters'
 import {
   useFinalizeReviewMutation,
@@ -37,6 +39,10 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const [selectedSourceAssetId, setSelectedSourceAssetId] = useState<string | null>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isModificationModalOpen, setIsModificationModalOpen] = useState(true)
+  const [modificationMode, setModificationMode] = useState<ModificationMode>('inpaint')
+  const [applyPromptToAll, setApplyPromptToAll] = useState(true)
+  const [promptBySourceId, setPromptBySourceId] = useState<Record<string, string>>({})
   const taskSnapshotRef = useRef<string | null>(null)
   const configQuery = useGenerationConfigQuery(sessionId)
   const reviewResultsQuery = useGenerationResultsQuery(sessionId)
@@ -60,6 +66,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setFieldValues(nextFieldValues)
     setSession({ generationConfig: nextFieldValues })
     form.reset({ prompt: '' })
+    setPromptBySourceId({})
   }, [configQuery.data, form, setSession])
 
   useEffect(() => {
@@ -181,7 +188,12 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   useEffect(() => {
     setAreaPoints([])
     setAreaConfirmed(false)
-  }, [source?.assetId])
+    if (!source) {
+      return
+    }
+    const nextPrompt = applyPromptToAll ? form.getValues('prompt') : promptBySourceId[source.assetId] ?? ''
+    form.setValue('prompt', nextPrompt)
+  }, [applyPromptToAll, form, promptBySourceId, source])
 
   useEffect(() => {
     if (sourceItems.length === 0) {
@@ -198,6 +210,31 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setAreaConfirmed(false)
   }
 
+  const updatePromptValue = (value: string) => {
+    if (applyPromptToAll) {
+      form.setValue('prompt', value, { shouldDirty: true })
+      return
+    }
+    if (!source) {
+      return
+    }
+    setPromptBySourceId((current) => ({ ...current, [source.assetId]: value }))
+    form.setValue('prompt', value, { shouldDirty: true })
+  }
+
+  const updateApplyPromptToAll = (value: boolean) => {
+    setApplyPromptToAll(value)
+    const currentPrompt = form.getValues('prompt')
+    if (value) {
+      setPromptBySourceId({})
+      form.setValue('prompt', currentPrompt, { shouldDirty: true })
+      return
+    }
+    if (source) {
+      setPromptBySourceId((current) => ({ ...current, [source.assetId]: currentPrompt }))
+    }
+  }
+
   const updateFieldValue = (key: string, value: string) => {
     const nextValues = { ...fieldValues, [key]: value }
     setFieldValues(nextValues)
@@ -210,6 +247,13 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     }
     const nextIndex = (sourceIndex + direction + sourceItems.length) % sourceItems.length
     setSelectedSourceAssetId(sourceItems[nextIndex].assetId)
+  }
+
+  const handleModeChange = (mode: ModificationMode) => {
+    setModificationMode(mode)
+    if (mode === 'full') {
+      setAreaConfirmed(false)
+    }
   }
 
   const closeReview = async () => {
@@ -256,16 +300,31 @@ export function useModifyPage({ form }: UseModifyPageParams) {
         sampleCount: totalTargetCount,
         classTargets: selectedClassTargets,
         config: fieldValues,
-        areaPoints: areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
+        areaPoints:
+          modificationMode === 'inpaint' && areaConfirmed && areaPoints.length >= 3
+            ? areaPoints
+            : undefined,
       })
       setSession({ generationJobId: response.jobId })
       setLogs(['Запуск модификации отправлен на бэкенд.'])
+      setIsModificationModalOpen(false)
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
   })
 
+  useModificationShortcuts({
+    canApplyArea: modificationMode === 'inpaint' && areaPoints.length >= 3 && !areaConfirmed,
+    onApplyArea: () => setAreaConfirmed(true),
+    onClose: () => setIsModificationModalOpen(false),
+    onMoveSource: moveSource,
+    onSubmit: () => void submitForm(),
+    onUndoPoint: () => updateAreaPoints(areaPoints.slice(0, -1)),
+    open: isModificationModalOpen,
+  })
+
   return {
+    applyPromptToAll,
     areaConfirmed,
     areaPoints,
     closeReview,
@@ -273,8 +332,10 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     errorMessage,
     fieldValues,
     isModificationActive,
+    isModificationModalOpen,
     isReviewOpen,
     logs,
+    modificationMode,
     moveSource,
     moveToClassifier,
     negativePromptValue: fieldValues.negative_prompt ?? '',
@@ -282,8 +343,11 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     reviewPendingCount,
     samPromptValue: fieldValues.sam_prompt ?? '',
     secondaryFields,
+    setApplyPromptToAll: updateApplyPromptToAll,
     setAreaConfirmed,
     setErrorMessage,
+    setIsModificationModalOpen,
+    setModificationMode: handleModeChange,
     setSession,
     source,
     sourceIndex,
@@ -294,5 +358,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     totalTargetCount,
     updateAreaPoints,
     updateFieldValue,
+    updatePromptValue,
   }
 }
