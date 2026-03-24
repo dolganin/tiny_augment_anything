@@ -30,21 +30,22 @@ export function PromptFields({
   return (
     <div className="modification-prompts">
       <label className="generation-form__group modification-prompts__field modification-prompts__field--main">
-        <span className="generation-form__label">Промпт модификации</span>
+        <span className="generation-form__label modification-prompts__label-row">
+          <span>Промпт модификации</span>
+          <span className="modification-prompts__checkbox">
+            <input
+              checked={applyPromptToAll}
+              onChange={(event) => onApplyPromptToAllChange(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Применить ко всем</span>
+          </span>
+        </span>
         <textarea
           className="generation-form__textarea modification-prompts__input"
           placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
           {...promptRegister}
         />
-      </label>
-
-      <label className="modification-prompts__checkbox">
-        <input
-          checked={applyPromptToAll}
-          onChange={(event) => onApplyPromptToAllChange(event.target.checked)}
-          type="checkbox"
-        />
-        <span>Применить этот промпт ко всем изображениям в пачке</span>
       </label>
 
       <label className="generation-form__group modification-prompts__field">
