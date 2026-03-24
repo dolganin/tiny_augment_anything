@@ -19,6 +19,14 @@ from backend.app.api.session_handlers import (
     get_session,
     save_classes,
 )
+from backend.app.api.template_handlers import (
+    create_dataset_polygon_template,
+    create_dataset_selection_template,
+    create_dataset_text_template,
+    delete_dataset_template,
+    get_dataset_templates,
+    rename_dataset_template,
+)
 from backend.app.api.upload_handlers import (
     cancel_classifier_weights,
     cancel_dataset_upload,
@@ -97,6 +105,12 @@ def build_router() -> Router:
     router.add_http("GET", "/api/sessions/{session_id}", get_session)
     router.add_http("GET", "/api/sessions/{session_id}/tasks/{task_id}", task_status)
     router.add_http("POST", "/api/sessions/{session_id}/tasks/{task_id}/cancel", cancel_running_task)
+    router.add_http("GET", "/api/sessions/{session_id}/templates", get_dataset_templates)
+    router.add_http("POST", "/api/sessions/{session_id}/templates/text", create_dataset_text_template)
+    router.add_http("POST", "/api/sessions/{session_id}/templates/selection", create_dataset_selection_template)
+    router.add_http("POST", "/api/sessions/{session_id}/templates/polygon", create_dataset_polygon_template)
+    router.add_http("DELETE", "/api/sessions/{session_id}/templates/{template_id}", delete_dataset_template)
+    router.add_http("PATCH", "/api/sessions/{session_id}/templates/{template_id}", rename_dataset_template)
     router.add_http("POST", "/api/sessions/{session_id}/dataset/classes", save_classes)
     router.add_http("GET", "/api/sessions/{session_id}/dataset/stats", dataset_stats)
     router.add_http("POST", "/api/sessions/{session_id}/workflow/state", sync_workflow_state)
