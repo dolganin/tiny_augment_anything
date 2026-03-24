@@ -175,8 +175,9 @@ class ZImageGenerator:
             p = Path(self.lora_path)
             adapter_dir = str(p.parent)
             weight_name = p.name
-            pipe.load_lora_weights(adapter_dir, weight_name=weight_name)
-        
+            pipe.load_lora_weights(adapter_dir, weight_name=weight_name, adapter_name="my_lora")
+            pipe.set_adapters("my_lora", adapter_weights=self.lora_scale)
+
         if self.device.startswith("cuda"):
             if self.offload == "model":
                 pipe.enable_model_cpu_offload()
@@ -215,11 +216,7 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-        )
-        if self.lora_path:
-            kwargs["cross_attention_kwargs"] = {"scale": self.lora_scale}
-
-        return pipe(**kwargs).images[0]
+        ).images[0]
 
     def generate_inpaint(
         self,
@@ -242,11 +239,7 @@ class ZImageGenerator:
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=self._generator(seed),
-        )
-        if self.lora_path:
-            kwargs["cross_attention_kwargs"] = {"scale": self.lora_scale}
-
-        return pipe(**kwargs).images[0]
+        ).images[0]
 
 
 def main():
