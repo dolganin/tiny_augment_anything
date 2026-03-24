@@ -25,7 +25,6 @@ def generation_defaults(settings: Settings) -> dict:
             {"key": "negative_prompt", "label": "Negative prompt", "value": "", "type": "string"},
             {"key": "lora_path", "label": "LoRA adapter", "value": "", "type": "string"},
             {"key": "precision", "label": "Precision", "value": "bf16", "type": "string"},
-            {"key": "seed", "label": "Seed", "value": "42", "type": "number"},
             {"key": "lora_scale", "label": "LoRA scale", "value": "1.0", "type": "number"},
         ],
     }

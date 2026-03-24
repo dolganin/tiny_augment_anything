@@ -42,7 +42,7 @@ async def index_generated_results(
             if not result_path.exists():
                 continue
             produced_count += 1
-            target_path = target_dir / f"{task_id}-{produced_count}{result_path.suffix or '.png'}"
+            target_path = target_dir / f"{task_id}-{parent_asset_id}-{produced_count}{result_path.suffix or '.png'}"
             target_path.write_bytes(result_path.read_bytes())
             target_bytes = load_binary(target_path)
             relative_path = make_relative_path(runtime_state.settings.runtime_dir, target_path)

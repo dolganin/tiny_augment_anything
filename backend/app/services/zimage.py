@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,7 +125,7 @@ def build_records(
     negative_prompt = str(config.get("negative_prompt", "")).strip()
     sam_prompt = "" if modification_mode == "full" else str(config.get("sam_prompt", "")).strip()
     sam_semantic = str(config.get("sam_semantic", "")).strip().lower() in {"1", "true", "yes", "on"}
-    base_seed = int(_get_number(config, "seed", 42))
+    base_seed = _time_seed()
     strength = _get_number(config, "strength", 0.6)
     steps = int(_get_number(config, "num_inference_steps", 9))
     guidance = _get_number(config, "guidance_scale", 0.0)
@@ -204,7 +205,7 @@ def build_command(
         "--default-guidance-scale",
         str(_get_number(config, "guidance_scale", 0.0)),
         "--seed",
-        str(int(_get_number(config, "seed", 42))),
+        str(_time_seed()),
         "--mask-dilate",
         str(int(_get_number(config, "mask_dilate", 7))),
         "--mask-blur",
@@ -309,3 +310,7 @@ def _get_number(config: dict[str, Any], key: str, default: float) -> float:
     if isinstance(value, str):
         return float(value)
     return float(default)
+
+
+def _time_seed() -> int:
+    return int(time.time_ns() % (2**31 - 1))
