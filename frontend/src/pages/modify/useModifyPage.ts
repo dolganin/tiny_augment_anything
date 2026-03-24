@@ -257,6 +257,10 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   }
 
   const closeReview = async () => {
+    setSession({ workflowStage: 'modify' })
+  }
+
+  const saveReviewToDataset = async () => {
     try {
       if (sessionId) {
         await finalizeReviewMutation.mutateAsync({ nextStage: 'modify' })
@@ -342,6 +346,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     priorityFields,
     reviewPendingCount,
     samPromptValue: fieldValues.sam_prompt ?? '',
+    saveReviewToDataset,
     secondaryFields,
     setApplyPromptToAll: updateApplyPromptToAll,
     setAreaConfirmed,

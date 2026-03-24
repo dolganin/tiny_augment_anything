@@ -19,6 +19,11 @@ export function ReviewPage() {
   }, [setSession])
 
   const closeReview = async () => {
+    setSession({ workflowStage: 'modify' })
+    navigate('/modify')
+  }
+
+  const saveReviewToDataset = async () => {
     try {
       if (sessionId) {
         await finalizeReviewMutation.mutateAsync({ nextStage: 'modify' })
@@ -55,7 +60,12 @@ export function ReviewPage() {
 
   return (
     <PageFrame title="Отбор результатов">
-      <ReviewWorkspace onClose={() => void closeReview()} onStartClassifier={() => void startClassifier()} open />
+      <ReviewWorkspace
+        onClose={() => void closeReview()}
+        onSaveToDataset={() => void saveReviewToDataset()}
+        onStartClassifier={() => void startClassifier()}
+        open
+      />
       <Modal
         onClose={() => setErrorMessage(null)}
         open={Boolean(errorMessage)}

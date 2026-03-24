@@ -34,6 +34,7 @@ export function ModifyPage() {
     negativePromptValue,
     priorityFields,
     reviewPendingCount,
+    saveReviewToDataset,
     samPromptValue,
     secondaryFields,
     setApplyPromptToAll,
@@ -148,6 +149,7 @@ export function ModifyPage() {
 
       <ReviewWorkspace
         onClose={() => void closeReview()}
+        onSaveToDataset={() => void saveReviewToDataset()}
         onStartClassifier={() => void moveToClassifier()}
         open={isReviewOpen}
       />
