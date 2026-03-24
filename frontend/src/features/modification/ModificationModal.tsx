@@ -92,7 +92,21 @@ export function ModificationModal({
       <div className="modification-modal-backdrop" onClick={onClose} />
       <section aria-modal="true" className="modification-modal" role="dialog">
         <header className="modification-modal__header">
-          <h2 className="modification-modal__title">Модификация</h2>
+          <div className="modification-modal__header-main">
+            <h2 className="modification-modal__title">Модификация</h2>
+            <div className="modification-modal__header-divider" />
+            <div className="modification-modal__polygon-actions modification-modal__polygon-actions--header">
+              <Button disabled={mode === 'full' || areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
+                Применить область
+              </Button>
+              <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
+                Удалить вершину
+              </Button>
+              <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
+                Очистить
+              </Button>
+            </div>
+          </div>
           <button aria-label="Закрыть модальное окно модификации" className="modification-modal__close" onClick={onClose} type="button">
             ×
           </button>

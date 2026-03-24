@@ -51,23 +51,6 @@ export function ModificationModalCanvas({
 }: ModificationModalCanvasProps) {
   return (
     <div className="modification-modal__canvas-column">
-      <div className="modification-modal__canvas-toolbar">
-        <div className="modification-modal__polygon-actions">
-          <Button disabled={mode === 'full' || areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
-            Применить область
-          </Button>
-          <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
-            Удалить вершину
-          </Button>
-          <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
-            Очистить
-          </Button>
-        </div>
-        <span className="modify-source-nav__status">
-          {sourceIndex + 1} / {sourceItems.length}
-        </span>
-      </div>
-
       <div className="modification-modal__canvas-frame">
         <Button
           className="modify-source-nav__button"
@@ -94,6 +77,12 @@ export function ModificationModalCanvas({
         >
           →
         </Button>
+      </div>
+
+      <div className="modification-modal__canvas-meta">
+        <span className="modify-source-nav__status">
+          {sourceIndex + 1} / {sourceItems.length}
+        </span>
       </div>
 
       <PromptFields
