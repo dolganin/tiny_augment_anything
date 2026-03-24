@@ -153,22 +153,28 @@
 
 .modification-prompts {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.92fr) minmax(0, 0.92fr);
   gap: 8px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .modification-prompts__field {
   min-width: 0;
+  height: 100%;
 }
 
 .modification-prompts__input {
-  min-height: 58px;
+  min-height: 84px;
+  height: 100%;
   resize: none;
 }
 
 .modification-prompts .generation-form__label {
   font-size: 12px;
+}
+
+.modification-prompts__field--main .modification-prompts__input {
+  min-height: 84px;
 }
 
 .modification-mode-toggle {
