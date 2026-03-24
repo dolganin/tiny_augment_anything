@@ -160,7 +160,8 @@ class ZImageGenerator:
             p = Path(self.lora_path)
             adapter_dir = str(p.parent)
             weight_name = p.name
-            pipe.load_lora_weights(adapter_dir, weight_name=weight_name)
+            pipe.load_lora_weights(adapter_dir, weight_name=weight_name, adapter_name="my_lora")
+            pipe.set_adapters("my_lora", adapter_weights=self.lora_scale)
 
         self.pipe = pipe
         self.pipe_kind = kind
