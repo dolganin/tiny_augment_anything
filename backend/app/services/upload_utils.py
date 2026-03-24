@@ -7,6 +7,7 @@ import json
 
 DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024
 CLASSIFIER_WEIGHTS_EXTENSIONS = {".bin", ".ckpt", ".pt", ".pth", ".safetensors"}
+LORA_ADAPTER_EXTENSIONS = CLASSIFIER_WEIGHTS_EXTENSIONS
 
 
 def read_upload_meta(meta_path: Path) -> dict[str, int | str]:
@@ -37,6 +38,17 @@ def sha256_file(path: Path) -> str:
 
 
 def remove_duplicate_classifier_weights(target_dir: Path, canonical_path: Path, expected_hash: str) -> None:
+    for candidate in target_dir.iterdir():
+        if candidate == canonical_path or not candidate.is_file():
+            continue
+        try:
+            if sha256_file(candidate) == expected_hash:
+                candidate.unlink(missing_ok=True)
+        except OSError:
+            continue
+
+
+def remove_duplicate_files_by_hash(target_dir: Path, canonical_path: Path, expected_hash: str) -> None:
     for candidate in target_dir.iterdir():
         if candidate == canonical_path or not candidate.is_file():
             continue

@@ -3,6 +3,14 @@ from __future__ import annotations
 from backend.app.api.assets_handlers import asset_by_path
 from backend.app.api.catalog_handlers import activate_dataset, datasets_catalog, delete_dataset, rename_dataset
 from backend.app.api.dataset_handlers import dataset_stats
+from backend.app.api.diffusion_lora_handlers import (
+    cancel_diffusion_lora_upload,
+    complete_diffusion_lora_upload,
+    get_diffusion_lora_upload_status,
+    init_diffusion_lora_upload,
+    list_diffusion_lora_adapters,
+    upload_diffusion_lora_chunk,
+)
 from backend.app.api.download_handlers import download_dataset
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, finalize_review, reject_asset_handler
@@ -24,6 +32,7 @@ from backend.app.api.upload_handlers import (
     upload_dataset_chunk,
 )
 from backend.app.api.workflow_handlers import (
+    batch_modification_sources,
     generation_config,
     generation_results,
     metrics,
@@ -32,6 +41,7 @@ from backend.app.api.workflow_handlers import (
     classifier_summary,
     sync_workflow_state,
     start_classifier_training,
+    start_batch_modification,
     start_generation,
     start_modification,
     task_status,
@@ -75,6 +85,12 @@ def build_router() -> Router:
     router.add_http("PUT", "/api/sessions/{session_id}/classifier/weights/{upload_id}/parts", upload_classifier_weights_chunk)
     router.add_http("POST", "/api/sessions/{session_id}/classifier/weights/{upload_id}/complete", complete_classifier_weights)
     router.add_http("DELETE", "/api/sessions/{session_id}/classifier/weights/{upload_id}", cancel_classifier_weights)
+    router.add_http("GET", "/api/sessions/{session_id}/diffusion/lora", list_diffusion_lora_adapters)
+    router.add_http("POST", "/api/sessions/{session_id}/diffusion/lora/init", init_diffusion_lora_upload)
+    router.add_http("GET", "/api/sessions/{session_id}/diffusion/lora/{upload_id}", get_diffusion_lora_upload_status)
+    router.add_http("PUT", "/api/sessions/{session_id}/diffusion/lora/{upload_id}/parts", upload_diffusion_lora_chunk)
+    router.add_http("POST", "/api/sessions/{session_id}/diffusion/lora/{upload_id}/complete", complete_diffusion_lora_upload)
+    router.add_http("DELETE", "/api/sessions/{session_id}/diffusion/lora/{upload_id}", cancel_diffusion_lora_upload)
     router.add_http("POST", "/api/sessions/upload", upload_dataset)
     router.add_http("GET", "/api/sessions/{session_id}", get_session)
     router.add_http("GET", "/api/sessions/{session_id}/tasks/{task_id}", task_status)
@@ -86,6 +102,8 @@ def build_router() -> Router:
     router.add_http("POST", "/api/sessions/{session_id}/generation", start_generation)
     router.add_http("GET", "/api/sessions/{session_id}/modification/source", modification_source)
     router.add_http("POST", "/api/sessions/{session_id}/modification", start_modification)
+    router.add_http("POST", "/api/sessions/{session_id}/modification/batch", start_batch_modification)
+    router.add_http("GET", "/api/sessions/{session_id}/augmentation-runs/{run_id}/sources", batch_modification_sources)
     router.add_http("GET", "/api/sessions/{session_id}/results", generation_results)
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/approve", approve_asset)
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/reject", reject_asset_handler)

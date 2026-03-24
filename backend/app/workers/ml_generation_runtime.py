@@ -9,6 +9,7 @@ from backend.app.services.diffusion_runtime import (
     release_warm_diffusion_runtime,
     warm_diffusion_runtime,
 )
+from backend.app.services.lora_adapters import resolve_lora_adapter_path
 from backend.app.services.zimage import has_mask_records, load_config, write_state
 from backend.app.services.zimage_executor import (
     generate_results,
@@ -92,8 +93,10 @@ async def run_generation(runtime_state, bundle) -> None:
         },
     )
     warmed = None
+    resolved_lora_path = None
     try:
-        warmed = warm_diffusion_runtime(runtime_state.settings, config)
+        resolved_lora_path = resolve_lora_adapter_path(runtime_state.settings.runtime_dir, config.get("lora_path"))
+        warmed = warm_diffusion_runtime(runtime_state.settings, config, lora_path=resolved_lora_path)
         preload_diffusion_pipe(warmed, "img2img")
     except Exception as error:
         write_terminal_state(bundle, RuntimeError(str(error)))
@@ -113,6 +116,7 @@ async def run_generation(runtime_state, bundle) -> None:
         model_id=warmed.key.model_id,
         device=warmed.key.device,
         offload=warmed.key.offload,
+        lora_path=str(resolved_lora_path) if resolved_lora_path is not None else None,
     )
     write_state(
         bundle,
@@ -125,6 +129,7 @@ async def run_generation(runtime_state, bundle) -> None:
             "modelId": warmed.key.model_id,
             "device": warmed.key.device,
             "offload": warmed.key.offload,
+            "loraPath": str(resolved_lora_path) if resolved_lora_path is not None else None,
             "generatedCount": 0,
         },
     )
@@ -172,6 +177,7 @@ async def run_generation(runtime_state, bundle) -> None:
             "modelId": warmed.key.model_id,
             "device": warmed.key.device,
             "offload": warmed.key.offload,
+            "loraPath": str(resolved_lora_path) if resolved_lora_path is not None else None,
         },
     )
 

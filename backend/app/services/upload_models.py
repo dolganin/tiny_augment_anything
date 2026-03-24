@@ -42,3 +42,17 @@ class ChunkUploadStatus:
 class CompletedClassifierWeightsUpload:
     file_name: str
     weights_path: str
+
+
+@dataclass(frozen=True, slots=True)
+class CompletedLoraAdapterUpload:
+    file_name: str
+    adapter_path: str
+
+
+@dataclass(frozen=True, slots=True)
+class LoraAdapterInfo:
+    file_name: str
+    adapter_path: str
+    size_bytes: int
+    updated_at: str

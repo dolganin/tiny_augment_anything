@@ -7,12 +7,19 @@ from uuid import UUID, uuid4
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.logging import get_logger, log_event
 from backend.app.services.filesystem import RuntimePaths, make_relative_path, staged_upload_dir
-from backend.app.services.upload_models import ChunkUploadInit, ChunkUploadStatus, CompletedClassifierWeightsUpload
+from backend.app.services.upload_models import (
+    ChunkUploadInit,
+    ChunkUploadStatus,
+    CompletedClassifierWeightsUpload,
+    CompletedLoraAdapterUpload,
+)
 from backend.app.services.upload_utils import (
     CLASSIFIER_WEIGHTS_EXTENSIONS,
     DEFAULT_CHUNK_SIZE,
+    LORA_ADAPTER_EXTENSIONS,
     meta_target_name,
     read_upload_meta,
+    remove_duplicate_files_by_hash,
     remove_duplicate_classifier_weights,
     sha256_file,
     write_upload_meta,
@@ -33,6 +40,13 @@ def init_classifier_weights_upload(runtime_paths: RuntimePaths, file_name: str, 
     if suffix not in CLASSIFIER_WEIGHTS_EXTENSIONS:
         raise AppError(400, "Нужны веса формата .bin, .ckpt, .pt, .pth или .safetensors.")
     return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="weights.bin")
+
+
+def init_lora_adapter_upload(runtime_paths: RuntimePaths, file_name: str, file_size: int) -> ChunkUploadInit:
+    suffix = Path(file_name).suffix.lower()
+    if suffix not in LORA_ADAPTER_EXTENSIONS:
+        raise AppError(400, "Нужен LoRA adapter формата .bin, .ckpt, .pt, .pth или .safetensors.")
+    return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="adapter.bin")
 
 
 def complete_classifier_weights_upload(
@@ -77,6 +91,50 @@ def complete_classifier_weights_upload(
         weights_path=relative_path,
     )
     return CompletedClassifierWeightsUpload(file_name=file_name, weights_path=relative_path)
+
+
+def complete_lora_adapter_upload(
+    runtime_paths: RuntimePaths,
+    runtime_root: Path,
+    session_id: UUID,
+    upload_id: UUID,
+) -> CompletedLoraAdapterUpload:
+    upload_dir = staged_upload_dir(runtime_paths, upload_id)
+    meta_path = upload_dir / "meta.json"
+    if not meta_path.exists():
+        raise AppError(404, "Загрузка LoRA adapter не найдена.")
+    meta = read_upload_meta(meta_path)
+    adapter_path = upload_dir / meta_target_name(meta)
+    if not adapter_path.exists():
+        raise AppError(404, "Загруженный LoRA adapter не найден.")
+    if int(meta["next_part"]) != int(meta["total_parts"]):
+        raise AppError(400, "Файл LoRA adapter ещё не загружен полностью.")
+    file_name = str(meta["file_name"])
+    target_dir = runtime_paths.temp / "diffusion-lora" / str(session_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    file_hash = sha256_file(adapter_path)
+    target_path = target_dir / f"{file_hash}_{Path(file_name).name}"
+    if target_path.exists():
+        adapter_path.unlink(missing_ok=True)
+    else:
+        adapter_path.replace(target_path)
+    remove_duplicate_files_by_hash(target_dir, target_path, file_hash)
+    try:
+        meta_path.unlink(missing_ok=True)
+        upload_dir.rmdir()
+    except OSError:
+        pass
+    relative_path = make_relative_path(runtime_root, target_path)
+    log_event(
+        logger,
+        20,
+        "upload.lora-adapter.complete",
+        upload_id=upload_id,
+        session_id=session_id,
+        file_name=file_name,
+        adapter_path=relative_path,
+    )
+    return CompletedLoraAdapterUpload(file_name=file_name, adapter_path=relative_path)
 
 
 def append_chunk(runtime_paths: RuntimePaths, upload_id: UUID, part_number: int, total_parts: int, payload: bytes) -> float:
