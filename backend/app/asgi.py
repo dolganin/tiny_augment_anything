@@ -7,16 +7,18 @@ from backend.app.api.download_handlers import download_dataset
 from backend.app.api.jobs_handlers import cancel_global_job_handler, list_global_jobs
 from backend.app.api.review_handlers import approve_asset, finalize_review, reject_asset_handler
 from backend.app.api.session_handlers import (
+    get_session,
+    save_classes,
+)
+from backend.app.api.upload_handlers import (
     cancel_classifier_weights,
     cancel_dataset_upload,
     complete_classifier_weights,
     complete_dataset_upload,
     get_classifier_weights_status,
     get_dataset_upload_status,
-    get_session,
     init_classifier_weights,
     init_dataset_upload,
-    save_classes,
     upload_classifier_weights_chunk,
     upload_dataset,
     upload_dataset_chunk,
