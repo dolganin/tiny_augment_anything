@@ -1,29 +1,33 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
+import { MaskOverlay } from '@/pages/modify/MaskOverlay'
+import { type AreaPoint } from '@/pages/modify/modify.types'
 import { type ModificationSourceAsset } from '@/shared/types/workflow'
 
 type BatchSourceSelectorProps = {
   currentSourceId: string | null
   onClearSelection: () => void
   onFocusSource: (assetId: string) => void
-  onOpenEditor: () => void
   onSelectAll: () => void
   onToggleSourceSelection: (assetId: string) => void
+  onValidate: () => void
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   sourceItems: ModificationSourceAsset[]
+  templateMask: AreaPoint[]
 }
 
 export function BatchSourceSelector({
   currentSourceId,
   onClearSelection,
   onFocusSource,
-  onOpenEditor,
   onSelectAll,
   onToggleSourceSelection,
+  onValidate,
   selectedSourceCount,
   selectedSourceIds,
   sourceItems,
+  templateMask,
 }: BatchSourceSelectorProps) {
   const [classFilter, setClassFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
@@ -67,9 +71,9 @@ export function BatchSourceSelector({
     <section className="info-card">
       <div className="batch-source-selector__head">
         <div>
-          <strong>Выбор batch-источников</strong>
+          <strong>Шаг 2: Выбор источников</strong>
           <p className="info-card__text">
-            Отметь approved-изображения, которые войдут в пакетную модификацию, затем открой редактор настройки batch.
+            Выбери approved-изображения, к которым будет применён текущий шаблон модификации.
           </p>
         </div>
         <div className="batch-source-selector__summary">
@@ -109,8 +113,8 @@ export function BatchSourceSelector({
           <Button disabled={filteredItems.length === 0} onClick={handleToggleAllFiltered} type="button" variant="secondary">
             {allFilteredSelected ? 'Снять фильтр' : 'Выбрать фильтр'}
           </Button>
-          <Button disabled={selectedSourceCount === 0} onClick={onOpenEditor} type="button">
-            Настроить batch
+          <Button disabled={selectedSourceCount === 0} onClick={onValidate} type="button">
+            Провалидировать модификацию ({selectedSourceCount})
           </Button>
         </div>
       </div>
@@ -126,6 +130,7 @@ export function BatchSourceSelector({
             >
               <button className="batch-source-card__preview" onClick={() => onFocusSource(item.assetId)} type="button">
                 <img alt={item.className} src={item.assetUrl} />
+                {templateMask.length >= 3 ? <MaskOverlay points={templateMask} /> : null}
               </button>
               <div className="batch-source-card__meta">
                 <div>

@@ -9,6 +9,8 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModal } from '@/features/modification/ModificationModal'
 import { BatchProgressPanel } from '@/pages/modify/BatchProgressPanel'
 import { BatchSourceSelector } from '@/pages/modify/BatchSourceSelector'
+import { BatchTemplateSetup } from '@/pages/modify/BatchTemplateSetup'
+import { BatchValidationModal } from '@/pages/modify/BatchValidationModal'
 import { type ModifyFormValues } from '@/pages/modify/modify.types'
 import { useModifyPage } from '@/pages/modify/useModifyPage'
 import { useSessionStore } from '@/store/session/session.store'
@@ -28,12 +30,16 @@ export function ModifyPage() {
     applyPromptTemplate,
     areaConfirmed,
     areaPoints,
+    batchMaskPreviewPoints,
+    batchStep,
     closeReview,
     clearSourceSelection,
     configQuery,
+    createDatasetPolygonTemplate,
     errorMessage,
     fieldValues,
     focusSource,
+    isBatchValidationModalOpen,
     isModificationActive,
     isModificationModalOpen,
     isReviewOpen,
@@ -52,12 +58,15 @@ export function ModifyPage() {
     selectionPromptTemplates,
     selectedSourceCount,
     selectedSourceIds,
+    selectedSourceItems,
     secondaryFields,
     deletePromptTemplate,
-    setApplyMaskToAll,
     setApplyPromptToAll,
     setAreaConfirmed,
+    setBatchMaskPreviewPoints,
+    setBatchStep,
     setErrorMessage,
+    setIsBatchValidationModalOpen,
     setIsModificationModalOpen,
     setLaunchMode,
     setModificationMode,
@@ -66,6 +75,7 @@ export function ModifyPage() {
     sourceIndex,
     sourceItems,
     sourceQuery,
+    submitBatchModification,
     submitForm,
     totalTargetCount,
     textPromptTemplates,
@@ -113,20 +123,22 @@ export function ModifyPage() {
           </div>
           <p className="info-card__text">
             {launchMode === 'batch'
-              ? 'Пакетный режим позволяет выбрать несколько approved-источников и применить к ним общий или индивидуальный контур.'
+              ? 'Пакетный режим ведёт через общий шаблон: промпт и маска, затем выбор источников и финальная валидация.'
               : 'Картиночный режим запускает модификацию только для текущего изображения, без мультивыбора источников.'}
           </p>
           <p className="info-card__text">
             После запуска задачи окно можно закрыть и следить за логами, не теряя текущий workflow.
           </p>
           <div className="modify-panel__actions">
-            <Button
-              disabled={configQuery.isLoading || sourceQuery.isLoading || !source || (launchMode === 'batch' && selectedSourceCount === 0)}
-              onClick={() => setIsModificationModalOpen(true)}
-              type="button"
-            >
-              {launchMode === 'batch' ? 'Открыть batch-редактор' : 'Открыть редактор изображения'}
-            </Button>
+            {launchMode === 'single' ? (
+              <Button
+                disabled={configQuery.isLoading || sourceQuery.isLoading || !source}
+                onClick={() => setIsModificationModalOpen(true)}
+                type="button"
+              >
+                Открыть редактор изображения
+              </Button>
+            ) : null}
             {reviewPendingCount > 0 ? (
               <Button onClick={() => setSession({ workflowStage: 'review' })} type="button" variant="secondary">
                 Открыть отбор ({reviewPendingCount})
@@ -143,17 +155,38 @@ export function ModifyPage() {
         />
 
         {launchMode === 'batch' ? (
-          <BatchSourceSelector
-            currentSourceId={source?.assetId ?? null}
-            onClearSelection={clearSourceSelection}
-            onFocusSource={focusSource}
-            onOpenEditor={() => setIsModificationModalOpen(true)}
-            onSelectAll={selectAllSources}
-            onToggleSourceSelection={toggleSourceSelection}
-            selectedSourceCount={selectedSourceCount}
-            selectedSourceIds={selectedSourceIds}
-            sourceItems={sourceItems}
-          />
+          <>
+            <BatchTemplateSetup
+              areaConfirmed={areaConfirmed}
+              areaPoints={areaPoints}
+              currentSource={source}
+              negativePromptValue={negativePromptValue}
+              onAreaConfirm={setAreaConfirmed}
+              onAreaPointsChange={updateAreaPoints}
+              onContinue={() => setBatchStep('select-sources')}
+              onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
+              onPolygonClear={() => updateAreaPoints([])}
+              onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
+              onPreviewMaskChange={setBatchMaskPreviewPoints}
+              onPromptChange={updatePromptValue}
+              promptValue={form.watch('prompt')}
+            />
+
+            {batchStep === 'select-sources' ? (
+              <BatchSourceSelector
+                currentSourceId={source?.assetId ?? null}
+                onClearSelection={clearSourceSelection}
+                onFocusSource={focusSource}
+                onSelectAll={selectAllSources}
+                onToggleSourceSelection={toggleSourceSelection}
+                onValidate={() => setIsBatchValidationModalOpen(true)}
+                selectedSourceCount={selectedSourceCount}
+                selectedSourceIds={selectedSourceIds}
+                sourceItems={sourceItems}
+                templateMask={batchMaskPreviewPoints}
+              />
+            ) : null}
+          </>
         ) : null}
 
         {(configQuery.isLoading || sourceQuery.isLoading) && (
@@ -165,7 +198,7 @@ export function ModifyPage() {
         {isModificationActive && !errorMessage ? (
           <div className="upload-stage__loading">
             <Spinner
-              label="Модификация выполняется. После завершения откроется модалка отбора."
+              label="Модификация выполняется. После завершения результаты появятся на этапе отбора."
               tone="diffusion"
             />
           </div>
@@ -190,6 +223,21 @@ export function ModifyPage() {
       >
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
+
+      <BatchValidationModal
+        fieldValues={fieldValues}
+        negativePromptValue={negativePromptValue}
+        onClose={() => setIsBatchValidationModalOpen(false)}
+        onFieldValueChange={updateFieldValue}
+        onSubmit={(mode) => void submitBatchModification(mode)}
+        open={launchMode === 'batch' && isBatchValidationModalOpen}
+        previewMask={batchMaskPreviewPoints}
+        priorityFields={priorityFields}
+        promptValue={form.watch('prompt')}
+        secondaryFields={secondaryFields}
+        selectedSources={selectedSourceItems}
+        startPending={isModificationActive}
+      />
 
       <ModificationModal
         applyPromptToAll={applyPromptToAll}
@@ -224,7 +272,7 @@ export function ModifyPage() {
         onSubmit={submitForm}
         onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
         onToggleSourceSelection={toggleSourceSelection}
-        open={!configQuery.isLoading && !sourceQuery.isLoading && isModificationModalOpen}
+        open={launchMode === 'single' && !configQuery.isLoading && !sourceQuery.isLoading && isModificationModalOpen}
         priorityFields={priorityFields}
         reviewPendingCount={reviewPendingCount}
         samPromptValue={samPromptValue}
@@ -236,7 +284,7 @@ export function ModifyPage() {
         sourceIndex={sourceIndex}
         sourceItems={sourceItems}
         startPending={isModificationActive}
-        submitLabel={launchMode === 'batch' ? 'Запустить batch-модификацию' : 'Запустить модификацию'}
+        submitLabel="Запустить модификацию"
         textTemplates={textPromptTemplates}
         totalTargetCount={totalTargetCount}
       />

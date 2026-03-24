@@ -8,6 +8,7 @@ type ModificationCanvasProps = {
   areaPoints: AreaPoint[]
   areaConfirmed: boolean
   onAreaPointsChange: (value: AreaPoint[]) => void
+  onImageMetricsChange?: (size: Size) => void
 }
 
 type Size = {
@@ -40,6 +41,7 @@ export function ModificationCanvas({
   areaPoints,
   areaConfirmed,
   onAreaPointsChange,
+  onImageMetricsChange,
 }: ModificationCanvasProps) {
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [naturalSize, setNaturalSize] = useState<Size | null>(null)
@@ -126,14 +128,17 @@ export function ModificationCanvas({
           alt="Источник для модификации"
           className="modify-preview"
           onLoad={(event) => {
-            setNaturalSize({
+            const nextNaturalSize = {
               width: event.currentTarget.naturalWidth,
               height: event.currentTarget.naturalHeight,
-            })
-            setRenderSize({
+            }
+            const nextRenderSize = {
               width: event.currentTarget.clientWidth,
               height: event.currentTarget.clientHeight,
-            })
+            }
+            setNaturalSize(nextNaturalSize)
+            setRenderSize(nextRenderSize)
+            onImageMetricsChange?.(nextNaturalSize)
           }}
           ref={imageRef}
           src={imageUrl}

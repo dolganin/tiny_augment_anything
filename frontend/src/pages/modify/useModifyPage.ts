@@ -20,6 +20,7 @@ import { useSessionStore } from '@/store/session/session.store'
 import { useDatasetTemplateSync } from '@/pages/modify/useDatasetTemplateSync'
 import {
   type AreaPoint,
+  type BatchStep,
   type ModificationLaunchMode,
   type ModifyFormValues,
   type PolygonTemplate,
@@ -84,6 +85,9 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const [areaConfirmedBySourceId, setAreaConfirmedBySourceId] = useState<Record<string, boolean>>({})
   const [selectedSourceAssetId, setSelectedSourceAssetId] = useState<string | null>(null)
   const [selectedSourceIds, setSelectedSourceIds] = useState<Record<string, boolean>>({})
+  const [batchMaskPreviewPoints, setBatchMaskPreviewPoints] = useState<AreaPoint[]>([])
+  const [batchStep, setBatchStep] = useState<BatchStep>('setup')
+  const [isBatchValidationModalOpen, setIsBatchValidationModalOpen] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isModificationModalOpen, setIsModificationModalOpen] = useState(true)
@@ -668,6 +672,22 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     if (!sessionId) {
       return
     }
+    if (launchMode === 'batch') {
+      if (selectedSourceItems.length === 0) {
+        setErrorMessage('Выбери хотя бы одно изображение для batch-модификации.')
+        return
+      }
+      if (!values.prompt.trim()) {
+        setErrorMessage('Сначала задай промпт batch-модификации.')
+        return
+      }
+      if (!sharedAreaConfirmed || sharedAreaPoints.length < 3) {
+        setErrorMessage('Сначала подтверди общую область для batch-модификации.')
+        return
+      }
+      setIsBatchValidationModalOpen(true)
+      return
+    }
     if (activeSourceItems.length === 0) {
       setErrorMessage(
         launchMode === 'batch'
@@ -756,6 +776,54 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     }
   })
 
+  const submitBatchModification = async (mode: ModificationMode) => {
+    if (!sessionId) {
+      return
+    }
+    if (selectedSourceItems.length === 0) {
+      setErrorMessage('Выбери хотя бы одно изображение для batch-модификации.')
+      return
+    }
+    if (totalTargetCount <= 0) {
+      setErrorMessage('Сначала задай целевые количества по классам на этапе статистики.')
+      return
+    }
+    try {
+      const response = await batchModificationMutation.mutateAsync({
+        commonPrompt: form.getValues('prompt').trim(),
+        negativePrompt: (fieldValues.negative_prompt ?? '').trim() || undefined,
+        config: fieldValues,
+        classTargets: selectedClassTargets,
+        batchMode: 'common_mask',
+        areaPoints: mode === 'inpaint' ? sharedAreaPoints : undefined,
+        sources: selectedSourceItems.map((item) => ({
+          assetId: item.assetId,
+          areaPoints: mode === 'inpaint' ? sharedAreaPoints : undefined,
+          customPrompt: null,
+        })),
+      })
+      setSession({ generationJobId: response.jobId })
+      setLogs([`Запуск batch-модификации отправлен на бэкенд. Источников: ${selectedSourceItems.length}.`])
+      setIsBatchValidationModalOpen(false)
+      setBatchStep('setup')
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error))
+    }
+  }
+
+  const updateLaunchMode = (mode: ModificationLaunchMode) => {
+    setLaunchMode(mode)
+    if (mode === 'batch') {
+      setBatchStep('setup')
+      setIsBatchValidationModalOpen(false)
+      setIsModificationModalOpen(false)
+      setApplyMaskToAll(true)
+      return
+    }
+    setIsModificationModalOpen(true)
+    setIsBatchValidationModalOpen(false)
+  }
+
   useModificationShortcuts({
     canApplyArea: modificationMode === 'inpaint' && areaPoints.length >= 3 && !areaConfirmed,
     onApplyArea: confirmArea,
@@ -763,7 +831,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     onMoveSource: moveSource,
     onSubmit: () => void submitForm(),
     onUndoPoint: () => updateAreaPoints(areaPoints.slice(0, -1)),
-    open: isModificationModalOpen,
+    open: launchMode === 'single' && isModificationModalOpen,
   })
 
   return {
@@ -775,6 +843,8 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     applyPolygonTemplate,
     areaConfirmed,
     areaPoints,
+    batchMaskPreviewPoints,
+    batchStep,
     closeReview,
     configQuery,
     canMigrateLocalTemplates,
@@ -790,6 +860,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     errorMessage,
     fieldValues,
     isModificationActive,
+    isBatchValidationModalOpen,
     isModificationModalOpen,
     isReviewOpen,
     isMutatingTemplates,
@@ -809,7 +880,11 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     selectionPromptTemplates,
     selectedSourceCount: activeSourceItems.length,
     selectedSourceIds,
+    selectedSourceItems,
     clearSourceSelection,
+    setBatchMaskPreviewPoints,
+    setBatchStep,
+    setIsBatchValidationModalOpen,
     deletePromptTemplate,
     focusSource,
     selectAllSources,
@@ -818,7 +893,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setAreaConfirmed: confirmArea,
     setErrorMessage,
     setIsModificationModalOpen,
-    setLaunchMode,
+    setLaunchMode: updateLaunchMode,
     setModificationMode: handleModeChange,
     setSession,
     source,
@@ -826,6 +901,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     sourceItems,
     sourceQuery,
     startBatchFromPlanner,
+    submitBatchModification,
     submitForm,
     taskStatusQuery,
     textPromptTemplates,

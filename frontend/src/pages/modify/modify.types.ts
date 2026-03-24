@@ -8,6 +8,7 @@ export type ModifyFormValues = {
 export type AreaPoint = [number, number]
 
 export type ModificationLaunchMode = 'single' | 'batch'
+export type BatchStep = 'setup' | 'select-sources'
 
 export type PromptTemplateScope = 'text' | 'selection'
 
@@ -46,6 +47,12 @@ export type SourceSelectionState = {
   prompt: string | null
   areaPoints: AreaPoint[]
   areaConfirmed: boolean
+}
+
+export type BatchPreviewSource = {
+  assetId: string
+  assetUrl: string
+  className: string
 }
 
 export type ModifyPageViewModel = {
