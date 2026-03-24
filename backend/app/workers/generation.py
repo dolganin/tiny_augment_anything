@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from backend.app.domain.enums import WorkflowStage
+from backend.app.domain.enums import AssetOrigin, WorkflowStage
 from backend.app.repositories.tasks import get_task
 from backend.app.repositories.workflow_assets import (
     find_asset_by_id,
@@ -46,6 +46,9 @@ async def run_generation(runtime_state, session_id: UUID, task_id: UUID, mode: s
             source_asset = await find_asset_by_id(connection, session_id, source_asset_id)
             if source_asset is None:
                 await emit_failure(runtime_state, connection, session_id, task_id, "Источник для модификации не найден.")
+                return
+            if source_asset["origin_type"] != AssetOrigin.ORIGINAL.value:
+                await emit_failure(runtime_state, connection, session_id, task_id, "Для модификации можно использовать только оригинальные изображения.")
                 return
         template_asset = source_asset or await get_random_approved_asset(connection, session_id)
         if template_asset is None:
@@ -130,6 +133,10 @@ async def _run_batch_modification(
         if asset is None:
             await mark_augmentation_run_failed(connection, run_id)
             await emit_failure(runtime_state, connection, session_id, task_id, f"Источник sources[{index}] не найден.")
+            return
+        if asset["origin_type"] != AssetOrigin.ORIGINAL.value:
+            await mark_augmentation_run_failed(connection, run_id)
+            await emit_failure(runtime_state, connection, session_id, task_id, f"Источник sources[{index}] не является оригинальным изображением.")
             return
         run_source_id = await create_augmentation_run_source(
             connection,

@@ -20,6 +20,7 @@ async def get_random_approved_asset(connection, session_id: UUID) -> dict[str, A
             JOIN sessions s ON s.dataset_id = a.dataset_id
             WHERE s.id = %s
               AND a.approved_in_version_id = s.current_dataset_version_id
+              AND a.origin_type = %s
               AND a.deleted_at IS NULL
               AND (
                 jsonb_array_length(s.selected_classes) = 0
@@ -30,7 +31,7 @@ async def get_random_approved_asset(connection, session_id: UUID) -> dict[str, A
             ORDER BY random()
             LIMIT 1
             """,
-            (session_id,),
+            (session_id, AssetOrigin.ORIGINAL.value),
         )
         return await cursor.fetchone()
 
