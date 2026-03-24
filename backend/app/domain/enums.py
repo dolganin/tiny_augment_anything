@@ -6,18 +6,11 @@ from enum import StrEnum
 class WorkflowStage(StrEnum):
     UPLOAD = "upload"
     DATASET_STATS = "dataset-stats"
-    MODE_SELECT = "mode-select"
     GENERATE = "generate"
     MODIFY = "modify"
     REVIEW = "review"
     CLASSIFIER_TRAIN = "classifier-train"
     METRICS = "metrics"
-    DOWNLOAD = "download"
-
-
-class WorkflowMode(StrEnum):
-    GENERATE = "generate"
-    MODIFY = "modify"
 
 
 class TaskStatus(StrEnum):
@@ -35,7 +28,6 @@ class TaskType(StrEnum):
     GENERATION = "generation"
     MODIFICATION = "modification"
     CLASSIFIER = "classifier"
-    EXPORT = "export"
 
 
 class AssetOrigin(StrEnum):
