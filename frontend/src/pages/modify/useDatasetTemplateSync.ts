@@ -172,6 +172,11 @@ export function useDatasetTemplateSync(sessionId: string | null) {
     deletePolygonTemplate,
     deleteSelectionTemplate,
     deleteTextTemplate,
+    isMutatingTemplates:
+      createTextTemplateMutation.isPending ||
+      createSelectionTemplateMutation.isPending ||
+      createPolygonTemplateMutation.isPending ||
+      deleteTemplateMutation.isPending,
     isLoadingTemplates: templatesQuery.isLoading,
     migrateLocalTemplates,
   }

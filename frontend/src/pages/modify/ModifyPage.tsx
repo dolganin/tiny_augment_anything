@@ -53,6 +53,7 @@ export function ModifyPage() {
     isModificationActive,
     isModificationModalOpen,
     isReviewOpen,
+    isMutatingTemplates,
     launchMode,
     logs,
     migrateDatasetTemplates,
@@ -176,7 +177,7 @@ export function ModifyPage() {
 
         <DatasetTemplatePanel
           canMigrateLocalTemplates={canMigrateLocalTemplates}
-          isMigratingTemplates={false}
+          isMigratingTemplates={isMutatingTemplates}
           onApplyPolygonTemplate={applyPolygonTemplate}
           onApplySelectionTemplate={applyDatasetSelectionTemplate}
           onApplyTextTemplate={applyDatasetTextTemplate}

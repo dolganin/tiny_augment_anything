@@ -110,6 +110,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     deletePolygonTemplate,
     deleteSelectionTemplate,
     deleteTextTemplate,
+    isMutatingTemplates,
     migrateLocalTemplates,
   } = useDatasetTemplateSync(sessionId)
 
@@ -791,6 +792,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     isModificationActive,
     isModificationModalOpen,
     isReviewOpen,
+    isMutatingTemplates,
     launchMode,
     logs,
     migrateDatasetTemplates,
