@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { adaptJobs } from '@/shared/api/adapters'
 import { useCancelJobMutation, useJobsQuery } from '@/shared/api/workflow.hooks'
-import { workflowStages, workflowStageLabels, workflowStagePaths, type WorkflowStage } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 import { useWorkspaceStore } from '@/store/workspace/workspace.store'
 import '@/shared/ui/layouts/layouts.css'
@@ -11,7 +10,6 @@ import '@/shared/ui/layouts/layouts.css'
 export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation()
   const queryClient = useQueryClient()
-  const workflowStage = useSessionStore((state) => state.workflowStage)
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
   const jobsPanelOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
@@ -21,7 +19,6 @@ export function AppShell({ children }: PropsWithChildren) {
 
   const jobs = useMemo(() => (jobsQuery.data ? adaptJobs(jobsQuery.data) : []), [jobsQuery.data])
   const activeJobsCount = jobs.filter((item) => item.status === 'pending' || item.status === 'running').length
-  const currentStageIndex = workflowStages.indexOf(workflowStage)
   const showWorkflowSidebar = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
 
   const handleCancelJob = async (jobId: string) => {
@@ -88,76 +85,15 @@ export function AppShell({ children }: PropsWithChildren) {
         </section>
 
         {showWorkflowSidebar ? (
-          <>
-            <div className="shell__dataset">
-              <span className="shell__session-label">Активный датасет</span>
-              <strong className="shell__dataset-name">{datasetName ?? datasetId}</strong>
-              <span className="shell__session-value">Диффузия: ленивый запуск внутри задачи</span>
-            </div>
-
-            <nav className="shell__nav">
-              {workflowStages.map((stage) => {
-                const isSkipped = false
-                const isCompleted = !isSkipped && currentStageIndex > workflowStages.indexOf(stage)
-                return (
-                  <NavLink
-                    className={({ isActive }) =>
-                      [
-                        'shell__nav-item',
-                        isActive ? 'shell__nav-item--active' : '',
-                        isCompleted ? 'shell__nav-item--completed' : '',
-                        isSkipped ? 'shell__nav-item--skipped' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')
-                    }
-                    key={stage}
-                    to={workflowStagePaths[stage]}
-                  >
-                    <div className="shell__nav-head">
-                      <span className="shell__nav-label">{workflowStageLabels[stage]}</span>
-                      {isCompleted ? <StepDoneIcon /> : null}
-                    </div>
-                    <span className="shell__nav-state">
-                      {resolveStageState(stage, workflowStage, isCompleted, isSkipped)}
-                    </span>
-                  </NavLink>
-                )
-              })}
-            </nav>
-          </>
+          <div className="shell__dataset">
+            <span className="shell__session-label">Активный датасет</span>
+            <strong className="shell__dataset-name">{datasetName ?? datasetId}</strong>
+            <span className="shell__session-value">Переход по этапам вынесен в верхнюю панель рабочего экрана.</span>
+          </div>
         ) : null}
       </aside>
 
       <div className="shell__content">{children}</div>
     </div>
-  )
-}
-
-function resolveStageState(stage: WorkflowStage, currentStage: WorkflowStage, isCompleted: boolean, isSkipped: boolean) {
-  if (isSkipped) {
-    return 'Пропущено'
-  }
-  if (isCompleted) {
-    return 'Этап закрыт'
-  }
-  if (stage === currentStage) {
-    return 'Текущий этап'
-  }
-  return 'Открыть шаг'
-}
-
-function StepDoneIcon() {
-  return (
-    <svg aria-hidden="true" className="shell__nav-check" viewBox="0 0 20 20">
-      <path
-        d="m4.5 10.5 3.2 3.2L15.5 6"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.4"
-      />
-    </svg>
   )
 }

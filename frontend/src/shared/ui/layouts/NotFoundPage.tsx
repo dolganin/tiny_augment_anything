@@ -12,8 +12,8 @@ export function NotFoundPage() {
         <p className="info-card__text">
           Запрошенный экран не существует или ещё не должен быть доступен на текущем этапе.
         </p>
-        <Link to="/upload">
-          <Button>Вернуться к загрузке</Button>
+        <Link to="/datasets">
+          <Button>Вернуться к датасетам</Button>
         </Link>
       </div>
     </PageFrame>

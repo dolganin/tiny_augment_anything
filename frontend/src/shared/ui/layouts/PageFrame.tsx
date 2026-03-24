@@ -1,5 +1,6 @@
 import { PropsWithChildren, ReactNode } from 'react'
 import { AppShell } from '@/shared/ui/layouts/AppShell'
+import { WorkflowStageNav } from '@/shared/ui/layouts/WorkflowStageNav'
 
 type PageFrameProps = PropsWithChildren<{
   title: string
@@ -18,6 +19,8 @@ export function PageFrame({ title, description, aside, children }: PageFrameProp
           </div>
           <p className="page-frame__description">{description}</p>
         </header>
+
+        <WorkflowStageNav />
 
         <div className={aside ? 'page-frame__body' : 'page-frame__body page-frame__body--single'}>
           <div className="page-frame__main">{children}</div>

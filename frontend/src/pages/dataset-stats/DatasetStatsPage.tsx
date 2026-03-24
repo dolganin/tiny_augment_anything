@@ -145,7 +145,7 @@ export function DatasetStatsPage() {
         ) : null}
 
         <div className="class-selection__footer">
-          <Button onClick={() => navigate('/upload')} variant="ghost">
+          <Button onClick={() => navigate('/datasets')} variant="ghost">
             Назад
           </Button>
           <Button

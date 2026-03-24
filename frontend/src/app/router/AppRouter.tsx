@@ -1,11 +1,10 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { ClassifierTrainPage } from '@/pages/classifier-train/ClassifierTrainPage'
 import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
 import { HomePage } from '@/pages/home/HomePage'
 import { MetricsPage } from '@/pages/metrics/MetricsPage'
 import { ModifyPage } from '@/pages/modify/ModifyPage'
 import { ReviewPage } from '@/pages/review/ReviewPage'
-import { UploadPage } from '@/pages/upload/UploadPage'
 import { ProtectedRoute } from '@/app/router/ProtectedRoute'
 import { NotFoundPage } from '@/shared/ui/layouts/NotFoundPage'
 import { useSessionStore } from '@/store/session/session.store'
@@ -34,7 +33,7 @@ export function AppRouter() {
       <Route element={<ProtectedRoute canAccess={true} redirectTo="/datasets" />}>
         <Route index element={<HomePage />} />
         <Route path="/datasets" element={<HomePage />} />
-        <Route path="/upload" element={<UploadPage />} />
+        <Route path="/upload" element={<Navigate replace to="/datasets" />} />
       </Route>
 
       <Route element={<ProtectedRoute canAccess={hasDataset} redirectTo="/datasets" />}>

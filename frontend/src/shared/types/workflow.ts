@@ -15,6 +15,8 @@ export const workflowStages: WorkflowStage[] = [
   'metrics',
 ]
 
+export const datasetWorkflowStages: WorkflowStage[] = workflowStages.filter((stage) => stage !== 'upload')
+
 export type WorkflowMode = 'generate' | 'modify' | null
 
 export const workflowStageLabels: Record<WorkflowStage, string> = {
@@ -27,7 +29,7 @@ export const workflowStageLabels: Record<WorkflowStage, string> = {
 }
 
 export const workflowStagePaths: Record<WorkflowStage, string> = {
-  upload: '/upload',
+  upload: '/datasets',
   'dataset-stats': '/dataset/stats',
   modify: '/modify',
   review: '/review',

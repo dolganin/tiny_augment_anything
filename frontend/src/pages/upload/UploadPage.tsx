@@ -1,10 +1,5 @@
-import { PageFrame } from '@/shared/ui/layouts/PageFrame'
-import { DatasetUploadPanel } from '@/features/dataset-upload/DatasetUploadPanel'
+import { Navigate } from 'react-router-dom'
 
 export function UploadPage() {
-  return (
-    <PageFrame title="Загрузка датасета">
-      <DatasetUploadPanel openOnImportComplete />
-    </PageFrame>
-  )
+  return <Navigate replace to="/datasets" />
 }
