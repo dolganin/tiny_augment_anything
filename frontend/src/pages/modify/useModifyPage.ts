@@ -9,7 +9,7 @@ import {
   useGenerationConfigQuery,
   useGenerationResultsQuery,
   useModificationSourceQuery,
-  useStartModificationMutation,
+  useStartBatchModificationMutation,
   useTaskStatusQuery,
 } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
@@ -23,7 +23,7 @@ type UseModifyPageParams = {
 }
 
 const PRIORITY_FIELD_KEYS = ['size', 'strength', 'inpaint_strength', 'num_inference_steps', 'guidance_scale']
-const HIDDEN_SECONDARY_KEYS = ['sam_prompt', 'negative_prompt', ...PRIORITY_FIELD_KEYS]
+const HIDDEN_SECONDARY_KEYS = ['sam_prompt', 'negative_prompt', 'lora_path', ...PRIORITY_FIELD_KEYS]
 
 export function useModifyPage({ form }: UseModifyPageParams) {
   const navigate = useNavigate()
@@ -33,21 +33,27 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
   const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
+
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
-  const [areaPoints, setAreaPoints] = useState<AreaPoint[]>([])
-  const [areaConfirmed, setAreaConfirmed] = useState(false)
+  const [sharedAreaPoints, setSharedAreaPoints] = useState<AreaPoint[]>([])
+  const [sharedAreaConfirmed, setSharedAreaConfirmed] = useState(false)
+  const [areaPointsBySourceId, setAreaPointsBySourceId] = useState<Record<string, AreaPoint[]>>({})
+  const [areaConfirmedBySourceId, setAreaConfirmedBySourceId] = useState<Record<string, boolean>>({})
   const [selectedSourceAssetId, setSelectedSourceAssetId] = useState<string | null>(null)
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Record<string, boolean>>({})
   const [logs, setLogs] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isModificationModalOpen, setIsModificationModalOpen] = useState(true)
   const [modificationMode, setModificationMode] = useState<ModificationMode>('inpaint')
   const [applyPromptToAll, setApplyPromptToAll] = useState(true)
+  const [applyMaskToAll, setApplyMaskToAll] = useState(true)
   const [promptBySourceId, setPromptBySourceId] = useState<Record<string, string>>({})
   const taskSnapshotRef = useRef<string | null>(null)
+
   const configQuery = useGenerationConfigQuery(sessionId)
   const reviewResultsQuery = useGenerationResultsQuery(sessionId)
   const sourceQuery = useModificationSourceQuery(sessionId)
-  const modificationMutation = useStartModificationMutation(sessionId ?? '')
+  const batchModificationMutation = useStartBatchModificationMutation(sessionId ?? '')
   const finalizeReviewMutation = useFinalizeReviewMutation(sessionId ?? '')
   const taskStatusQuery = useTaskStatusQuery(sessionId, generationJobId)
 
@@ -95,7 +101,10 @@ export function useModifyPage({ form }: UseModifyPageParams) {
         return
       }
       if (event.type === 'modification.progress') {
-        const label = [typeof event.payload.progress === 'number' ? `готово ${Math.round(event.payload.progress * 100)}%` : null, event.payload.message ?? null]
+        const label = [
+          typeof event.payload.progress === 'number' ? `готово ${Math.round(event.payload.progress * 100)}%` : null,
+          event.payload.message ?? null,
+        ]
           .filter(Boolean)
           .join(' | ')
         if (label) {
@@ -153,6 +162,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const fields = useMemo(() => configQuery.data?.fields ?? [], [configQuery.data?.fields])
   const priorityFields = useMemo(() => fields.filter((field) => PRIORITY_FIELD_KEYS.includes(field.key)), [fields])
   const secondaryFields = useMemo(() => fields.filter((field) => !HIDDEN_SECONDARY_KEYS.includes(field.key)), [fields])
+
   const sourceItems = useMemo<ModificationSourceAsset[]>(() => {
     if (!sourceQuery.data) {
       return []
@@ -161,6 +171,37 @@ export function useModifyPage({ form }: UseModifyPageParams) {
       ? adaptModificationSourceItems(sourceQuery.data.items)
       : [adaptModificationSource(sourceQuery.data.assetId, sourceQuery.data.previewPath, sourceQuery.data.className)]
   }, [sourceQuery.data])
+
+  useEffect(() => {
+    if (sourceItems.length === 0) {
+      setSelectedSourceAssetId(null)
+      setSelectedSourceIds({})
+      return
+    }
+    setSelectedSourceIds((current) => {
+      const next: Record<string, boolean> = {}
+      let hasKnownSelection = false
+      for (const item of sourceItems) {
+        const selected = current[item.assetId]
+        if (selected !== undefined) {
+          next[item.assetId] = selected
+          hasKnownSelection = true
+        } else {
+          next[item.assetId] = true
+        }
+      }
+      return hasKnownSelection ? next : Object.fromEntries(sourceItems.map((item) => [item.assetId, true]))
+    })
+    if (!selectedSourceAssetId || !sourceItems.some((item) => item.assetId === selectedSourceAssetId)) {
+      setSelectedSourceAssetId(sourceItems[0].assetId)
+    }
+  }, [selectedSourceAssetId, sourceItems])
+
+  const selectedSourceItems = useMemo(
+    () => sourceItems.filter((item) => selectedSourceIds[item.assetId] !== false),
+    [selectedSourceIds, sourceItems],
+  )
+
   const source = useMemo(() => {
     if (sourceItems.length === 0) {
       return null
@@ -170,24 +211,40 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     }
     return sourceItems.find((item) => item.assetId === selectedSourceAssetId) ?? sourceItems[0]
   }, [selectedSourceAssetId, sourceItems])
+
   const sourceIndex = useMemo(
     () => (source ? sourceItems.findIndex((item) => item.assetId === source.assetId) : -1),
     [source, sourceItems],
   )
+
   const totalTargetCount = useMemo(
     () => Object.values(selectedClassTargets).reduce((acc, value) => acc + value, 0),
     [selectedClassTargets],
   )
+
   const isModificationActive =
-    modificationMutation.isPending ||
+    batchModificationMutation.isPending ||
     (Boolean(generationJobId) &&
       (taskStatusQuery.data?.status === 'pending' || taskStatusQuery.data?.status === 'running'))
+
   const reviewPendingCount = reviewResultsQuery.data?.items.length ?? 0
   const isReviewOpen = workflowStage === 'review'
 
+  const areaPoints = useMemo(() => {
+    if (!source) {
+      return []
+    }
+    return applyMaskToAll ? sharedAreaPoints : areaPointsBySourceId[source.assetId] ?? []
+  }, [applyMaskToAll, areaPointsBySourceId, sharedAreaPoints, source])
+
+  const areaConfirmed = useMemo(() => {
+    if (!source) {
+      return false
+    }
+    return applyMaskToAll ? sharedAreaConfirmed : Boolean(areaConfirmedBySourceId[source.assetId])
+  }, [applyMaskToAll, areaConfirmedBySourceId, sharedAreaConfirmed, source])
+
   useEffect(() => {
-    setAreaPoints([])
-    setAreaConfirmed(false)
     if (!source) {
       return
     }
@@ -195,19 +252,28 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     form.setValue('prompt', nextPrompt)
   }, [applyPromptToAll, form, promptBySourceId, source])
 
-  useEffect(() => {
-    if (sourceItems.length === 0) {
-      setSelectedSourceAssetId(null)
+  const updateAreaPoints = (value: AreaPoint[]) => {
+    if (!source) {
       return
     }
-    if (!selectedSourceAssetId || !sourceItems.some((item) => item.assetId === selectedSourceAssetId)) {
-      setSelectedSourceAssetId(sourceItems[0].assetId)
+    if (applyMaskToAll) {
+      setSharedAreaPoints(value)
+      setSharedAreaConfirmed(false)
+      return
     }
-  }, [selectedSourceAssetId, sourceItems])
+    setAreaPointsBySourceId((current) => ({ ...current, [source.assetId]: value }))
+    setAreaConfirmedBySourceId((current) => ({ ...current, [source.assetId]: false }))
+  }
 
-  const updateAreaPoints = (value: AreaPoint[]) => {
-    setAreaPoints(value)
-    setAreaConfirmed(false)
+  const confirmArea = () => {
+    if (!source) {
+      return
+    }
+    if (applyMaskToAll) {
+      setSharedAreaConfirmed(true)
+      return
+    }
+    setAreaConfirmedBySourceId((current) => ({ ...current, [source.assetId]: true }))
   }
 
   const updatePromptValue = (value: string) => {
@@ -226,13 +292,39 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setApplyPromptToAll(value)
     const currentPrompt = form.getValues('prompt')
     if (value) {
-      setPromptBySourceId({})
       form.setValue('prompt', currentPrompt, { shouldDirty: true })
       return
     }
     if (source) {
-      setPromptBySourceId((current) => ({ ...current, [source.assetId]: currentPrompt }))
+      setPromptBySourceId((current) => ({
+        ...current,
+        [source.assetId]: current[source.assetId] ?? currentPrompt,
+      }))
     }
+  }
+
+  const updateApplyMaskToAll = (value: boolean) => {
+    setApplyMaskToAll(value)
+    if (!source) {
+      return
+    }
+    if (value) {
+      const nextSharedPoints = areaPointsBySourceId[source.assetId] ?? sharedAreaPoints
+      const nextSharedConfirmed = areaConfirmedBySourceId[source.assetId] ?? sharedAreaConfirmed
+      if (nextSharedPoints.length > 0) {
+        setSharedAreaPoints(nextSharedPoints)
+      }
+      setSharedAreaConfirmed(Boolean(nextSharedConfirmed))
+      return
+    }
+    setAreaPointsBySourceId((current) => ({
+      ...current,
+      [source.assetId]: current[source.assetId] ?? sharedAreaPoints,
+    }))
+    setAreaConfirmedBySourceId((current) => ({
+      ...current,
+      [source.assetId]: current[source.assetId] ?? sharedAreaConfirmed,
+    }))
   }
 
   const updateFieldValue = (key: string, value: string) => {
@@ -249,10 +341,20 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setSelectedSourceAssetId(sourceItems[nextIndex].assetId)
   }
 
+  const toggleSourceSelection = (assetId: string) => {
+    setSelectedSourceIds((current) => {
+      const nextSelected = !(current[assetId] !== false)
+      const next = { ...current, [assetId]: nextSelected }
+      const hasSelected = sourceItems.some((item) => next[item.assetId] !== false)
+      return hasSelected ? next : current
+    })
+  }
+
   const handleModeChange = (mode: ModificationMode) => {
     setModificationMode(mode)
     if (mode === 'full') {
-      setAreaConfirmed(false)
+      setSharedAreaConfirmed(false)
+      setAreaConfirmedBySourceId({})
     }
   }
 
@@ -290,27 +392,68 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   }
 
   const submitForm = form.handleSubmit(async (values) => {
-    if (!sessionId || !source) {
+    if (!sessionId) {
+      return
+    }
+    if (selectedSourceItems.length === 0) {
+      setErrorMessage('Выбери хотя бы одно изображение для batch-модификации.')
       return
     }
     if (totalTargetCount <= 0) {
       setErrorMessage('Сначала задай целевые количества по классам на этапе статистики.')
       return
     }
+
+    const samPrompt = (fieldValues.sam_prompt ?? '').trim()
+    const hasMaskPrompt = modificationMode === 'full' || samPrompt.length > 0
+    if (modificationMode === 'inpaint' && !hasMaskPrompt) {
+      if (applyMaskToAll && (!sharedAreaConfirmed || sharedAreaPoints.length < 3)) {
+        setErrorMessage('Подтверди общую область или задай SAM prompt для batch-модификации.')
+        return
+      }
+      if (!applyMaskToAll) {
+        const missingMask = selectedSourceItems.find((item) => {
+          const itemPoints = areaPointsBySourceId[item.assetId] ?? []
+          const itemConfirmed = areaConfirmedBySourceId[item.assetId] ?? false
+          return !itemConfirmed || itemPoints.length < 3
+        })
+        if (missingMask) {
+          setErrorMessage('Для режима индивидуальных масок нужно подтвердить область на каждом выбранном изображении.')
+          return
+        }
+      }
+    }
+
     try {
-      const response = await modificationMutation.mutateAsync({
-        prompt: values.prompt,
-        sourceAssetId: source.assetId,
-        sampleCount: totalTargetCount,
-        classTargets: selectedClassTargets,
+      const response = await batchModificationMutation.mutateAsync({
+        commonPrompt: values.prompt,
+        negativePrompt: (fieldValues.negative_prompt ?? '').trim() || undefined,
         config: fieldValues,
+        classTargets: selectedClassTargets,
+        batchMode: applyMaskToAll || modificationMode === 'full' ? 'common_mask' : 'custom_masks',
         areaPoints:
-          modificationMode === 'inpaint' && areaConfirmed && areaPoints.length >= 3
-            ? areaPoints
+          modificationMode === 'inpaint' && applyMaskToAll && sharedAreaConfirmed && sharedAreaPoints.length >= 3
+            ? sharedAreaPoints
             : undefined,
+        sources: selectedSourceItems.map((item) => {
+          const customPrompt = applyPromptToAll ? null : (promptBySourceId[item.assetId] ?? '').trim() || null
+          const sourceAreaPoints =
+            modificationMode === 'inpaint' && !applyMaskToAll
+              ? areaConfirmedBySourceId[item.assetId] && (areaPointsBySourceId[item.assetId] ?? []).length >= 3
+                ? areaPointsBySourceId[item.assetId]
+                : undefined
+              : undefined
+          return {
+            assetId: item.assetId,
+            areaPoints: sourceAreaPoints,
+            customPrompt,
+          }
+        }),
       })
       setSession({ generationJobId: response.jobId })
-      setLogs(['Запуск модификации отправлен на бэкенд.'])
+      setLogs([
+        `Запуск batch-модификации отправлен на бэкенд. Источников: ${selectedSourceItems.length}.`,
+      ])
       setIsModificationModalOpen(false)
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
@@ -319,7 +462,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
 
   useModificationShortcuts({
     canApplyArea: modificationMode === 'inpaint' && areaPoints.length >= 3 && !areaConfirmed,
-    onApplyArea: () => setAreaConfirmed(true),
+    onApplyArea: confirmArea,
     onClose: () => setIsModificationModalOpen(false),
     onMoveSource: moveSource,
     onSubmit: () => void submitForm(),
@@ -328,6 +471,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   })
 
   return {
+    applyMaskToAll,
     applyPromptToAll,
     areaConfirmed,
     areaPoints,
@@ -348,8 +492,11 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     samPromptValue: fieldValues.sam_prompt ?? '',
     saveReviewToDataset,
     secondaryFields,
+    selectedSourceCount: selectedSourceItems.length,
+    selectedSourceIds,
+    setApplyMaskToAll: updateApplyMaskToAll,
     setApplyPromptToAll: updateApplyPromptToAll,
-    setAreaConfirmed,
+    setAreaConfirmed: confirmArea,
     setErrorMessage,
     setIsModificationModalOpen,
     setModificationMode: handleModeChange,
@@ -360,6 +507,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     sourceQuery,
     submitForm,
     taskStatusQuery,
+    toggleSourceSelection,
     totalTargetCount,
     updateAreaPoints,
     updateFieldValue,

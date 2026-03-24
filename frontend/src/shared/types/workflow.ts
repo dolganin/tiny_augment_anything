@@ -98,6 +98,13 @@ export type ModificationSourceAsset = {
   className: string
 }
 
+export type DiffusionLoraAdapter = {
+  fileName: string
+  adapterPath: string
+  sizeBytes: number
+  updatedAt: string
+}
+
 export type DatasetCatalogTask = {
   jobId: string
   taskType: string

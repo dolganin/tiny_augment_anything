@@ -59,6 +59,22 @@ export const uploadStatusResponseSchema = z.object({
   progress: z.number().min(0).max(1),
 })
 
+export const diffusionLoraAdapterSchema = z.object({
+  fileName: z.string(),
+  adapterPath: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  updatedAt: z.string(),
+})
+
+export const diffusionLoraAdaptersResponseSchema = z.object({
+  items: z.array(diffusionLoraAdapterSchema),
+})
+
+export const diffusionLoraUploadResponseSchema = z.object({
+  fileName: z.string(),
+  adapterPath: z.string(),
+})
+
 export const taskStatusResponseSchema = z.object({
   jobId: z.string(),
   status: apiTaskStatusSchema,
@@ -96,3 +112,4 @@ export type TaskStatusResponse = z.infer<typeof taskStatusResponseSchema>
 export type UploadInitResponse = z.infer<typeof uploadInitResponseSchema>
 export type UploadStatusResponse = z.infer<typeof uploadStatusResponseSchema>
 export type WorkflowSocketEvent = z.infer<typeof workflowSocketEventSchema>
+export type DiffusionLoraAdapter = z.infer<typeof diffusionLoraAdapterSchema>

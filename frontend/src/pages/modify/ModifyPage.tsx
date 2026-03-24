@@ -3,20 +3,24 @@ import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
+import { DiffusionLoraPanel } from '@/features/diffusion-lora/DiffusionLoraPanel'
 import { ReviewWorkspace } from '@/features/generation-review/ReviewWorkspace'
 import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModal } from '@/features/modification/ModificationModal'
 import { type ModifyFormValues } from '@/pages/modify/modify.types'
 import { useModifyPage } from '@/pages/modify/useModifyPage'
+import { useSessionStore } from '@/store/session/session.store'
 import '@/features/generation-config/generation-config.css'
 
 export function ModifyPage() {
+  const sessionId = useSessionStore((state) => state.sessionId)
   const form = useForm<ModifyFormValues>({
     defaultValues: {
       prompt: '',
     },
   })
   const {
+    applyMaskToAll,
     applyPromptToAll,
     areaConfirmed,
     areaPoints,
@@ -36,7 +40,10 @@ export function ModifyPage() {
     reviewPendingCount,
     saveReviewToDataset,
     samPromptValue,
+    selectedSourceCount,
+    selectedSourceIds,
     secondaryFields,
+    setApplyMaskToAll,
     setApplyPromptToAll,
     setAreaConfirmed,
     setErrorMessage,
@@ -49,6 +56,7 @@ export function ModifyPage() {
     sourceQuery,
     submitForm,
     totalTargetCount,
+    toggleSourceSelection,
     updateAreaPoints,
     updateFieldValue,
     updatePromptValue,
@@ -82,6 +90,13 @@ export function ModifyPage() {
           </div>
         </section>
 
+        <DiffusionLoraPanel
+          onError={(message) => setErrorMessage(message)}
+          onSelectAdapter={(adapterPath) => updateFieldValue('lora_path', adapterPath)}
+          selectedAdapterPath={fieldValues.lora_path ?? ''}
+          sessionId={sessionId}
+        />
+
         {(configQuery.isLoading || sourceQuery.isLoading) && (
           <div className="upload-stage__loading">
             <Spinner label="Подтягиваю изображение и параметры модификации." />
@@ -114,6 +129,7 @@ export function ModifyPage() {
       </Modal>
 
       <ModificationModal
+        applyMaskToAll={applyMaskToAll}
         applyPromptToAll={applyPromptToAll}
         areaConfirmed={areaConfirmed}
         areaPoints={areaPoints}
@@ -121,8 +137,9 @@ export function ModifyPage() {
         form={form}
         mode={modificationMode}
         negativePromptValue={negativePromptValue}
+        onApplyMaskToAllChange={setApplyMaskToAll}
         onApplyPromptToAllChange={setApplyPromptToAll}
-        onAreaConfirm={() => setAreaConfirmed(true)}
+        onAreaConfirm={setAreaConfirmed}
         onAreaPointsChange={updateAreaPoints}
         onClose={() => setIsModificationModalOpen(false)}
         onFieldValueChange={updateFieldValue}
@@ -135,10 +152,13 @@ export function ModifyPage() {
         onSourceMove={moveSource}
         onSubmit={submitForm}
         onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
+        onToggleSourceSelection={toggleSourceSelection}
         open={!configQuery.isLoading && !sourceQuery.isLoading && isModificationModalOpen}
         priorityFields={priorityFields}
         reviewPendingCount={reviewPendingCount}
         samPromptValue={samPromptValue}
+        selectedSourceCount={selectedSourceCount}
+        selectedSourceIds={selectedSourceIds}
         secondaryFields={secondaryFields}
         source={source}
         sourceIndex={sourceIndex}

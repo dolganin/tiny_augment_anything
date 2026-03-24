@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS augmentation_runs (
     prompt text NULL,
     source_asset_id uuid NULL REFERENCES dataset_assets(id) ON DELETE SET NULL,
     config jsonb NOT NULL,
+    is_batch boolean NOT NULL DEFAULT false,
+    batch_mode text NULL,
     target_count integer NOT NULL,
     generated_count integer NOT NULL DEFAULT 0,
     approved_count integer NOT NULL DEFAULT 0,
@@ -116,6 +118,24 @@ CREATE TABLE IF NOT EXISTS augmentation_runs (
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS augmentation_run_sources (
+    id uuid PRIMARY KEY,
+    run_id uuid NOT NULL REFERENCES augmentation_runs(id) ON DELETE CASCADE,
+    source_asset_id uuid NOT NULL REFERENCES dataset_assets(id) ON DELETE CASCADE,
+    area_points jsonb NULL,
+    custom_prompt text NULL,
+    position integer NOT NULL,
+    status text NOT NULL DEFAULT 'pending',
+    generated_count integer NOT NULL DEFAULT 0,
+    error_message text NULL,
+    created_at timestamptz NOT NULL,
+    started_at timestamptz NULL,
+    finished_at timestamptz NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_augmentation_run_sources_run ON augmentation_run_sources(run_id);
+CREATE INDEX IF NOT EXISTS idx_augmentation_run_sources_asset ON augmentation_run_sources(source_asset_id);
 
 CREATE TABLE IF NOT EXISTS classifier_runs (
     id uuid PRIMARY KEY,
@@ -157,4 +177,10 @@ ADD COLUMN IF NOT EXISTS checkpoints_dir text NULL;
 
 ALTER TABLE classifier_runs
 ADD COLUMN IF NOT EXISTS checkpoint_path text NULL;
+
+ALTER TABLE augmentation_runs
+ADD COLUMN IF NOT EXISTS is_batch boolean NOT NULL DEFAULT false;
+
+ALTER TABLE augmentation_runs
+ADD COLUMN IF NOT EXISTS batch_mode text NULL;
 """

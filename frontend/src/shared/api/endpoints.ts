@@ -23,6 +23,16 @@ export const endpoints = {
     `/sessions/${sessionId}/classifier/weights/${uploadId}/complete`,
   cancelClassifierWeightsUpload: (sessionId: string, uploadId: string) =>
     `/sessions/${sessionId}/classifier/weights/${uploadId}`,
+  diffusionLoraAdapters: (sessionId: string) => `/sessions/${sessionId}/diffusion/lora`,
+  initDiffusionLoraUpload: (sessionId: string) => `/sessions/${sessionId}/diffusion/lora/init`,
+  diffusionLoraUploadStatus: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/diffusion/lora/${uploadId}`,
+  uploadDiffusionLoraChunk: (sessionId: string, uploadId: string, partNumber: number, totalParts: number) =>
+    `/sessions/${sessionId}/diffusion/lora/${uploadId}/parts?partNumber=${partNumber}&totalParts=${totalParts}`,
+  completeDiffusionLoraUpload: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/diffusion/lora/${uploadId}/complete`,
+  cancelDiffusionLoraUpload: (sessionId: string, uploadId: string) =>
+    `/sessions/${sessionId}/diffusion/lora/${uploadId}`,
   taskStatus: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}`,
   cancelTask: (sessionId: string, taskId: string) => `/sessions/${sessionId}/tasks/${taskId}/cancel`,
   datasetStats: (sessionId: string) => `/sessions/${sessionId}/dataset/stats`,
@@ -32,6 +42,8 @@ export const endpoints = {
   startGeneration: (sessionId: string) => `/sessions/${sessionId}/generation`,
   getModificationSource: (sessionId: string) => `/sessions/${sessionId}/modification/source`,
   startModification: (sessionId: string) => `/sessions/${sessionId}/modification`,
+  startBatchModification: (sessionId: string) => `/sessions/${sessionId}/modification/batch`,
+  batchModificationSources: (sessionId: string, runId: string) => `/sessions/${sessionId}/augmentation-runs/${runId}/sources`,
   generationResults: (sessionId: string) => `/sessions/${sessionId}/results`,
   approveAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/approve`,
   rejectAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/reject`,

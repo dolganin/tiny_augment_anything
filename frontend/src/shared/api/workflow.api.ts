@@ -4,8 +4,11 @@ import {
   datasetUploadResponseSchema,
   classifierWeightsUploadResponseSchema,
   classifierSummaryResponseSchema,
+  diffusionLoraAdaptersResponseSchema,
+  diffusionLoraUploadResponseSchema,
   finalizeReviewPayloadSchema,
   finalizeReviewResponseSchema,
+  batchModificationStartPayloadSchema,
   generationConfigResponseSchema,
   generationResultsResponseSchema,
   jobsResponseSchema,
@@ -142,6 +145,11 @@ export const workflowApi = {
     const response = await http.post(endpoints.startModification(sessionId), parsedPayload)
     return taskStartedResponseSchema.parse(response.data)
   },
+  async startBatchModification(sessionId: string, payload: unknown) {
+    const parsedPayload = batchModificationStartPayloadSchema.parse(payload)
+    const response = await http.post(endpoints.startBatchModification(sessionId), parsedPayload)
+    return taskStartedResponseSchema.parse(response.data)
+  },
   async getGenerationResults(sessionId: string) {
     const response = await http.get(endpoints.generationResults(sessionId))
     return generationResultsResponseSchema.parse(response.data)
@@ -220,6 +228,60 @@ export const workflowApi = {
   },
   async cancelClassifierWeightsUpload(sessionId: string, uploadId: string) {
     const response = await http.delete(endpoints.cancelClassifierWeightsUpload(sessionId, uploadId))
+    return statusResponseSchema.parse(response.data)
+  },
+  async getDiffusionLoraAdapters(sessionId: string) {
+    const response = await http.get(endpoints.diffusionLoraAdapters(sessionId))
+    return diffusionLoraAdaptersResponseSchema.parse(response.data)
+  },
+  async initDiffusionLoraUpload(sessionId: string, fileName: string, fileSize: number, signal?: AbortSignal) {
+    const response = await http.post(
+      endpoints.initDiffusionLoraUpload(sessionId),
+      { fileName, fileSize },
+      { timeout: 30_000, signal },
+    )
+    return uploadInitResponseSchema.parse(response.data)
+  },
+  async getDiffusionLoraUploadStatus(sessionId: string, uploadId: string) {
+    const response = await http.get(endpoints.diffusionLoraUploadStatus(sessionId, uploadId))
+    return uploadStatusResponseSchema.parse(response.data)
+  },
+  async uploadDiffusionLoraChunk(
+    sessionId: string,
+    uploadId: string,
+    partNumber: number,
+    totalParts: number,
+    chunk: Blob,
+    signal?: AbortSignal,
+    onProgress?: (progress: number) => void,
+  ) {
+    const response = await http.put(
+      endpoints.uploadDiffusionLoraChunk(sessionId, uploadId, partNumber, totalParts),
+      chunk,
+      {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+        timeout: 0,
+        signal,
+        onUploadProgress: (event) => {
+          const loaded = event.loaded ?? chunk.size
+          const progress = chunk.size === 0 ? 1 : loaded / chunk.size
+          onProgress?.(Math.min(1, progress))
+        },
+      },
+    )
+    return statusResponseSchema.parse(response.data)
+  },
+  async completeDiffusionLoraUpload(sessionId: string, uploadId: string, signal?: AbortSignal) {
+    const response = await http.post(endpoints.completeDiffusionLoraUpload(sessionId, uploadId), null, {
+      timeout: 0,
+      signal,
+    })
+    return diffusionLoraUploadResponseSchema.parse(response.data)
+  },
+  async cancelDiffusionLoraUpload(sessionId: string, uploadId: string) {
+    const response = await http.delete(endpoints.cancelDiffusionLoraUpload(sessionId, uploadId))
     return statusResponseSchema.parse(response.data)
   },
   async getClassifierSummary(sessionId: string) {

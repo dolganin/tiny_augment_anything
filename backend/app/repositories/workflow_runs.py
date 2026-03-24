@@ -18,7 +18,10 @@ async def create_augmentation_run(
     prompt: str | None,
     source_asset_id: UUID | None,
     config: dict[str, Any],
+    *,
     target_count: int,
+    is_batch: bool = False,
+    batch_mode: str | None = None,
 ) -> UUID:
     run_id = uuid4()
     now = datetime.now(timezone.utc)
@@ -33,12 +36,14 @@ async def create_augmentation_run(
             prompt,
             source_asset_id,
             config,
+            is_batch,
+            batch_mode,
             target_count,
             status,
             created_at,
             updated_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             run_id,
@@ -49,6 +54,8 @@ async def create_augmentation_run(
             prompt,
             source_asset_id,
             Jsonb(config),
+            is_batch,
+            batch_mode,
             target_count,
             TaskStatus.RUNNING.value,
             now,
@@ -72,6 +79,32 @@ async def complete_augmentation_run(connection, run_id: UUID, generated_count: i
     )
 
 
+async def mark_augmentation_run_failed(connection, run_id: UUID) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE augmentation_runs
+        SET status = %s,
+            updated_at = %s
+        WHERE id = %s
+        """,
+        (TaskStatus.ERROR.value, now, run_id),
+    )
+
+
+async def mark_augmentation_run_cancelled(connection, run_id: UUID) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE augmentation_runs
+        SET status = %s,
+            updated_at = %s
+        WHERE id = %s
+        """,
+        (TaskStatus.CANCELLED.value, now, run_id),
+    )
+
+
 async def get_latest_augmentation_run(connection, session_id: UUID) -> dict[str, Any] | None:
     async with connection.cursor() as cursor:
         await cursor.execute(
@@ -85,6 +118,115 @@ async def get_latest_augmentation_run(connection, session_id: UUID) -> dict[str,
             (session_id,),
         )
         return await cursor.fetchone()
+
+
+async def get_augmentation_run(connection, session_id: UUID, run_id: UUID) -> dict[str, Any] | None:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT *
+            FROM augmentation_runs
+            WHERE session_id = %s
+              AND id = %s
+            """,
+            (session_id, run_id),
+        )
+        return await cursor.fetchone()
+
+
+async def create_augmentation_run_source(
+    connection,
+    *,
+    run_id: UUID,
+    source_asset_id: UUID,
+    area_points: list[list[float]] | None,
+    custom_prompt: str | None,
+    position: int,
+) -> UUID:
+    source_id = uuid4()
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        INSERT INTO augmentation_run_sources (
+            id,
+            run_id,
+            source_asset_id,
+            area_points,
+            custom_prompt,
+            position,
+            status,
+            created_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            source_id,
+            run_id,
+            source_asset_id,
+            Jsonb(area_points) if area_points is not None else None,
+            custom_prompt,
+            position,
+            "pending",
+            now,
+        ),
+    )
+    return source_id
+
+
+async def list_augmentation_run_sources(connection, run_id: UUID) -> list[dict[str, Any]]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT *
+            FROM augmentation_run_sources
+            WHERE run_id = %s
+            ORDER BY position ASC, created_at ASC
+            """,
+            (run_id,),
+        )
+        return await cursor.fetchall()
+
+
+async def mark_augmentation_run_source_processing(connection, source_id: UUID) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE augmentation_run_sources
+        SET status = %s,
+            error_message = NULL,
+            started_at = COALESCE(started_at, %s)
+        WHERE id = %s
+        """,
+        ("processing", now, source_id),
+    )
+
+
+async def complete_augmentation_run_source(connection, source_id: UUID, generated_count: int) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE augmentation_run_sources
+        SET status = %s,
+            generated_count = %s,
+            finished_at = %s
+        WHERE id = %s
+        """,
+        ("completed", generated_count, now, source_id),
+    )
+
+
+async def fail_augmentation_run_source(connection, source_id: UUID, error_message: str) -> None:
+    now = datetime.now(timezone.utc)
+    await connection.execute(
+        """
+        UPDATE augmentation_run_sources
+        SET status = %s,
+            error_message = %s,
+            finished_at = %s
+        WHERE id = %s
+        """,
+        ("failed", error_message, now, source_id),
+    )
 
 
 async def list_pending_results(connection, run_id: UUID) -> list[dict[str, Any]]:

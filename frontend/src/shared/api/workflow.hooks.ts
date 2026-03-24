@@ -8,6 +8,7 @@ const workflowKeys = {
   datasetStats: (sessionId: string) => ['workflow', 'dataset-stats', sessionId] as const,
   generationConfig: (sessionId: string) => ['workflow', 'generation-config', sessionId] as const,
   generationResults: (sessionId: string) => ['workflow', 'generation-results', sessionId] as const,
+  diffusionLoraAdapters: (sessionId: string) => ['workflow', 'diffusion-lora-adapters', sessionId] as const,
   classifierSummary: (sessionId: string) => ['workflow', 'classifier-summary', sessionId] as const,
   metrics: (sessionId: string) => ['workflow', 'metrics', sessionId] as const,
 }
@@ -91,6 +92,15 @@ export function useGenerationResultsQuery(sessionId: string | null) {
   })
 }
 
+export function useDiffusionLoraAdaptersQuery(sessionId: string | null) {
+  return useQuery({
+    queryKey: sessionId ? workflowKeys.diffusionLoraAdapters(sessionId) : ['workflow', 'diffusion-lora-adapters', 'empty'],
+    queryFn: () => workflowApi.getDiffusionLoraAdapters(sessionId!),
+    enabled: Boolean(sessionId),
+    refetchOnWindowFocus: false,
+  })
+}
+
 export function useMetricsQuery(sessionId: string | null) {
   return useQuery({
     queryKey: sessionId ? workflowKeys.metrics(sessionId) : ['workflow', 'metrics', 'empty'],
@@ -155,6 +165,12 @@ export function useStartGenerationMutation(sessionId: string) {
 export function useStartModificationMutation(sessionId: string) {
   return useMutation({
     mutationFn: (payload: unknown) => workflowApi.startModification(sessionId, payload),
+  })
+}
+
+export function useStartBatchModificationMutation(sessionId: string) {
+  return useMutation({
+    mutationFn: (payload: unknown) => workflowApi.startBatchModification(sessionId, payload),
   })
 }
 
