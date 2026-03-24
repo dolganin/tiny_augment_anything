@@ -1,8 +1,6 @@
 export type WorkflowStage =
   | 'upload'
   | 'dataset-stats'
-  | 'mode-select'
-  | 'generate'
   | 'modify'
   | 'review'
   | 'classifier-train'
@@ -22,8 +20,6 @@ export type WorkflowMode = 'generate' | 'modify' | null
 export const workflowStageLabels: Record<WorkflowStage, string> = {
   upload: 'Загрузка',
   'dataset-stats': 'Статистика',
-  'mode-select': 'Режим',
-  generate: 'Генерация',
   modify: 'Модификация',
   review: 'Отбор',
   'classifier-train': 'Классификатор',
@@ -33,8 +29,6 @@ export const workflowStageLabels: Record<WorkflowStage, string> = {
 export const workflowStagePaths: Record<WorkflowStage, string> = {
   upload: '/upload',
   'dataset-stats': '/dataset/stats',
-  'mode-select': '/mode',
-  generate: '/generate',
   modify: '/modify',
   review: '/review',
   'classifier-train': '/classifier/train',
