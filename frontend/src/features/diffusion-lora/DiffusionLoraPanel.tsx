@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { useDiffusionLoraAdaptersQuery } from '@/shared/api/workflow.hooks'
 import { workflowApi } from '@/shared/api/workflow.api'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
+import { TextInputModal } from '@/shared/ui/feedback/TextInputModal'
 
 type DiffusionLoraPanelProps = {
   onError: (message: string) => void
@@ -89,13 +90,13 @@ export function DiffusionLoraPanel({
     void uploadLora(file)
   }
 
-  const saveName = async () => {
+  const saveName = async (value: string) => {
     if (!sessionId || !pendingRename) {
       return
     }
     try {
       setIsSavingName(true)
-      await workflowApi.saveDiffusionLoraName(sessionId, pendingRename.adapterPath, pendingRename.value)
+      await workflowApi.saveDiffusionLoraName(sessionId, pendingRename.adapterPath, value)
       await queryClient.invalidateQueries({ queryKey: ['workflow', 'diffusion-lora-adapters', sessionId] })
       setPendingRename(null)
     } catch (error) {
@@ -106,38 +107,9 @@ export function DiffusionLoraPanel({
   }
 
   return (
-    <section className="info-card">
-      <div className="modify-panel__actions">
-        <label className="generation-form__group" style={{ minWidth: 220, flex: '1 1 220px' }}>
-          <span className="generation-form__label">Имя LoRA</span>
-          <input
-            className="generation-form__input"
-            disabled={!pendingRename || isUploading || isSavingName}
-            onChange={(event) =>
-              setPendingRename((current) => (current ? { ...current, value: event.target.value } : current))
-            }
-            placeholder="Имя станет доступно после загрузки"
-            type="text"
-            value={pendingRename?.value ?? ''}
-          />
-        </label>
-        {pendingRename ? (
-          <>
-            <Button disabled={isSavingName || !pendingRename.value.trim()} onClick={() => void saveName()} type="button">
-              Сохранить
-            </Button>
-            <Button
-              disabled={isSavingName}
-              onClick={() =>
-                setPendingRename((current) => (current ? { ...current, value: current.defaultName } : current))
-              }
-              type="button"
-              variant="secondary"
-            >
-              Сбросить
-            </Button>
-          </>
-        ) : null}
+    <>
+      <section className="info-card">
+        <div className="modify-panel__actions">
         <Button
           disabled={!sessionId || isUploading || isSavingName}
           onClick={() => fileInputRef.current?.click()}
@@ -162,28 +134,44 @@ export function DiffusionLoraPanel({
             ))}
           </select>
         </label>
-      </div>
+        </div>
 
-      <input
-        accept=".bin,.ckpt,.pt,.pth,.safetensors"
-        className="upload-stage__input"
-        onChange={handleFileChange}
-        ref={fileInputRef}
-        type="file"
+        <input
+          accept=".bin,.ckpt,.pt,.pth,.safetensors"
+          className="upload-stage__input"
+          onChange={handleFileChange}
+          ref={fileInputRef}
+          type="file"
+        />
+
+        {isUploading ? <p className="info-card__text">Загрузка LoRA adapter: {uploadProgress}%</p> : null}
+        {!isUploading && pendingRename ? (
+          <p className="info-card__text">Загрузка завершена. Теперь задай имя адаптера.</p>
+        ) : null}
+        {!isUploading && selectedAdapter ? (
+          <p className="info-card__text">
+            Выбран адаптер: {selectedAdapter.displayName} ({selectedAdapter.fileName})
+          </p>
+        ) : null}
+        {adaptersQuery.data && adaptersQuery.data.items.length === 0 ? (
+          <p className="info-card__text">Для этого датасета пока нет загруженных LoRA adapter.</p>
+        ) : null}
+      </section>
+
+      <TextInputModal
+        defaultValue={pendingRename?.value ?? ''}
+        description="Имя будет показано в списке LoRA адаптеров для текущего датасета."
+        isSubmitting={isSavingName}
+        label="Имя LoRA"
+        onClose={() => setPendingRename(null)}
+        onConfirm={(value) => void saveName(value)}
+        onReset={() =>
+          setPendingRename((current) => (current ? { ...current, value: current.defaultName } : current))
+        }
+        open={Boolean(pendingRename)}
+        placeholder="Например, Skin lesion cleanup"
+        title="Сохранить LoRA adapter"
       />
-
-      {isUploading ? <p className="info-card__text">Загрузка LoRA adapter: {uploadProgress}%</p> : null}
-      {!isUploading && pendingRename ? (
-        <p className="info-card__text">Загрузка завершена. Теперь задай имя адаптера и нажми «Сохранить».</p>
-      ) : null}
-      {!isUploading && selectedAdapter ? (
-        <p className="info-card__text">
-          Выбран адаптер: {selectedAdapter.displayName} ({selectedAdapter.fileName})
-        </p>
-      ) : null}
-      {adaptersQuery.data && adaptersQuery.data.items.length === 0 ? (
-        <p className="info-card__text">Для этого датасета пока нет загруженных LoRA adapter.</p>
-      ) : null}
-    </section>
+    </>
   )
 }

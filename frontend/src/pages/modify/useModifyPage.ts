@@ -344,11 +344,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setSession({ generationConfig: nextValues })
   }
 
-  const savePromptTemplate = (scope: PromptTemplate['scope']) => {
-    const name = window.prompt(scope === 'text' ? 'Название шаблона текста' : 'Название шаблона выделения')
-    if (!name || !name.trim()) {
-      return
-    }
+  const createPromptTemplate = (scope: PromptTemplate['scope'], name: string) => {
     const nextTemplate: PromptTemplate =
       scope === 'text'
         ? {
@@ -593,7 +589,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     reviewPendingCount,
     samPromptValue: fieldValues.sam_prompt ?? '',
     saveReviewToDataset,
-    savePromptTemplate,
+    createPromptTemplate,
     secondaryFields,
     selectionPromptTemplates,
     selectedSourceCount: activeSourceItems.length,

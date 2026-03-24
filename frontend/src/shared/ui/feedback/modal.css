@@ -57,3 +57,10 @@
   margin-top: 18px;
   line-height: 1.7;
 }
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}

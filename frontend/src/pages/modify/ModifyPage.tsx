@@ -1,6 +1,8 @@
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { Modal } from '@/shared/ui/feedback/Modal'
+import { TextInputModal } from '@/shared/ui/feedback/TextInputModal'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
 import { DiffusionLoraPanel } from '@/features/diffusion-lora/DiffusionLoraPanel'
@@ -16,7 +18,6 @@ import { useModifyPage } from '@/pages/modify/useModifyPage'
 import { useSessionStore } from '@/store/session/session.store'
 import '@/features/generation-config/generation-config.css'
 import '@/features/modification/modification-modal.css'
-import { useMemo } from 'react'
 
 export function ModifyPage() {
   const sessionId = useSessionStore((state) => state.sessionId)
@@ -52,7 +53,7 @@ export function ModifyPage() {
     priorityFields,
     reviewPendingCount,
     saveReviewToDataset,
-    savePromptTemplate,
+    createPromptTemplate,
     selectAllSources,
     samPromptValue,
     selectionPromptTemplates,
@@ -83,6 +84,10 @@ export function ModifyPage() {
     updateFieldValue,
     updatePromptValue,
   } = useModifyPage({ form })
+  const [templateModal, setTemplateModal] = useState<{
+    open: boolean
+    kind: 'text' | 'selection' | 'polygon'
+  }>({ open: false, kind: 'text' })
 
   const sourceLabelById = useMemo(
     () =>
@@ -91,6 +96,28 @@ export function ModifyPage() {
       ),
     [sourceItems],
   )
+  const templateModalCopy = useMemo(() => {
+    switch (templateModal.kind) {
+      case 'selection':
+        return {
+          title: 'Сохранить selection шаблон',
+          label: 'Название шаблона',
+          placeholder: 'Например, Лицо в маске',
+        }
+      case 'polygon':
+        return {
+          title: 'Сохранить шаблон полигона',
+          label: 'Название шаблона',
+          placeholder: 'Например, Верхняя часть лица',
+        }
+      default:
+        return {
+          title: 'Сохранить текстовый шаблон',
+          label: 'Название шаблона',
+          placeholder: 'Например, Медицинская маска',
+        }
+    }
+  }, [templateModal.kind])
 
   return (
     <>
@@ -187,8 +214,8 @@ export function ModifyPage() {
               }}
               onPreviewMaskChange={setBatchMaskPreviewPoints}
               onPromptChange={updatePromptValue}
-              onSaveTextTemplate={() => savePromptTemplate('text')}
-              onSaveSelectionTemplate={() => savePromptTemplate('selection')}
+              onSaveTextTemplate={() => setTemplateModal({ open: true, kind: 'text' })}
+              onSaveSelectionTemplate={() => setTemplateModal({ open: true, kind: 'selection' })}
               promptValue={form.watch('prompt')}
               samPromptValue={samPromptValue}
               selectionTemplates={selectionPromptTemplates}
@@ -247,6 +274,22 @@ export function ModifyPage() {
         <p className="upload-stage__error">{errorMessage}</p>
       </Modal>
 
+      <TextInputModal
+        label={templateModalCopy.label}
+        onClose={() => setTemplateModal((current) => ({ ...current, open: false }))}
+        onConfirm={(value) => {
+          if (templateModal.kind === 'polygon') {
+            void createDatasetPolygonTemplate(value)
+          } else {
+            createPromptTemplate(templateModal.kind, value)
+          }
+          setTemplateModal((current) => ({ ...current, open: false }))
+        }}
+        open={templateModal.open}
+        placeholder={templateModalCopy.placeholder}
+        title={templateModalCopy.title}
+      />
+
       <BatchValidationModal
         fieldValues={fieldValues}
         negativePromptValue={negativePromptValue}
@@ -282,13 +325,8 @@ export function ModifyPage() {
         onPolygonClear={() => updateAreaPoints([])}
         onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
         onPromptChange={updatePromptValue}
-        onSaveTemplate={savePromptTemplate}
-        onSavePolygonTemplate={() => {
-          const name = window.prompt('Название шаблона полигона')
-          if (name?.trim()) {
-            createDatasetPolygonTemplate(name)
-          }
-        }}
+        onSaveTemplate={(scope) => setTemplateModal({ open: true, kind: scope })}
+        onSavePolygonTemplate={() => setTemplateModal({ open: true, kind: 'polygon' })}
         onSourceMove={moveSource}
         onSubmit={submitForm}
         onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
