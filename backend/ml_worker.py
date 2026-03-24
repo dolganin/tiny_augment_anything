@@ -69,7 +69,6 @@ async def main() -> None:
             task_type = task_payload.get("taskType")
             log_event(logger, 20, "ml_worker.task.received", task_type=task_type, task_payload=task_payload)
             if task_type not in {
-                "diffusion.prepare_weights",
                 "diffusion.modify",
                 "diffusion.generate",
                 "classifier.train",

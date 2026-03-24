@@ -25,8 +25,6 @@ async def build_dataset_catalog(connection) -> list[dict]:
                 "sessionId": str(item["session_id"]),
                 "workflowStage": item["workflow_stage"],
                 "currentMode": item["current_mode"],
-                "fineTuneEnabled": bool(item["fine_tune_enabled"]),
-                "fineTuneResolved": bool(item["fine_tune_resolved"]),
                 "versionIndex": int(item["version_index"]),
                 "assetCount": int(item["asset_count"]),
                 "updatedAt": item["updated_at"].isoformat(),

@@ -30,7 +30,6 @@ from backend.app.api.workflow_handlers import (
     classifier_summary,
     sync_workflow_state,
     start_classifier_training,
-    start_fine_tune,
     start_generation,
     start_modification,
     task_status,
@@ -81,7 +80,6 @@ def build_router() -> Router:
     router.add_http("POST", "/api/sessions/{session_id}/dataset/classes", save_classes)
     router.add_http("GET", "/api/sessions/{session_id}/dataset/stats", dataset_stats)
     router.add_http("POST", "/api/sessions/{session_id}/workflow/state", sync_workflow_state)
-    router.add_http("POST", "/api/sessions/{session_id}/diffusion/fine-tune", start_fine_tune)
     router.add_http("GET", "/api/sessions/{session_id}/generation/config", generation_config)
     router.add_http("POST", "/api/sessions/{session_id}/generation", start_generation)
     router.add_http("GET", "/api/sessions/{session_id}/modification/source", modification_source)

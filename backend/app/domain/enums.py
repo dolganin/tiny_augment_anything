@@ -6,7 +6,6 @@ from enum import StrEnum
 class WorkflowStage(StrEnum):
     UPLOAD = "upload"
     DATASET_STATS = "dataset-stats"
-    FINE_TUNE = "fine-tune"
     MODE_SELECT = "mode-select"
     GENERATE = "generate"
     MODIFY = "modify"
@@ -33,7 +32,6 @@ class TaskStatus(StrEnum):
 class TaskType(StrEnum):
     IMPORT = "import"
     SELECT_CLASSES = "select-classes"
-    FINE_TUNE = "fine-tune"
     GENERATION = "generation"
     MODIFICATION = "modification"
     CLASSIFIER = "classifier"

@@ -57,61 +57,7 @@ async def execute_ml_generation(runtime_state, task_payload: dict[str, Any]) -> 
         )
         return
 
-    if task_type == "diffusion.prepare_weights":
-        await _prepare_diffusion_runtime(runtime_state, bundle)
-        return
-
     await _run_generation(runtime_state, bundle)
-
-
-async def _prepare_diffusion_runtime(runtime_state, bundle) -> None:
-    config = load_config(bundle)
-    log_event(logger, 20, "ml_worker.prepare.begin", run_dir=bundle.run_dir, config=config)
-    write_state(
-        bundle,
-        {
-            "status": "running",
-            "phase": "warming_up",
-            "progress": 0.2,
-            "message": "Загружаю пайплайн диффузии в память.",
-        },
-    )
-    warmed = None
-    try:
-        warmed = warm_diffusion_runtime(runtime_state.settings, config)
-        preload_diffusion_pipe(warmed, "img2img")
-    except Exception as error:
-        _write_terminal_state(bundle, RuntimeError(str(error)))
-        return
-
-    message = (
-        f"img2img runtime уже был прогрет на {warmed.key.device}."
-        if warmed.cache_hit
-        else f"img2img runtime загружен на {warmed.key.device} и готов к генерации."
-    )
-    log_event(
-        logger,
-        20,
-        "ml_worker.prepare.completed",
-        run_dir=bundle.run_dir,
-        cache_hit=warmed.cache_hit,
-        model_id=warmed.key.model_id,
-        device=warmed.key.device,
-        offload=warmed.key.offload,
-    )
-    write_state(
-        bundle,
-        {
-            "status": "success",
-            "phase": "runtime_ready",
-            "progress": 1.0,
-            "message": message,
-            "cacheHit": warmed.cache_hit,
-            "modelId": warmed.key.model_id,
-            "device": warmed.key.device,
-            "offload": warmed.key.offload,
-        },
-    )
 
 
 async def _run_generation(runtime_state, bundle) -> None:

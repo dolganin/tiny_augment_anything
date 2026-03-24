@@ -16,8 +16,6 @@ async def list_datasets(connection) -> list[dict[str, Any]]:
                 s.id AS session_id,
                 s.workflow_stage,
                 s.current_mode,
-                s.fine_tune_enabled,
-                s.fine_tune_resolved,
                 s.current_dataset_version_id,
                 COALESCE(v.version_index, 1) AS version_index,
                 COALESCE((v.summary ->> 'assetCount')::int, 0) AS asset_count

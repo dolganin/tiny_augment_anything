@@ -26,14 +26,12 @@ async def create_session(
             current_dataset_version_id,
             selected_classes,
             selected_class_targets,
-            fine_tune_enabled,
-            fine_tune_resolved,
             revision,
             created_at,
             updated_at,
             last_seen_at
         )
-        VALUES (%s, %s, %s, %s, '[]'::jsonb, '{}'::jsonb, false, false, 1, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, '[]'::jsonb, '{}'::jsonb, 1, %s, %s, %s)
         """,
         (session_id, WorkflowStage.DATASET_STATS.value, dataset_id, dataset_version_id, now, now, now),
     )
@@ -54,14 +52,12 @@ async def create_pending_session(
             current_dataset_version_id,
             selected_classes,
             selected_class_targets,
-            fine_tune_enabled,
-            fine_tune_resolved,
             revision,
             created_at,
             updated_at,
             last_seen_at
         )
-        VALUES (%s, %s, %s, NULL, '[]'::jsonb, '{}'::jsonb, false, false, 1, %s, %s, %s)
+        VALUES (%s, %s, %s, NULL, '[]'::jsonb, '{}'::jsonb, 1, %s, %s, %s)
         """,
         (session_id, WorkflowStage.UPLOAD.value, dataset_id, now, now, now),
     )
@@ -98,8 +94,6 @@ async def get_snapshot(connection, session_id: UUID) -> dict[str, Any] | None:
                 s.selected_classes,
                 s.selected_class_targets,
                 s.current_mode,
-                s.fine_tune_enabled,
-                s.fine_tune_resolved,
                 s.workflow_stage,
                 s.current_dataset_version_id,
                 s.last_download_path,
@@ -145,7 +139,7 @@ async def save_selected_classes(
             last_seen_at = %s
         WHERE id = %s
         """,
-        (Jsonb(list(class_names)), Jsonb(class_targets), WorkflowStage.FINE_TUNE.value, now, now, session_id),
+        (Jsonb(list(class_names)), Jsonb(class_targets), WorkflowStage.MODIFY.value, now, now, session_id),
     )
     await connection.execute(
         """

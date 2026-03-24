@@ -25,28 +25,6 @@ from backend.app.services.zimage import build_run_bundle
 CLASSIFIER_MODEL_KEYS = {"EdgeNeXt_finetune", "EVA02-small_finetune"}
 
 
-async def start_fine_tune(request: Request, params: dict[str, str], state: object):
-    runtime_state = _require_state(state)
-    session_id = parse_session_id(params["session_id"])
-    async with runtime_state.database.connection() as connection:
-        context = await get_session_context(connection, session_id)
-        if context is None or context["current_dataset_version_id"] is None:
-            raise AppError(404, "Сессия не готова к fine-tune.")
-        task = await create_task(
-            connection,
-            session_id=session_id,
-            task_type=TaskType.FINE_TUNE,
-            payload={},
-            dataset_version_id=context["current_dataset_version_id"],
-        )
-    await enqueue_core_task(
-        runtime_state.redis,
-        runtime_state.settings,
-        {"taskId": task["jobId"], "sessionId": str(session_id), "taskType": TaskType.FINE_TUNE.value},
-    )
-    return json_response(200, task)
-
-
 async def generation_config(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
     return json_response(200, generation_defaults(runtime_state.settings))
@@ -300,16 +278,12 @@ async def sync_workflow_state(request: Request, params: dict[str, str], state: o
     except ValueError as error:
         raise AppError(400, "Некорректный workflowStage.") from error
     mode = payload.get("currentMode")
-    fine_tune_enabled = payload.get("fineTuneEnabled")
-    fine_tune_resolved = payload.get("fineTuneResolved")
     async with runtime_state.database.connection() as connection:
         await sync_session_state(
             connection,
             session_id,
             stage=stage,
             mode=mode if isinstance(mode, str) else None,
-            fine_tune_enabled=fine_tune_enabled if isinstance(fine_tune_enabled, bool) else None,
-            fine_tune_resolved=fine_tune_resolved if isinstance(fine_tune_resolved, bool) else None,
         )
     return json_response(200, {"status": "success"})
 

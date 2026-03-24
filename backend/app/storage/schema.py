@@ -10,8 +10,6 @@ CREATE TABLE IF NOT EXISTS sessions (
     selected_classes jsonb NOT NULL DEFAULT '[]'::jsonb,
     selected_class_targets jsonb NOT NULL DEFAULT '{}'::jsonb,
     current_mode text NULL,
-    fine_tune_enabled boolean NOT NULL DEFAULT false,
-    fine_tune_resolved boolean NOT NULL DEFAULT false,
     last_error jsonb NULL,
     last_download_path text NULL,
     revision bigint NOT NULL DEFAULT 1,

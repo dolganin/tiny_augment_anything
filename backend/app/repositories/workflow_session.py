@@ -19,8 +19,6 @@ async def get_session_context(connection, session_id: UUID) -> dict[str, Any] | 
                 selected_class_targets,
                 current_mode,
                 workflow_stage,
-                fine_tune_enabled,
-                fine_tune_resolved,
                 last_download_path
             FROM sessions
             WHERE id = %s
@@ -36,8 +34,6 @@ async def update_session_stage(
     stage: WorkflowStage,
     *,
     mode: str | None = None,
-    fine_tune_enabled: bool | None = None,
-    fine_tune_resolved: bool | None = None,
     download_path: str | None = None,
 ) -> None:
     now = datetime.now(timezone.utc)
@@ -46,15 +42,13 @@ async def update_session_stage(
         UPDATE sessions
         SET workflow_stage = %s,
             current_mode = COALESCE(%s, current_mode),
-            fine_tune_enabled = COALESCE(%s, fine_tune_enabled),
-            fine_tune_resolved = COALESCE(%s, fine_tune_resolved),
             last_download_path = COALESCE(%s, last_download_path),
             revision = revision + 1,
             updated_at = %s,
             last_seen_at = %s
         WHERE id = %s
         """,
-        (stage.value, mode, fine_tune_enabled, fine_tune_resolved, download_path, now, now, session_id),
+        (stage.value, mode, download_path, now, now, session_id),
     )
 
 
@@ -79,14 +73,10 @@ async def sync_session_state(
     *,
     stage: WorkflowStage,
     mode: str | None,
-    fine_tune_enabled: bool | None,
-    fine_tune_resolved: bool | None,
 ) -> None:
     await update_session_stage(
         connection,
         session_id,
         stage,
         mode=mode,
-        fine_tune_enabled=fine_tune_enabled,
-        fine_tune_resolved=fine_tune_resolved,
     )
