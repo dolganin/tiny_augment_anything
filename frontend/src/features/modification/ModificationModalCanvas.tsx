@@ -7,7 +7,6 @@ import { type ModificationSourceAsset } from '@/shared/types/workflow'
 import { UseFormReturn } from 'react-hook-form'
 
 type ModificationModalCanvasProps = {
-  applyMaskToAll: boolean
   applyPromptToAll: boolean
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
@@ -16,7 +15,6 @@ type ModificationModalCanvasProps = {
   negativePromptValue: string
   mode: ModificationMode
   onApplyTemplate: (template: PromptTemplate) => void
-  onApplyMaskToAllChange: (value: boolean) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
@@ -40,7 +38,6 @@ type ModificationModalCanvasProps = {
 }
 
 export function ModificationModalCanvas({
-  applyMaskToAll,
   applyPromptToAll,
   areaConfirmed,
   areaPoints,
@@ -49,7 +46,6 @@ export function ModificationModalCanvas({
   mode,
   negativePromptValue,
   onApplyTemplate,
-  onApplyMaskToAllChange,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
@@ -131,14 +127,6 @@ export function ModificationModalCanvas({
             <h3 className="modification-modal__section-title">Batch-источники</h3>
             <span className="modification-modal__selection-summary">{selectedSourceCount} выбрано</span>
           </div>
-          <label className="modification-prompts__checkbox">
-            <input
-              checked={applyMaskToAll}
-              onChange={(event) => onApplyMaskToAllChange(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Одна маска для всех источников</span>
-          </label>
           <div className="modification-modal__source-grid">
             {sourceItems.map((item) => {
               const selected = selectedSourceIds[item.assetId] !== false

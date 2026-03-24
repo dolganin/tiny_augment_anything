@@ -9,8 +9,6 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModal } from '@/features/modification/ModificationModal'
 import { BatchProgressPanel } from '@/pages/modify/BatchProgressPanel'
 import { BatchSourceSelector } from '@/pages/modify/BatchSourceSelector'
-import { BatchTemplatePlanner } from '@/pages/modify/BatchTemplatePlanner'
-import { DatasetTemplatePanel } from '@/pages/modify/DatasetTemplatePanel'
 import { type ModifyFormValues } from '@/pages/modify/modify.types'
 import { useModifyPage } from '@/pages/modify/useModifyPage'
 import { useSessionStore } from '@/store/session/session.store'
@@ -26,37 +24,21 @@ export function ModifyPage() {
     },
   })
   const {
-    applyMaskToAll,
     applyPromptToAll,
-    applyDatasetSelectionTemplate,
-    applyDatasetTextTemplate,
     applyPromptTemplate,
-    applyPolygonTemplate,
     areaConfirmed,
     areaPoints,
-    canMigrateLocalTemplates,
     closeReview,
     clearSourceSelection,
     configQuery,
-    createDatasetPolygonTemplate,
-    createDatasetSelectionTemplate,
-    createDatasetTextTemplate,
-    datasetPolygonTemplates,
-    datasetSelectionTemplates,
-    datasetTextTemplates,
-    deleteDatasetPolygonTemplate,
-    deleteDatasetSelectionTemplate,
-    deleteDatasetTextTemplate,
     errorMessage,
     fieldValues,
     focusSource,
     isModificationActive,
     isModificationModalOpen,
     isReviewOpen,
-    isMutatingTemplates,
     launchMode,
     logs,
-    migrateDatasetTemplates,
     modificationMode,
     moveSource,
     moveToClassifier,
@@ -84,7 +66,6 @@ export function ModifyPage() {
     sourceIndex,
     sourceItems,
     sourceQuery,
-    startBatchFromPlanner,
     submitForm,
     totalTargetCount,
     textPromptTemplates,
@@ -175,34 +156,6 @@ export function ModifyPage() {
           />
         ) : null}
 
-        <DatasetTemplatePanel
-          canMigrateLocalTemplates={canMigrateLocalTemplates}
-          isMigratingTemplates={isMutatingTemplates}
-          onApplyPolygonTemplate={applyPolygonTemplate}
-          onApplySelectionTemplate={applyDatasetSelectionTemplate}
-          onApplyTextTemplate={applyDatasetTextTemplate}
-          onCreatePolygonTemplate={createDatasetPolygonTemplate}
-          onCreateSelectionTemplate={createDatasetSelectionTemplate}
-          onCreateTextTemplate={createDatasetTextTemplate}
-          onDeletePolygonTemplate={deleteDatasetPolygonTemplate}
-          onDeleteSelectionTemplate={deleteDatasetSelectionTemplate}
-          onDeleteTextTemplate={deleteDatasetTextTemplate}
-          onMigrateLocalTemplates={() => void migrateDatasetTemplates()}
-          polygonTemplates={datasetPolygonTemplates}
-          selectionTemplates={datasetSelectionTemplates}
-          textTemplates={datasetTextTemplates}
-        />
-
-        {launchMode === 'batch' ? (
-          <BatchTemplatePlanner
-            onApprovePlan={(params) => void startBatchFromPlanner(params)}
-            polygonTemplates={datasetPolygonTemplates}
-            selectedSourceIds={selectedSourceIds}
-            sourceItems={sourceItems}
-            textTemplates={datasetTextTemplates}
-          />
-        ) : null}
-
         {(configQuery.isLoading || sourceQuery.isLoading) && (
           <div className="upload-stage__loading">
             <Spinner label="Подтягиваю изображение и параметры модификации." />
@@ -239,7 +192,6 @@ export function ModifyPage() {
       </Modal>
 
       <ModificationModal
-        applyMaskToAll={applyMaskToAll}
         applyPromptToAll={applyPromptToAll}
         areaConfirmed={areaConfirmed}
         areaPoints={areaPoints}
@@ -249,7 +201,6 @@ export function ModifyPage() {
         mode={modificationMode}
         negativePromptValue={negativePromptValue}
         onApplyTemplate={applyPromptTemplate}
-        onApplyMaskToAllChange={setApplyMaskToAll}
         onApplyPromptToAllChange={setApplyPromptToAll}
         onAreaConfirm={setAreaConfirmed}
         onAreaPointsChange={updateAreaPoints}

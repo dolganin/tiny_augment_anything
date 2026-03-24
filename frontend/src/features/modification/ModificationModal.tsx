@@ -17,7 +17,6 @@ type ConfigField = {
 }
 
 type ModificationModalProps = {
-  applyMaskToAll: boolean
   applyPromptToAll: boolean
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
@@ -27,7 +26,6 @@ type ModificationModalProps = {
   mode: ModificationMode
   negativePromptValue: string
   onApplyTemplate: (template: PromptTemplate) => void
-  onApplyMaskToAllChange: (value: boolean) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
@@ -64,7 +62,6 @@ type ModificationModalProps = {
 }
 
 export function ModificationModal({
-  applyMaskToAll,
   applyPromptToAll,
   areaConfirmed,
   areaPoints,
@@ -72,7 +69,6 @@ export function ModificationModal({
   mode,
   negativePromptValue,
   onApplyTemplate,
-  onApplyMaskToAllChange,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
@@ -145,7 +141,6 @@ export function ModificationModal({
 
         <form className="modification-modal__content" onSubmit={onSubmit}>
           <ModificationModalCanvas
-            applyMaskToAll={applyMaskToAll}
             applyPromptToAll={applyPromptToAll}
             areaConfirmed={areaConfirmed}
             areaPoints={areaPoints}
@@ -154,7 +149,6 @@ export function ModificationModal({
             mode={mode}
             negativePromptValue={negativePromptValue}
             onApplyTemplate={onApplyTemplate}
-            onApplyMaskToAllChange={onApplyMaskToAllChange}
             onApplyPromptToAllChange={onApplyPromptToAllChange}
             onAreaConfirm={onAreaConfirm}
             onAreaPointsChange={onAreaPointsChange}
@@ -178,12 +172,9 @@ export function ModificationModal({
           />
 
           <ModificationModalParams
-            applyMaskToAll={applyMaskToAll}
             fieldValues={fieldValues}
-            launchMode={launchMode}
             mode={mode}
             onFieldValueChange={onFieldValueChange}
-            onMaskModeChange={onApplyMaskToAllChange}
             onModeChange={onModeChange}
             priorityFields={priorityFields}
             selectedSourceCount={selectedSourceCount}
