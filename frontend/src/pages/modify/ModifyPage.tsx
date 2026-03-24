@@ -168,6 +168,12 @@ export function ModifyPage() {
                   applyPromptTemplate(template)
                 }
               }}
+              onApplyNegativeTemplate={(templateId) => {
+                const template = textPromptTemplates.find((item) => item.id === templateId)
+                if (template?.scope === 'text' && template.negativeText) {
+                  updateFieldValue('negative_prompt', template.negativeText)
+                }
+              }}
               onContinue={() => setBatchStep('select-sources')}
               onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
               onPolygonClear={() => updateAreaPoints([])}

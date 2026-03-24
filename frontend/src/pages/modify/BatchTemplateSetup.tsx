@@ -15,6 +15,7 @@ type BatchTemplateSetupProps = {
   onAreaConfirm: () => void
   onAreaPointsChange: (points: AreaPoint[]) => void
   onApplyTextTemplate: (templateId: string) => void
+  onApplyNegativeTemplate: (templateId: string) => void
   onContinue: () => void
   onNegativePromptChange: (value: string) => void
   onPolygonClear: () => void
@@ -34,6 +35,7 @@ export function BatchTemplateSetup({
   onAreaConfirm,
   onAreaPointsChange,
   onApplyTextTemplate,
+  onApplyNegativeTemplate,
   onContinue,
   onNegativePromptChange,
   onPolygonClear,
@@ -81,27 +83,6 @@ export function BatchTemplateSetup({
             <span className="batch-setup__label-row">
               <span>Промпт модификации</span>
               <span className="modification-prompts__field-actions">
-                <select
-                  aria-label="Выбрать текстовый шаблон"
-                  className="modification-prompts__template-select"
-                  defaultValue={textTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
-                  disabled={textTemplates.length === 0}
-                  onChange={(event) => {
-                    const selectedId = event.target.value
-                    if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
-                      return
-                    }
-                    onApplyTextTemplate(selectedId)
-                    event.currentTarget.value = EMPTY_TEMPLATE_VALUE
-                  }}
-                >
-                  {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов</option>}
-                  {textTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
                 <Button
                   aria-label="Сохранить текстовый шаблон"
                   className="modification-prompts__save-button"
@@ -120,6 +101,27 @@ export function BatchTemplateSetup({
               rows={4}
               value={promptValue}
             />
+            <select
+              aria-label="Выбрать шаблон для промпта модификации"
+              className="modification-prompts__template-select modification-prompts__template-select--below"
+              defaultValue={textTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
+              disabled={textTemplates.length === 0}
+              onChange={(event) => {
+                const selectedId = event.target.value
+                if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
+                  return
+                }
+                onApplyTextTemplate(selectedId)
+                event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+              }}
+            >
+              {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон промпта</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов промпта</option>}
+              {textTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="batch-setup__field">
             <span className="batch-setup__label-row">
@@ -141,6 +143,27 @@ export function BatchTemplateSetup({
               rows={3}
               value={negativePromptValue}
             />
+            <select
+              aria-label="Выбрать шаблон для negative prompt"
+              className="modification-prompts__template-select modification-prompts__template-select--below"
+              defaultValue={textTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
+              disabled={textTemplates.length === 0}
+              onChange={(event) => {
+                const selectedId = event.target.value
+                if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
+                  return
+                }
+                onApplyNegativeTemplate(selectedId)
+                event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+              }}
+            >
+              {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
+              {textTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
