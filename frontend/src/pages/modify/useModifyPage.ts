@@ -23,10 +23,7 @@ import {
   type BatchStep,
   type ModificationLaunchMode,
   type ModifyFormValues,
-  type PolygonTemplate,
   type PromptTemplate,
-  type SelectionPromptTemplate,
-  type TextPromptTemplate,
 } from '@/pages/modify/modify.types'
 
 type UseModifyPageParams = {
@@ -94,7 +91,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const [launchMode, setLaunchMode] = useState<ModificationLaunchMode>('batch')
   const [modificationMode, setModificationMode] = useState<ModificationMode>('inpaint')
   const [applyPromptToAll, setApplyPromptToAll] = useState(true)
-  const [applyMaskToAll, setApplyMaskToAll] = useState(true)
   const [promptBySourceId, setPromptBySourceId] = useState<Record<string, string>>({})
   const taskSnapshotRef = useRef<string | null>(null)
 
@@ -105,18 +101,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   const singleModificationMutation = useStartModificationMutation(sessionId ?? '')
   const finalizeReviewMutation = useFinalizeReviewMutation(sessionId ?? '')
   const taskStatusQuery = useTaskStatusQuery(sessionId, generationJobId)
-  const {
-    canMigrateLocalTemplates,
-    createPolygonTemplate,
-    createSelectionTemplate,
-    createTextTemplate,
-    datasetTemplates,
-    deletePolygonTemplate,
-    deleteSelectionTemplate,
-    deleteTextTemplate,
-    isMutatingTemplates,
-    migrateLocalTemplates,
-  } = useDatasetTemplateSync(sessionId)
+  const { createPolygonTemplate } = useDatasetTemplateSync(sessionId)
 
   useEffect(() => {
     if (workflowStage !== 'review') {
@@ -287,10 +272,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     [promptTemplates],
   )
 
-  const datasetTextTemplates = useMemo(() => datasetTemplates.textTemplates, [datasetTemplates.textTemplates])
-  const datasetSelectionTemplates = useMemo(() => datasetTemplates.selectionTemplates, [datasetTemplates.selectionTemplates])
-  const datasetPolygonTemplates = useMemo(() => datasetTemplates.polygonTemplates, [datasetTemplates.polygonTemplates])
-
   const activeSourceItems = useMemo(
     () => (launchMode === 'single' ? (source ? [source] : []) : selectedSourceItems),
     [launchMode, selectedSourceItems, source],
@@ -319,15 +300,15 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     if (!source) {
       return []
     }
-    return applyMaskToAll ? sharedAreaPoints : areaPointsBySourceId[source.assetId] ?? []
-  }, [applyMaskToAll, areaPointsBySourceId, sharedAreaPoints, source])
+    return launchMode === 'batch' ? sharedAreaPoints : areaPointsBySourceId[source.assetId] ?? []
+  }, [areaPointsBySourceId, launchMode, sharedAreaPoints, source])
 
   const areaConfirmed = useMemo(() => {
     if (!source) {
       return false
     }
-    return applyMaskToAll ? sharedAreaConfirmed : Boolean(areaConfirmedBySourceId[source.assetId])
-  }, [applyMaskToAll, areaConfirmedBySourceId, sharedAreaConfirmed, source])
+    return launchMode === 'batch' ? sharedAreaConfirmed : Boolean(areaConfirmedBySourceId[source.assetId])
+  }, [areaConfirmedBySourceId, launchMode, sharedAreaConfirmed, source])
 
   useEffect(() => {
     if (!source) {
@@ -341,7 +322,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     if (!source) {
       return
     }
-    if (applyMaskToAll) {
+    if (launchMode === 'batch') {
       setSharedAreaPoints(value)
       setSharedAreaConfirmed(false)
       return
@@ -354,7 +335,7 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     if (!source) {
       return
     }
-    if (applyMaskToAll) {
+    if (launchMode === 'batch') {
       setSharedAreaConfirmed(true)
       return
     }
@@ -386,30 +367,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
         [source.assetId]: current[source.assetId] ?? currentPrompt,
       }))
     }
-  }
-
-  const updateApplyMaskToAll = (value: boolean) => {
-    setApplyMaskToAll(value)
-    if (!source) {
-      return
-    }
-    if (value) {
-      const nextSharedPoints = areaPointsBySourceId[source.assetId] ?? sharedAreaPoints
-      const nextSharedConfirmed = areaConfirmedBySourceId[source.assetId] ?? sharedAreaConfirmed
-      if (nextSharedPoints.length > 0) {
-        setSharedAreaPoints(nextSharedPoints)
-      }
-      setSharedAreaConfirmed(Boolean(nextSharedConfirmed))
-      return
-    }
-    setAreaPointsBySourceId((current) => ({
-      ...current,
-      [source.assetId]: current[source.assetId] ?? sharedAreaPoints,
-    }))
-    setAreaConfirmedBySourceId((current) => ({
-      ...current,
-      [source.assetId]: current[source.assetId] ?? sharedAreaConfirmed,
-    }))
   }
 
   const updateFieldValue = (key: string, value: string) => {
@@ -461,32 +418,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     setSession({ promptTemplates: storedPromptTemplates.filter((template) => template.id !== templateId) })
   }
 
-  const createDatasetTextTemplate = async (name: string) => {
-    const prompt = form.getValues('prompt').trim()
-    if (!prompt) {
-      setErrorMessage('Сначала заполни основной prompt, потом сохраняй текстовый шаблон.')
-      return
-    }
-    try {
-      await createTextTemplate(name.trim(), prompt, (fieldValues.negative_prompt ?? '').trim() || undefined)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const createDatasetSelectionTemplate = async (name: string) => {
-    const text = (fieldValues.sam_prompt ?? '').trim()
-    if (!text) {
-      setErrorMessage('Сначала заполни SAM prompt, потом сохраняй selection template.')
-      return
-    }
-    try {
-      await createSelectionTemplate(name.trim(), text)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
   const createDatasetPolygonTemplate = async (name: string) => {
     if (areaPoints.length < 3 || !areaConfirmed) {
       setErrorMessage('Чтобы сохранить шаблон полигона, сначала подтверди область на изображении.')
@@ -494,99 +425,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     }
     try {
       await createPolygonTemplate(name.trim(), areaPoints)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const deleteDatasetTextTemplate = async (templateId: string) => {
-    try {
-      await deleteTextTemplate(templateId)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const deleteDatasetSelectionTemplate = async (templateId: string) => {
-    try {
-      await deleteSelectionTemplate(templateId)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const deleteDatasetPolygonTemplate = async (templateId: string) => {
-    try {
-      await deletePolygonTemplate(templateId)
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const applyDatasetTextTemplate = (template: TextPromptTemplate) => {
-    updatePromptValue(interpolateTemplateText(template.prompt, source))
-    updateFieldValue('negative_prompt', interpolateTemplateText(template.negativePrompt ?? '', source))
-  }
-
-  const applyDatasetSelectionTemplate = (template: SelectionPromptTemplate) => {
-    updateFieldValue('sam_prompt', interpolateTemplateText(template.text, source))
-  }
-
-  const applyPolygonTemplate = (template: PolygonTemplate) => {
-    updateAreaPoints(template.points)
-  }
-
-  const migrateDatasetTemplates = async () => {
-    try {
-      await migrateLocalTemplates()
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error))
-    }
-  }
-
-  const startBatchFromPlanner = async (params: {
-    sourceAssetIds: string[]
-    textTemplateId: string | null
-    polygonTemplateId: string | null
-  }) => {
-    if (!sessionId) {
-      return
-    }
-    const textTemplate = datasetTextTemplates.find((template) => template.id === params.textTemplateId) ?? null
-    const polygonTemplate = datasetPolygonTemplates.find((template) => template.id === params.polygonTemplateId) ?? null
-    if (!textTemplate) {
-      setErrorMessage('Для batch planner сначала выбери текстовый шаблон.')
-      return
-    }
-    if (!polygonTemplate || polygonTemplate.points.length < 3) {
-      setErrorMessage('Для batch planner сначала выбери шаблон полигона.')
-      return
-    }
-    const plannedSources = sourceItems.filter((item) => params.sourceAssetIds.includes(item.assetId))
-    if (plannedSources.length === 0) {
-      setErrorMessage('Выбери хотя бы один источник для батчевой обработки.')
-      return
-    }
-    try {
-      const response = await batchModificationMutation.mutateAsync({
-        commonPrompt: interpolateTemplateText(textTemplate.prompt, source),
-        negativePrompt: interpolateTemplateText(textTemplate.negativePrompt ?? '', source) || undefined,
-        config: {
-          ...fieldValues,
-          negative_prompt: interpolateTemplateText(textTemplate.negativePrompt ?? '', source),
-          sam_prompt: '',
-        },
-        classTargets: selectedClassTargets,
-        batchMode: 'common_mask',
-        areaPoints: polygonTemplate.points,
-        sources: plannedSources.map((item) => ({
-          assetId: item.assetId,
-          areaPoints: polygonTemplate.points,
-          customPrompt: null,
-        })),
-      })
-      setSession({ generationJobId: response.jobId })
-      setLogs([`Пакет подтверждён и отправлен в очередь. Источников: ${plannedSources.length}.`])
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
@@ -672,28 +510,8 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     if (!sessionId) {
       return
     }
-    if (launchMode === 'batch') {
-      if (selectedSourceItems.length === 0) {
-        setErrorMessage('Выбери хотя бы одно изображение для batch-модификации.')
-        return
-      }
-      if (!values.prompt.trim()) {
-        setErrorMessage('Сначала задай промпт batch-модификации.')
-        return
-      }
-      if (!sharedAreaConfirmed || sharedAreaPoints.length < 3) {
-        setErrorMessage('Сначала подтверди общую область для batch-модификации.')
-        return
-      }
-      setIsBatchValidationModalOpen(true)
-      return
-    }
     if (activeSourceItems.length === 0) {
-      setErrorMessage(
-        launchMode === 'batch'
-          ? 'Выбери хотя бы одно изображение для batch-модификации.'
-          : 'Не удалось определить текущее изображение для модификации.',
-      )
+      setErrorMessage('Не удалось определить текущее изображение для модификации.')
       return
     }
     if (totalTargetCount <= 0) {
@@ -704,72 +522,23 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     const samPrompt = (fieldValues.sam_prompt ?? '').trim()
     const hasMaskPrompt = modificationMode === 'full' || samPrompt.length > 0
     if (modificationMode === 'inpaint' && !hasMaskPrompt) {
-      if (launchMode === 'single') {
-        if (!areaConfirmed || areaPoints.length < 3) {
-          setErrorMessage('Подтверди область на текущем изображении или задай SAM prompt.')
-          return
-        }
-      } else {
-        if (applyMaskToAll && (!sharedAreaConfirmed || sharedAreaPoints.length < 3)) {
-          setErrorMessage('Подтверди общую область или задай SAM prompt для batch-модификации.')
-          return
-        }
-        if (!applyMaskToAll) {
-          const missingMask = activeSourceItems.find((item) => {
-            const itemPoints = areaPointsBySourceId[item.assetId] ?? []
-            const itemConfirmed = areaConfirmedBySourceId[item.assetId] ?? false
-            return !itemConfirmed || itemPoints.length < 3
-          })
-          if (missingMask) {
-            setErrorMessage('Для режима индивидуальных масок нужно подтвердить область на каждом выбранном изображении.')
-            return
-          }
-        }
+      if (!areaConfirmed || areaPoints.length < 3) {
+        setErrorMessage('Подтверди область на текущем изображении или задай SAM prompt.')
+        return
       }
     }
 
     try {
-      const response =
-        launchMode === 'single'
-          ? await singleModificationMutation.mutateAsync({
-              prompt: values.prompt,
-              sourceAssetId: activeSourceItems[0].assetId,
-              sampleCount: totalTargetCount,
-              classTargets: selectedClassTargets,
-              config: fieldValues,
-              areaPoints: modificationMode === 'inpaint' && areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
-            })
-          : await batchModificationMutation.mutateAsync({
-              commonPrompt: values.prompt,
-              negativePrompt: (fieldValues.negative_prompt ?? '').trim() || undefined,
-              config: fieldValues,
-              classTargets: selectedClassTargets,
-              batchMode: applyMaskToAll || modificationMode === 'full' ? 'common_mask' : 'custom_masks',
-              areaPoints:
-                modificationMode === 'inpaint' && applyMaskToAll && sharedAreaConfirmed && sharedAreaPoints.length >= 3
-                  ? sharedAreaPoints
-                  : undefined,
-              sources: activeSourceItems.map((item) => {
-                const customPrompt = applyPromptToAll ? null : (promptBySourceId[item.assetId] ?? '').trim() || null
-                const sourceAreaPoints =
-                  modificationMode === 'inpaint' && !applyMaskToAll
-                    ? areaConfirmedBySourceId[item.assetId] && (areaPointsBySourceId[item.assetId] ?? []).length >= 3
-                      ? areaPointsBySourceId[item.assetId]
-                      : undefined
-                    : undefined
-                return {
-                  assetId: item.assetId,
-                  areaPoints: sourceAreaPoints,
-                  customPrompt,
-                }
-              }),
-            })
+      const response = await singleModificationMutation.mutateAsync({
+        prompt: values.prompt,
+        sourceAssetId: activeSourceItems[0].assetId,
+        sampleCount: totalTargetCount,
+        classTargets: selectedClassTargets,
+        config: fieldValues,
+        areaPoints: modificationMode === 'inpaint' && areaConfirmed && areaPoints.length >= 3 ? areaPoints : undefined,
+      })
       setSession({ generationJobId: response.jobId })
-      setLogs(
-        launchMode === 'single'
-          ? [`Запуск модификации изображения отправлен на бэкенд. Источник: ${activeSourceItems[0].className}.`]
-          : [`Запуск batch-модификации отправлен на бэкенд. Источников: ${activeSourceItems.length}.`],
-      )
+      setLogs([`Запуск модификации изображения отправлен на бэкенд. Источник: ${activeSourceItems[0].className}.`])
       setIsModificationModalOpen(false)
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
@@ -817,7 +586,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
       setBatchStep('setup')
       setIsBatchValidationModalOpen(false)
       setIsModificationModalOpen(false)
-      setApplyMaskToAll(true)
       return
     }
     setIsModificationModalOpen(true)
@@ -835,38 +603,23 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   })
 
   return {
-    applyDatasetSelectionTemplate,
-    applyDatasetTextTemplate,
-    applyMaskToAll,
     applyPromptToAll,
     applyPromptTemplate,
-    applyPolygonTemplate,
     areaConfirmed,
     areaPoints,
     batchMaskPreviewPoints,
     batchStep,
     closeReview,
     configQuery,
-    canMigrateLocalTemplates,
     createDatasetPolygonTemplate,
-    createDatasetSelectionTemplate,
-    createDatasetTextTemplate,
-    datasetPolygonTemplates,
-    datasetSelectionTemplates,
-    datasetTextTemplates,
-    deleteDatasetPolygonTemplate,
-    deleteDatasetSelectionTemplate,
-    deleteDatasetTextTemplate,
     errorMessage,
     fieldValues,
     isModificationActive,
     isBatchValidationModalOpen,
     isModificationModalOpen,
     isReviewOpen,
-    isMutatingTemplates,
     launchMode,
     logs,
-    migrateDatasetTemplates,
     modificationMode,
     moveSource,
     moveToClassifier,
@@ -888,7 +641,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     deletePromptTemplate,
     focusSource,
     selectAllSources,
-    setApplyMaskToAll: updateApplyMaskToAll,
     setApplyPromptToAll: updateApplyPromptToAll,
     setAreaConfirmed: confirmArea,
     setErrorMessage,
@@ -900,7 +652,6 @@ export function useModifyPage({ form }: UseModifyPageParams) {
     sourceIndex,
     sourceItems,
     sourceQuery,
-    startBatchFromPlanner,
     submitBatchModification,
     submitForm,
     taskStatusQuery,
