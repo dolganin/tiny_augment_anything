@@ -24,6 +24,19 @@ export const metricsResponseSchema = z.object({
   recall: z.array(metricsPointSchema),
 })
 
+export const metricVersionItemSchema = z.object({
+  datasetVersionId: z.string(),
+  versionIndex: z.number().int().positive(),
+  kind: z.string(),
+  createdAt: z.string().nullable().optional(),
+  isActive: z.boolean(),
+  hasMetrics: z.boolean(),
+})
+
+export const metricVersionsResponseSchema = z.object({
+  items: z.array(metricVersionItemSchema),
+})
+
 export const classifierSplitClassSchema = z.object({
   className: z.string(),
   originalCount: z.number().int().nonnegative(),

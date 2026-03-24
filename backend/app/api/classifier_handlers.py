@@ -3,7 +3,7 @@ from __future__ import annotations
 from backend.app.domain.enums import TaskType
 from backend.app.repositories.tasks import create_task
 from backend.app.repositories.workflow_assets import list_active_assets_with_origin
-from backend.app.repositories.workflow_runs import get_latest_metrics, list_classifier_runs
+from backend.app.repositories.workflow_runs import get_latest_metrics, list_metric_versions, resolve_dataset_version
 from backend.app.repositories.workflow_session import get_session_context
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.request import Request
@@ -42,11 +42,48 @@ async def start_classifier_training(request: Request, params: dict[str, str], st
 async def metrics(request: Request, params: dict[str, str], state: object):
     runtime_state = require_runtime_state(state)
     session_id = parse_session_id(params["session_id"])
+    requested_version_id = request.query_params.get("versionId")
     async with runtime_state.database.connection() as connection:
-        result = await get_latest_metrics(connection, session_id)
+        context = await get_session_context(connection, session_id)
+        if context is None or context["dataset_id"] is None or context["current_dataset_version_id"] is None:
+            raise AppError(404, "Сессия не привязана к версии датасета.")
+        dataset_version_id = context["current_dataset_version_id"]
+        if requested_version_id:
+            dataset_version_id = _parse_version_id(requested_version_id)
+            resolved_version_id = await resolve_dataset_version(connection, context["dataset_id"], dataset_version_id)
+            if resolved_version_id is None:
+                raise AppError(404, "Версия датасета не найдена.")
+            dataset_version_id = resolved_version_id
+        result = await get_latest_metrics(connection, dataset_version_id)
     if result is None or not isinstance(result, dict):
         return json_response(200, {"ready": False, "precision": [], "recall": []})
     return json_response(200, {"ready": True, **result})
+
+
+async def metric_versions(request: Request, params: dict[str, str], state: object):
+    runtime_state = require_runtime_state(state)
+    session_id = parse_session_id(params["session_id"])
+    async with runtime_state.database.connection() as connection:
+        context = await get_session_context(connection, session_id)
+        if context is None or context["dataset_id"] is None:
+            raise AppError(404, "Сессия не привязана к датасету.")
+        versions = await list_metric_versions(connection, context["dataset_id"], context["current_dataset_version_id"])
+    return json_response(
+        200,
+        {
+            "items": [
+                {
+                    "datasetVersionId": str(item["id"]),
+                    "versionIndex": int(item["version_index"]),
+                    "kind": str(item["kind"]),
+                    "createdAt": item["created_at"].isoformat() if item["created_at"] is not None else None,
+                    "isActive": bool(item["is_active"]),
+                    "hasMetrics": bool(item["has_metrics"]),
+                }
+                for item in versions
+            ]
+        },
+    )
 
 
 async def classifier_summary(request: Request, params: dict[str, str], state: object):
@@ -113,3 +150,12 @@ def _build_split_payload(assets: list[dict], val_ratio: float) -> dict[str, obje
         "perClass": split["perClass"],
         "error": None,
     }
+
+
+def _parse_version_id(raw_version_id: str):
+    from uuid import UUID
+
+    try:
+        return UUID(raw_version_id)
+    except ValueError as error:
+        raise AppError(400, "Некорректный versionId.") from error

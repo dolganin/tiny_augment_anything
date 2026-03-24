@@ -332,24 +332,73 @@ async def update_classifier_run_status(connection, run_id: UUID, status: TaskSta
     )
 
 
-async def get_latest_metrics(connection, session_id: UUID) -> dict[str, Any] | None:
+async def get_latest_metrics(connection, dataset_version_id: UUID) -> dict[str, Any] | None:
     async with connection.cursor() as cursor:
         await cursor.execute(
             """
             SELECT metrics
             FROM classifier_runs
-            WHERE session_id = %s
+            WHERE dataset_version_id = %s
               AND status = %s
             ORDER BY finished_at DESC NULLS LAST, created_at DESC
             LIMIT 1
             """,
-            (session_id, TaskStatus.SUCCESS.value),
+            (dataset_version_id, TaskStatus.SUCCESS.value),
         )
         row = await cursor.fetchone()
     return None if row is None else row["metrics"]
 
 
-async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, Any]]:
+async def list_metric_versions(
+    connection,
+    dataset_id: UUID,
+    active_version_id: UUID | None,
+) -> list[dict[str, Any]]:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT
+                v.id,
+                v.version_index,
+                v.kind,
+                v.created_at,
+                (v.id = %s) AS is_active,
+                EXISTS(
+                    SELECT 1
+                    FROM classifier_runs cr
+                    WHERE cr.dataset_version_id = v.id
+                      AND cr.status = %s
+                      AND cr.metrics IS NOT NULL
+                ) AS has_metrics
+            FROM dataset_versions v
+            WHERE v.dataset_id = %s
+            ORDER BY v.version_index DESC, v.created_at DESC
+            """,
+            (active_version_id, TaskStatus.SUCCESS.value, dataset_id),
+        )
+        return await cursor.fetchall()
+
+
+async def resolve_dataset_version(
+    connection,
+    dataset_id: UUID,
+    requested_version_id: UUID,
+) -> UUID | None:
+    async with connection.cursor() as cursor:
+        await cursor.execute(
+            """
+            SELECT id
+            FROM dataset_versions
+            WHERE id = %s
+              AND dataset_id = %s
+            """,
+            (requested_version_id, dataset_id),
+        )
+        row = await cursor.fetchone()
+    return None if row is None else row["id"]
+
+
+async def list_classifier_runs(connection, dataset_version_id: UUID) -> list[dict[str, Any]]:
     async with connection.cursor() as cursor:
         await cursor.execute(
             """
@@ -378,7 +427,8 @@ async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, A
                         ORDER BY created_at DESC, finished_at DESC NULLS LAST, id DESC
                     ) AS row_number
                 FROM classifier_runs
-                WHERE session_id = %s
+                WHERE dataset_version_id = %s
+                  AND status = %s
             )
             SELECT
                 id,
@@ -398,6 +448,6 @@ async def list_classifier_runs(connection, session_id: UUID) -> list[dict[str, A
             WHERE row_number = 1
             ORDER BY created_at DESC, finished_at DESC NULLS LAST
             """,
-            (session_id,),
+            (dataset_version_id, TaskStatus.SUCCESS.value),
         )
         return await cursor.fetchall()

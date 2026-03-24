@@ -4,6 +4,7 @@ import {
   datasetUploadResponseSchema,
   classifierWeightsUploadResponseSchema,
   classifierSummaryResponseSchema,
+  metricVersionsResponseSchema,
   diffusionLoraAdaptersResponseSchema,
   diffusionLoraUploadResponseSchema,
   finalizeReviewPayloadSchema,
@@ -302,8 +303,14 @@ export const workflowApi = {
     const response = await http.get(endpoints.classifierSummary(sessionId))
     return classifierSummaryResponseSchema.parse(response.data)
   },
-  async getMetrics(sessionId: string) {
-    const response = await http.get(endpoints.getMetrics(sessionId))
+  async getMetricVersions(sessionId: string) {
+    const response = await http.get(endpoints.metricVersions(sessionId))
+    return metricVersionsResponseSchema.parse(response.data)
+  },
+  async getMetrics(sessionId: string, versionId?: string | null) {
+    const response = await http.get(endpoints.getMetrics(sessionId), {
+      params: versionId ? { versionId } : undefined,
+    })
     return metricsResponseSchema.parse(response.data)
   },
 }

@@ -47,6 +47,7 @@ from backend.app.api.workflow_handlers import (
     generation_results,
     latest_augmentation_run,
     metrics,
+    metric_versions,
     modification_source,
     cancel_running_task,
     classifier_summary,
@@ -130,6 +131,7 @@ def build_router() -> Router:
     router.add_http("POST", "/api/sessions/{session_id}/review/finalize", finalize_review)
     router.add_http("POST", "/api/sessions/{session_id}/classifier/train", start_classifier_training)
     router.add_http("GET", "/api/sessions/{session_id}/classifier/summary", classifier_summary)
+    router.add_http("GET", "/api/sessions/{session_id}/metrics/versions", metric_versions)
     router.add_http("GET", "/api/sessions/{session_id}/metrics", metrics)
     router.add_ws("/ws/sessions/{session_id}/stream", session_stream)
     return router

@@ -11,6 +11,7 @@ import { endpoints } from '@/shared/api/endpoints'
 import { env } from '@/shared/config/env'
 import {
   ClassifierSplitSummary,
+  DatasetMetricVersion,
   DatasetCatalogItem,
   DatasetClassStat,
   GenerationAsset,
@@ -91,6 +92,25 @@ export const adaptMetrics = (response: MetricsResponse): WorkflowMetrics => ({
     value: item.value,
   })),
 })
+
+export const adaptMetricVersions = (response: {
+  items: Array<{
+    datasetVersionId: string
+    versionIndex: number
+    kind: string
+    createdAt?: string | null
+    isActive: boolean
+    hasMetrics: boolean
+  }>
+}): DatasetMetricVersion[] =>
+  response.items.map((item) => ({
+    datasetVersionId: item.datasetVersionId,
+    versionIndex: item.versionIndex,
+    kind: item.kind,
+    createdAt: item.createdAt ?? null,
+    isActive: item.isActive,
+    hasMetrics: item.hasMetrics,
+  }))
 
 export const adaptClassifierSummary = (response: {
   split: {

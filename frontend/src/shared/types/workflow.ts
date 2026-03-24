@@ -62,6 +62,15 @@ export type WorkflowMetrics = {
   recall: MetricPoint[]
 }
 
+export type DatasetMetricVersion = {
+  datasetVersionId: string
+  versionIndex: number
+  kind: string
+  createdAt: string | null
+  isActive: boolean
+  hasMetrics: boolean
+}
+
 export type ClassifierSplitClass = {
   className: string
   originalCount: number

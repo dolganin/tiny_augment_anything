@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
-import { adaptMetrics } from '@/shared/api/adapters'
-import { useMetricsQuery, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
+import { adaptMetricVersions, adaptMetrics } from '@/shared/api/adapters'
+import { useMetricsQuery, useMetricVersionsQuery, useTaskStatusQuery } from '@/shared/api/workflow.hooks'
 import { useWorkflowSocket } from '@/shared/api/workflow.socket'
 import { TrainingLogPanel } from '@/features/fine-tune-training/TrainingLogPanel'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
 import { getErrorMessage } from '@/shared/lib/get-error-message'
+import { type DatasetMetricVersion } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 import { MetricsChart } from '@/features/classifier-metrics/MetricsChart'
 import { Button } from '@/shared/ui/buttons/Button'
@@ -22,8 +22,10 @@ export function MetricsPage() {
   const setSession = useSessionStore((state) => state.setSession)
   const sessionId = useSessionStore((state) => state.sessionId)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const taskSnapshotRef = useRef<string | null>(null)
-  const metricsQuery = useMetricsQuery(classifierJobId ? null : sessionId)
+  const metricVersionsQuery = useMetricVersionsQuery(sessionId)
+  const metricsQuery = useMetricsQuery(classifierJobId ? null : sessionId, selectedVersionId)
   const taskStatusQuery = useTaskStatusQuery(sessionId, classifierJobId)
 
   useEffect(() => {
@@ -33,6 +35,29 @@ export function MetricsPage() {
   useEffect(() => {
     taskSnapshotRef.current = null
   }, [classifierJobId])
+
+  const metricVersions = useMemo<DatasetMetricVersion[]>(
+    () => (metricVersionsQuery.data ? adaptMetricVersions(metricVersionsQuery.data) : []),
+    [metricVersionsQuery.data],
+  )
+
+  useEffect(() => {
+    if (metricVersions.length === 0) {
+      setSelectedVersionId(null)
+      return
+    }
+    const selectedStillExists = selectedVersionId
+      ? metricVersions.some((item) => item.datasetVersionId === selectedVersionId)
+      : false
+    if (selectedStillExists) {
+      return
+    }
+    const preferredVersion =
+      metricVersions.find((item) => item.isActive) ??
+      metricVersions.find((item) => item.hasMetrics) ??
+      metricVersions[0]
+    setSelectedVersionId(preferredVersion.datasetVersionId)
+  }, [metricVersions, selectedVersionId])
 
   const appendLog = (line: string) => {
     const currentLogs = useSessionStore.getState().classifierLogs
@@ -132,14 +157,21 @@ export function MetricsPage() {
   }, [metricsQuery.data, setSession])
 
   useEffect(() => {
-    if (!metricsQuery.error) {
+    if (!metricsQuery.error && !metricVersionsQuery.error) {
       return
     }
-    setErrorMessage(getErrorMessage(metricsQuery.error))
-  }, [metricsQuery.error])
+    setErrorMessage(getErrorMessage(metricsQuery.error ?? metricVersionsQuery.error))
+  }, [metricVersionsQuery.error, metricsQuery.error])
 
-  const visibleMetrics = useMemo(() => metrics ?? { precision: [], recall: [] }, [metrics])
+  const visibleMetrics = useMemo(
+    () => (metricsQuery.data && metricsQuery.data.ready !== false ? adaptMetrics(metricsQuery.data) : { precision: [], recall: [] }),
+    [metricsQuery.data],
+  )
   const metricsReady = metricsQuery.data?.ready !== false
+  const selectedVersion = useMemo(
+    () => metricVersions.find((item) => item.datasetVersionId === selectedVersionId) ?? null,
+    [metricVersions, selectedVersionId],
+  )
   const hasClassifierState =
     Boolean(classifierJobId) || classifierLogs.length > 0 || Boolean(metrics) || workflowStage === 'metrics'
   const isTrainingActive =
@@ -162,7 +194,7 @@ export function MetricsPage() {
   return (
     <>
       <PageFrame
-        description="Следи за логами обучения и смотри итоговые precision/recall по каждому классу."
+        description=""
         title="Метрики по классам"
       >
         {isTrainingActive ? (
@@ -204,9 +236,48 @@ export function MetricsPage() {
         ) : null}
 
         {!isTrainingActive && !isStaleTrainingState && !metricsQuery.isLoading ? (
-          <div className="metrics-grid">
-            <MetricsChart items={visibleMetrics.recall} title="Recall" tone="recall" />
-            <MetricsChart items={visibleMetrics.precision} title="Precision" tone="precision" />
+          <div className="metrics-layout">
+            <aside className="metrics-versions">
+              <h3 className="metrics-versions__title">Версии датасета</h3>
+              <div className="metrics-versions__list">
+                {metricVersions.map((version) => (
+                  <button
+                    className={`metrics-versions__item${version.datasetVersionId === selectedVersionId ? ' metrics-versions__item--active' : ''}`}
+                    key={version.datasetVersionId}
+                    onClick={() => setSelectedVersionId(version.datasetVersionId)}
+                    type="button"
+                  >
+                    <span className="metrics-versions__index">v{version.versionIndex}</span>
+                    <span className="metrics-versions__meta">
+                      {version.hasMetrics ? 'Есть метрики' : 'Без метрик'}
+                      {version.isActive ? ' · активная' : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+
+            <div className="metrics-content">
+              <div className="info-card">
+                <p className="info-card__text">
+                  {selectedVersion
+                    ? `Показаны метрики для версии v${selectedVersion.versionIndex}.`
+                    : 'Выбери версию датасета, чтобы посмотреть её метрики.'}
+                </p>
+              </div>
+              {metricsReady ? (
+                <div className="metrics-grid">
+                  <MetricsChart items={visibleMetrics.recall} title="Recall" tone="recall" />
+                  <MetricsChart items={visibleMetrics.precision} title="Precision" tone="precision" />
+                </div>
+              ) : (
+                <div className="upload-stage">
+                  <p className="upload-stage__status">
+                    Для выбранной версии датасета метрики ещё не рассчитаны.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
       </PageFrame>

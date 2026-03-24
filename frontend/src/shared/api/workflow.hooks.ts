@@ -10,6 +10,7 @@ const workflowKeys = {
   generationResults: (sessionId: string) => ['workflow', 'generation-results', sessionId] as const,
   diffusionLoraAdapters: (sessionId: string) => ['workflow', 'diffusion-lora-adapters', sessionId] as const,
   classifierSummary: (sessionId: string) => ['workflow', 'classifier-summary', sessionId] as const,
+  metricVersions: (sessionId: string) => ['workflow', 'metric-versions', sessionId] as const,
   metrics: (sessionId: string) => ['workflow', 'metrics', sessionId] as const,
 }
 
@@ -131,10 +132,18 @@ export function useDiffusionLoraAdaptersQuery(sessionId: string | null) {
   })
 }
 
-export function useMetricsQuery(sessionId: string | null) {
+export function useMetricVersionsQuery(sessionId: string | null) {
   return useQuery({
-    queryKey: sessionId ? workflowKeys.metrics(sessionId) : ['workflow', 'metrics', 'empty'],
-    queryFn: () => workflowApi.getMetrics(sessionId!),
+    queryKey: sessionId ? workflowKeys.metricVersions(sessionId) : ['workflow', 'metric-versions', 'empty'],
+    queryFn: () => workflowApi.getMetricVersions(sessionId!),
+    enabled: Boolean(sessionId),
+  })
+}
+
+export function useMetricsQuery(sessionId: string | null, versionId?: string | null) {
+  return useQuery({
+    queryKey: sessionId ? [...workflowKeys.metrics(sessionId), versionId ?? 'current'] : ['workflow', 'metrics', 'empty'],
+    queryFn: () => workflowApi.getMetrics(sessionId!, versionId),
     enabled: Boolean(sessionId),
   })
 }

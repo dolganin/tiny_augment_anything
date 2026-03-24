@@ -1,4 +1,4 @@
-from backend.app.api.classifier_handlers import classifier_summary, metrics, start_classifier_training
+from backend.app.api.classifier_handlers import classifier_summary, metric_versions, metrics, start_classifier_training
 from backend.app.api.generation_handlers import (
     batch_modification_sources,
     generation_config,
@@ -18,6 +18,7 @@ __all__ = [
     "generation_config",
     "generation_results",
     "latest_augmentation_run",
+    "metric_versions",
     "metrics",
     "modification_source",
     "start_classifier_training",

@@ -52,6 +52,7 @@ export const endpoints = {
   finalizeReview: (sessionId: string) => `/sessions/${sessionId}/review/finalize`,
   startClassifierTraining: (sessionId: string) => `/sessions/${sessionId}/classifier/train`,
   classifierSummary: (sessionId: string) => `/sessions/${sessionId}/classifier/summary`,
+  metricVersions: (sessionId: string) => `/sessions/${sessionId}/metrics/versions`,
   getMetrics: (sessionId: string) => `/sessions/${sessionId}/metrics`,
   fileByPath: '/assets',
   workflowSocket: (sessionId: string) => `/sessions/${sessionId}/stream`,
