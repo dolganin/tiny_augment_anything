@@ -1,16 +1,16 @@
 .shell {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   min-height: 100vh;
   padding: 20px;
   gap: 20px;
 }
 
-.shell__sidebar {
+.shell__rail {
   display: flex;
   flex-direction: column;
-  padding: 20px;
-  gap: 20px;
+  align-items: center;
+  gap: 14px;
 }
 
 .shell__brand {
@@ -20,9 +20,9 @@
 
 .shell__logo {
   display: block;
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
   object-fit: cover;
   box-shadow: 0 16px 36px rgba(48, 98, 187, 0.18);
 }
@@ -30,7 +30,11 @@
 .shell__logo-link {
   display: inline-flex;
   width: fit-content;
+  padding: 8px;
   border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 22px 60px var(--color-shadow);
   transition: transform var(--transition-base);
 }
 
@@ -56,6 +60,88 @@
   margin: 0;
   color: var(--color-text-muted);
   line-height: 1.6;
+}
+
+.shell__rail-button {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-surface);
+  box-shadow: 0 22px 60px var(--color-shadow);
+  color: inherit;
+  cursor: pointer;
+}
+
+.shell__rail-button-count {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #1d2967;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.shell__rail-button-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shell__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  border: 0;
+  background: rgba(15, 24, 40, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.shell__drawer {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  bottom: 20px;
+  z-index: 80;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  width: min(380px, calc(100vw - 40px));
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 22px 60px var(--color-shadow);
+  overflow-y: auto;
+  transform: translateX(calc(-100% - 28px));
+  transition: transform var(--transition-base);
+}
+
+.shell__drawer--open {
+  transform: translateX(0);
+}
+
+.shell__drawer-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shell__drawer-close {
+  padding: 10px 12px;
+  border: 1px solid rgba(48, 98, 187, 0.16);
+  border-radius: 14px;
+  background: #fff;
+  color: #1d2967;
+  cursor: pointer;
 }
 
 .shell__queue-card {
@@ -168,40 +254,6 @@
   cursor: pointer;
 }
 
-.shell__dataset {
-  padding: 16px;
-  border-radius: 20px;
-  background: #f8fbff;
-}
-
-.shell__session-label {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.shell__dataset-name {
-  display: block;
-  margin-top: 8px;
-  line-height: 1.4;
-}
-
-.shell__session-value {
-  display: block;
-  margin-top: 8px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.shell__empty {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 20px;
-  background: #f8fbff;
-  color: var(--color-text-muted);
-  line-height: 1.6;
-}
-
 .shell__content {
   min-width: 0;
 }
@@ -209,5 +261,17 @@
 @media (max-width: 1080px) {
   .shell {
     grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .shell__rail {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .shell__rail-button {
+    width: auto;
+    min-width: 88px;
   }
 }

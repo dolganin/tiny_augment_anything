@@ -1,6 +1,8 @@
 import { PropsWithChildren, ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { AppShell } from '@/shared/ui/layouts/AppShell'
 import { WorkflowStageNav } from '@/shared/ui/layouts/WorkflowStageNav'
+import { useSessionStore } from '@/store/session/session.store'
 
 type PageFrameProps = PropsWithChildren<{
   title: string
@@ -9,9 +11,21 @@ type PageFrameProps = PropsWithChildren<{
 }>
 
 export function PageFrame({ title, description, aside, children }: PageFrameProps) {
+  const location = useLocation()
+  const datasetId = useSessionStore((state) => state.datasetId)
+  const datasetName = useSessionStore((state) => state.datasetName)
+  const showDatasetBanner = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
+
   return (
     <AppShell>
       <section className="page-frame">
+        {showDatasetBanner ? (
+          <div className="page-frame__dataset-banner">
+            <span className="page-frame__dataset-label">Активный датасет</span>
+            <strong className="page-frame__dataset-name">{datasetName ?? datasetId}</strong>
+          </div>
+        ) : null}
+
         <header className="page-frame__header">
           <div>
             <p className="page-frame__eyebrow">Workflow stage</p>

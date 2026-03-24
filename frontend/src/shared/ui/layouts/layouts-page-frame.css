@@ -1,4 +1,4 @@
-.shell__sidebar,
+.shell__drawer,
 .page-frame,
 .info-card {
   border: 1px solid var(--color-border);
@@ -12,6 +12,26 @@
   gap: 20px;
   min-height: calc(100vh - 40px);
   padding: 24px;
+}
+
+.page-frame__dataset-banner {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid var(--color-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.96)),
+    var(--color-surface-strong);
+}
+
+.page-frame__dataset-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.page-frame__dataset-name {
+  line-height: 1.3;
 }
 
 .page-frame__eyebrow {
