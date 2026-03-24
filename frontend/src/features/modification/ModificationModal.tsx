@@ -36,7 +36,6 @@ type ModificationModalProps = {
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
-  onSamPromptChange: (value: string) => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
   onSavePolygonTemplate: () => void
   onSourceMove: (direction: -1 | 1) => void
@@ -46,8 +45,6 @@ type ModificationModalProps = {
   open: boolean
   priorityFields: ConfigField[]
   reviewPendingCount: number
-  samPromptValue: string
-  selectionTemplates: PromptTemplate[]
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   secondaryFields: ConfigField[]
@@ -80,7 +77,6 @@ export function ModificationModal({
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
-  onSamPromptChange,
   onSaveTemplate,
   onSavePolygonTemplate,
   onSourceMove,
@@ -90,8 +86,6 @@ export function ModificationModal({
   open,
   priorityFields,
   reviewPendingCount,
-  samPromptValue,
-  selectionTemplates,
   selectedSourceCount,
   selectedSourceIds,
   secondaryFields,
@@ -153,12 +147,9 @@ export function ModificationModal({
             onPolygonClear={onPolygonClear}
             onPolygonUndo={onPolygonUndo}
             onPromptChange={onPromptChange}
-            onSamPromptChange={onSamPromptChange}
             onSaveTemplate={onSaveTemplate}
             onSourceMove={onSourceMove}
             onNegativePromptChange={onNegativePromptChange}
-            samPromptValue={samPromptValue}
-            selectionTemplates={selectionTemplates}
             selectedSourceIds={selectedSourceIds}
             selectedSourceCount={selectedSourceCount}
             source={source}

@@ -21,13 +21,10 @@ type ModificationModalCanvasProps = {
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
-  onSamPromptChange: (value: string) => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
   onSourceMove: (direction: -1 | 1) => void
   onToggleSourceSelection: (assetId: string) => void
   onNegativePromptChange: (value: string) => void
-  samPromptValue: string
-  selectionTemplates: PromptTemplate[]
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   source: ModificationSourceAsset
@@ -51,13 +48,10 @@ export function ModificationModalCanvas({
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
-  onSamPromptChange,
   onSaveTemplate,
   onSourceMove,
   onToggleSourceSelection,
   onNegativePromptChange,
-  samPromptValue,
-  selectionTemplates,
   selectedSourceCount,
   selectedSourceIds,
   source,
@@ -110,10 +104,7 @@ export function ModificationModalCanvas({
         onApplyPromptToAllChange={onApplyPromptToAllChange}
         onNegativePromptChange={onNegativePromptChange}
         onPromptChange={onPromptChange}
-        onSamPromptChange={onSamPromptChange}
         onSaveTemplate={onSaveTemplate}
-        samPromptValue={samPromptValue}
-        selectionTemplates={selectionTemplates}
         sourceClassName={source.className}
         textTemplates={textTemplates}
       />

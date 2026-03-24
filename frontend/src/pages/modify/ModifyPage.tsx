@@ -178,10 +178,20 @@ export function ModifyPage() {
               onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
               onPolygonClear={() => updateAreaPoints([])}
               onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
+              onSamPromptChange={(value) => updateFieldValue('sam_prompt', value)}
+              onApplySelectionTemplate={(templateId) => {
+                const template = selectionPromptTemplates.find((item) => item.id === templateId)
+                if (template) {
+                  applyPromptTemplate(template)
+                }
+              }}
               onPreviewMaskChange={setBatchMaskPreviewPoints}
               onPromptChange={updatePromptValue}
               onSaveTextTemplate={() => savePromptTemplate('text')}
+              onSaveSelectionTemplate={() => savePromptTemplate('selection')}
               promptValue={form.watch('prompt')}
+              samPromptValue={samPromptValue}
+              selectionTemplates={selectionPromptTemplates}
               textTemplates={textPromptTemplates}
             />
 
@@ -272,7 +282,6 @@ export function ModifyPage() {
         onPolygonClear={() => updateAreaPoints([])}
         onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
         onPromptChange={updatePromptValue}
-        onSamPromptChange={(value) => updateFieldValue('sam_prompt', value)}
         onSaveTemplate={savePromptTemplate}
         onSavePolygonTemplate={() => {
           const name = window.prompt('Название шаблона полигона')
@@ -287,8 +296,6 @@ export function ModifyPage() {
         open={launchMode === 'single' && !configQuery.isLoading && !sourceQuery.isLoading && isModificationModalOpen}
         priorityFields={priorityFields}
         reviewPendingCount={reviewPendingCount}
-        samPromptValue={samPromptValue}
-        selectionTemplates={selectionPromptTemplates}
         selectedSourceCount={selectedSourceCount}
         selectedSourceIds={selectedSourceIds}
         secondaryFields={secondaryFields}

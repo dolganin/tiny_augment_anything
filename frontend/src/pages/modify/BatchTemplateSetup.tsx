@@ -21,9 +21,14 @@ type BatchTemplateSetupProps = {
   onPolygonClear: () => void
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
+  onSamPromptChange: (value: string) => void
+  onApplySelectionTemplate: (templateId: string) => void
   onPreviewMaskChange: (points: AreaPoint[]) => void
   onSaveTextTemplate: () => void
+  onSaveSelectionTemplate: () => void
   promptValue: string
+  samPromptValue: string
+  selectionTemplates: Array<{ id: string; name: string }>
   textTemplates: Array<{ id: string; name: string }>
 }
 
@@ -41,9 +46,14 @@ export function BatchTemplateSetup({
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
+  onSamPromptChange,
+  onApplySelectionTemplate,
   onPreviewMaskChange,
   onSaveTextTemplate,
+  onSaveSelectionTemplate,
   promptValue,
+  samPromptValue,
+  selectionTemplates,
   textTemplates,
 }: BatchTemplateSetupProps) {
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
@@ -159,6 +169,48 @@ export function BatchTemplateSetup({
             >
               {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
               {textTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="batch-setup__field">
+            <span className="batch-setup__label-row">
+              <span>SAM prompt</span>
+              <Button
+                aria-label="Сохранить selection шаблон"
+                className="modification-prompts__save-button"
+                onClick={onSaveSelectionTemplate}
+                title="Сохранить selection шаблон"
+                type="button"
+                variant="ghost"
+              >
+                <PromptSaveIcon />
+              </Button>
+            </span>
+            <textarea
+              onChange={(event) => onSamPromptChange(event.target.value)}
+              placeholder="Опиши область для текстовой сегментации, если хочешь использовать SAM по тексту вместо полигона."
+              rows={3}
+              value={samPromptValue}
+            />
+            <select
+              aria-label="Выбрать selection шаблон"
+              className="modification-prompts__template-select modification-prompts__template-select--below"
+              defaultValue={selectionTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
+              disabled={selectionTemplates.length === 0}
+              onChange={(event) => {
+                const selectedId = event.target.value
+                if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
+                  return
+                }
+                onApplySelectionTemplate(selectedId)
+                event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+              }}
+            >
+              {selectionTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать selection шаблон</option> : <option value={NO_TEMPLATES_VALUE}>Нет selection шаблонов</option>}
+              {selectionTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.name}
                 </option>

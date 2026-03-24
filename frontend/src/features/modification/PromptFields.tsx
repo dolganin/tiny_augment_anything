@@ -12,10 +12,7 @@ type PromptFieldsProps = {
   onApplyPromptToAllChange: (value: boolean) => void
   onNegativePromptChange: (value: string) => void
   onPromptChange: (value: string) => void
-  onSamPromptChange: (value: string) => void
   onSaveTemplate: (scope: PromptTemplate['scope']) => void
-  samPromptValue: string
-  selectionTemplates: PromptTemplate[]
   sourceClassName: string
   textTemplates: PromptTemplate[]
 }
@@ -36,10 +33,7 @@ export function PromptFields({
   onApplyPromptToAllChange,
   onNegativePromptChange,
   onPromptChange,
-  onSamPromptChange,
   onSaveTemplate,
-  samPromptValue,
-  selectionTemplates,
   sourceClassName,
   textTemplates,
 }: PromptFieldsProps) {
@@ -146,52 +140,6 @@ export function PromptFields({
         >
           {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать шаблон negative prompt</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов negative prompt</option>}
           {textTemplates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="generation-form__group modification-prompts__field">
-        <span className="generation-form__label modification-prompts__label-row">
-          <span>SAM prompt</span>
-          <Button
-            aria-label="Сохранить selection шаблон"
-            className="modification-prompts__save-button"
-            onClick={() => onSaveTemplate('selection')}
-            title="Сохранить selection шаблон"
-            type="button"
-            variant="ghost"
-          >
-            <PromptSaveIcon />
-          </Button>
-        </span>
-        <textarea
-          className="generation-form__textarea modification-prompts__input"
-          onChange={(event) => onSamPromptChange(event.target.value)}
-          placeholder="Опиши область для текстовой сегментации, если хочешь использовать SAM по тексту вместо полигона."
-          value={samPromptValue}
-        />
-        <select
-          aria-label="Выбрать selection шаблон"
-          className="modification-prompts__template-select modification-prompts__template-select--below"
-          defaultValue={resolveDefaultValue(selectionTemplates)}
-          disabled={selectionTemplates.length === 0}
-          onChange={(event) => {
-            const selectedId = event.target.value
-            if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
-              return
-            }
-            const template = selectionTemplates.find((item) => item.id === selectedId)
-            if (template) {
-              onApplyTemplate(template)
-            }
-            event.currentTarget.value = EMPTY_TEMPLATE_VALUE
-          }}
-        >
-          {selectionTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Выбрать selection шаблон</option> : <option value={NO_TEMPLATES_VALUE}>Нет selection шаблонов</option>}
-          {selectionTemplates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
             </option>
