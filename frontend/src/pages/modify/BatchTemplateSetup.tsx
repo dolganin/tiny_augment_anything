@@ -5,6 +5,7 @@ import { PromptSaveIcon } from '@/features/modification/PromptSaveIcon'
 import { type AreaPoint, type BatchPreviewSource } from '@/pages/modify/modify.types'
 
 const EMPTY_TEMPLATE_VALUE = '__none__'
+const NO_TEMPLATES_VALUE = '__empty__'
 
 type BatchTemplateSetupProps = {
   areaConfirmed: boolean
@@ -80,28 +81,27 @@ export function BatchTemplateSetup({
             <span className="batch-setup__label-row">
               <span>Промпт модификации</span>
               <span className="modification-prompts__field-actions">
-                {textTemplates.length > 0 ? (
-                  <select
-                    aria-label="Выбрать текстовый шаблон"
-                    className="modification-prompts__template-select"
-                    defaultValue={EMPTY_TEMPLATE_VALUE}
-                    onChange={(event) => {
-                      const selectedId = event.target.value
-                      if (selectedId === EMPTY_TEMPLATE_VALUE) {
-                        return
-                      }
-                      onApplyTextTemplate(selectedId)
-                      event.currentTarget.value = EMPTY_TEMPLATE_VALUE
-                    }}
-                  >
-                    <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option>
-                    {textTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
+                <select
+                  aria-label="Выбрать текстовый шаблон"
+                  className="modification-prompts__template-select"
+                  defaultValue={textTemplates.length > 0 ? EMPTY_TEMPLATE_VALUE : NO_TEMPLATES_VALUE}
+                  disabled={textTemplates.length === 0}
+                  onChange={(event) => {
+                    const selectedId = event.target.value
+                    if (selectedId === EMPTY_TEMPLATE_VALUE || selectedId === NO_TEMPLATES_VALUE) {
+                      return
+                    }
+                    onApplyTextTemplate(selectedId)
+                    event.currentTarget.value = EMPTY_TEMPLATE_VALUE
+                  }}
+                >
+                  {textTemplates.length > 0 ? <option value={EMPTY_TEMPLATE_VALUE}>Шаблон</option> : <option value={NO_TEMPLATES_VALUE}>Нет шаблонов</option>}
+                  {textTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
                 <Button
                   aria-label="Сохранить текстовый шаблон"
                   className="modification-prompts__save-button"
