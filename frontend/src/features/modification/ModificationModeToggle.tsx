@@ -1,5 +1,3 @@
-import { Button } from '@/shared/ui/buttons/Button'
-
 export type ModificationMode = 'inpaint' | 'full'
 
 type ModificationModeToggleProps = {
@@ -14,29 +12,17 @@ export function ModificationModeToggle({
   onChange,
 }: ModificationModeToggleProps) {
   return (
-    <div className="modification-mode-toggle" role="radiogroup" aria-label="Режим модификации">
-      <Button
-        aria-checked={mode === 'inpaint'}
-        className={mode === 'inpaint' ? 'modification-mode-toggle__button--active' : undefined}
+    <label className="modification-mode-toggle">
+      <span className="modification-mode-toggle__label">Режим</span>
+      <select
+        className="modification-mode-toggle__select"
         disabled={disabled}
-        onClick={() => onChange('inpaint')}
-        role="radio"
-        type="button"
-        variant={mode === 'inpaint' ? 'primary' : 'ghost'}
+        onChange={(event) => onChange(event.target.value as ModificationMode)}
+        value={mode}
       >
-        Inpaint modification
-      </Button>
-      <Button
-        aria-checked={mode === 'full'}
-        className={mode === 'full' ? 'modification-mode-toggle__button--active' : undefined}
-        disabled={disabled}
-        onClick={() => onChange('full')}
-        role="radio"
-        type="button"
-        variant={mode === 'full' ? 'primary' : 'ghost'}
-      >
-        Full remodification
-      </Button>
-    </div>
+        <option value="inpaint">Inpaint</option>
+        <option value="full">Full remodification</option>
+      </select>
+    </label>
   )
 }

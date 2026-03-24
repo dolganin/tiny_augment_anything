@@ -51,42 +51,50 @@ export function ModificationModalCanvas({
 }: ModificationModalCanvasProps) {
   return (
     <div className="modification-modal__canvas-column">
-      <ModificationCanvas
-        areaConfirmed={areaConfirmed}
-        areaPoints={areaPoints}
-        className={source.className}
-        imageUrl={source.assetUrl}
-        onAreaPointsChange={onAreaPointsChange}
-      />
-
-      <div className="modify-source-nav">
-        <Button disabled={sourceItems.length <= 1} onClick={() => onSourceMove(-1)} type="button" variant="ghost">
-          Предыдущее
-        </Button>
+      <div className="modification-modal__canvas-toolbar">
+        <div className="modification-modal__polygon-actions">
+          <Button disabled={mode === 'full' || areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
+            Применить область
+          </Button>
+          <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
+            Удалить вершину
+          </Button>
+          <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
+            Очистить
+          </Button>
+        </div>
         <span className="modify-source-nav__status">
           {sourceIndex + 1} / {sourceItems.length}
         </span>
-        <Button disabled={sourceItems.length <= 1} onClick={() => onSourceMove(1)} type="button" variant="ghost">
-          Следующее
-        </Button>
       </div>
 
-      <div className="modification-modal__polygon-actions">
-        <Button disabled={mode === 'full' || areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button">
-          Применить область
+      <div className="modification-modal__canvas-frame">
+        <Button
+          className="modify-source-nav__button"
+          disabled={sourceItems.length <= 1}
+          onClick={() => onSourceMove(-1)}
+          type="button"
+          variant="ghost"
+        >
+          ←
         </Button>
-        <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonUndo} type="button" variant="ghost">
-          Удалить вершину
-        </Button>
-        <Button disabled={mode === 'full' || areaPoints.length === 0} onClick={onPolygonClear} type="button" variant="ghost">
-          Очистить полигон
+        <ModificationCanvas
+          areaConfirmed={areaConfirmed}
+          areaPoints={areaPoints}
+          className={source.className}
+          imageUrl={source.assetUrl}
+          onAreaPointsChange={onAreaPointsChange}
+        />
+        <Button
+          className="modify-source-nav__button"
+          disabled={sourceItems.length <= 1}
+          onClick={() => onSourceMove(1)}
+          type="button"
+          variant="ghost"
+        >
+          →
         </Button>
       </div>
-      {mode === 'full' ? (
-        <p className="modification-modal__hint">
-          В режиме full remodification полигон не используется, будет переработано всё изображение.
-        </p>
-      ) : null}
 
       <PromptFields
         applyPromptToAll={applyPromptToAll}

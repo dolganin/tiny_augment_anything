@@ -92,10 +92,7 @@ export function ModificationModal({
       <div className="modification-modal-backdrop" onClick={onClose} />
       <section aria-modal="true" className="modification-modal" role="dialog">
         <header className="modification-modal__header">
-          <div>
-            <p className="modification-modal__eyebrow">Редактор модификации</p>
-            <h2 className="modification-modal__title">Подготовь промпт и параметры генерации</h2>
-          </div>
+          <h2 className="modification-modal__title">Модификация</h2>
           <button aria-label="Закрыть модальное окно модификации" className="modification-modal__close" onClick={onClose} type="button">
             ×
           </button>
@@ -131,7 +128,6 @@ export function ModificationModal({
             onModeChange={onModeChange}
             priorityFields={priorityFields}
             secondaryFields={secondaryFields}
-            sourceClassName={source.className}
             totalTargetCount={totalTargetCount}
           />
 

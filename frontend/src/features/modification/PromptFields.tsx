@@ -28,11 +28,11 @@ export function PromptFields({
   })
 
   return (
-    <div className="generation-form generation-form--stacked modification-prompts">
-      <label className="generation-form__group">
+    <div className="modification-prompts">
+      <label className="generation-form__group modification-prompts__field modification-prompts__field--main">
         <span className="generation-form__label">Промпт модификации</span>
         <textarea
-          className="generation-form__textarea generation-form__textarea--hero"
+          className="generation-form__textarea modification-prompts__input"
           placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
           {...promptRegister}
         />
@@ -47,20 +47,20 @@ export function PromptFields({
         <span>Применить этот промпт ко всем изображениям в пачке</span>
       </label>
 
-      <label className="generation-form__group">
+      <label className="generation-form__group modification-prompts__field">
         <span className="generation-form__label">Negative prompt</span>
         <textarea
-          className="generation-form__textarea"
+          className="generation-form__textarea modification-prompts__input"
           onChange={(event) => onNegativePromptChange(event.target.value)}
           placeholder="Опиши, чего не должно быть в результате."
           value={negativePromptValue}
         />
       </label>
 
-      <label className="generation-form__group">
+      <label className="generation-form__group modification-prompts__field">
         <span className="generation-form__label">SAM prompt</span>
         <textarea
-          className="generation-form__textarea modification-prompts__sam"
+          className="generation-form__textarea modification-prompts__input"
           onChange={(event) => onSamPromptChange(event.target.value)}
           placeholder="Опиши область для текстовой сегментации, если хочешь использовать SAM по тексту вместо полигона."
           value={samPromptValue}

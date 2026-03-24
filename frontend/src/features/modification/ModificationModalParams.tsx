@@ -18,7 +18,6 @@ type ModificationModalParamsProps = {
   onModeChange: (mode: ModificationMode) => void
   priorityFields: ConfigField[]
   secondaryFields: ConfigField[]
-  sourceClassName: string
   totalTargetCount: number
 }
 
@@ -29,36 +28,28 @@ export function ModificationModalParams({
   onModeChange,
   priorityFields,
   secondaryFields,
-  sourceClassName,
   totalTargetCount,
 }: ModificationModalParamsProps) {
   const [secondaryOpen, setSecondaryOpen] = useState(false)
 
   return (
     <aside className="modification-modal__params-column">
-      <div className="info-card">
-        <p className="info-card__text">
-          План генерации: <strong>{totalTargetCount}</strong> изображений суммарно.
-        </p>
-        <p className="info-card__text">
-          Текущий источник: <strong>{sourceClassName}</strong>
-        </p>
-      </div>
-
       <section className="modification-modal__panel">
-        <div className="modification-modal__section-head">
-          <h3 className="modification-modal__section-title">Режим модификации</h3>
-          <p className="modification-modal__section-copy">Inpaint использует полигон или SAM, full remodification меняет всё изображение.</p>
+        <div className="modification-modal__summary">
+          <span className="modification-modal__summary-label">План</span>
+          <strong className="modification-modal__summary-value">{totalTargetCount}</strong>
         </div>
         <ModificationModeToggle mode={mode} onChange={onModeChange} />
       </section>
 
       {priorityFields.length > 0 ? (
         <section className="modification-modal__panel">
-          <div className="modification-modal__section-head">
-            <h3 className="modification-modal__section-title">Основные параметры</h3>
-          </div>
-          <GenerationConfigFields fields={priorityFields} onChange={onFieldValueChange} values={fieldValues} />
+          <GenerationConfigFields
+            className="modification-modal__fields"
+            fields={priorityFields}
+            onChange={onFieldValueChange}
+            values={fieldValues}
+          />
         </section>
       ) : null}
 
@@ -71,7 +62,12 @@ export function ModificationModalParams({
             </Button>
           </div>
           {secondaryOpen ? (
-            <GenerationConfigFields fields={secondaryFields} onChange={onFieldValueChange} values={fieldValues} />
+            <GenerationConfigFields
+              className="modification-modal__fields"
+              fields={secondaryFields}
+              onChange={onFieldValueChange}
+              values={fieldValues}
+            />
           ) : null}
         </section>
       ) : null}

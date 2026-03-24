@@ -1,19 +1,22 @@
+import clsx from 'clsx'
 import { GenerationConfigResponse } from '@/shared/api/contracts'
 import '@/features/generation-config/generation-config.css'
 
 type GenerationConfigFieldsProps = {
+  className?: string
   fields: GenerationConfigResponse['fields']
   values: Record<string, string>
   onChange: (key: string, value: string) => void
 }
 
 export function GenerationConfigFields({
+  className,
   fields,
   values,
   onChange,
 }: GenerationConfigFieldsProps) {
   return (
-    <div className="generation-fields">
+    <div className={clsx('generation-fields', className)}>
       {fields.map((field) => (
         <label className="generation-fields__item" key={field.key}>
           <span className="generation-fields__label">{field.label}</span>
