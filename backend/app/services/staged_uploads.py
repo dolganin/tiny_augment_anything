@@ -46,21 +46,11 @@ def init_lora_adapter_upload(
     runtime_paths: RuntimePaths,
     file_name: str,
     file_size: int,
-    display_name: str,
 ) -> ChunkUploadInit:
     suffix = Path(file_name).suffix.lower()
     if suffix not in LORA_ADAPTER_EXTENSIONS:
         raise AppError(400, "Нужен LoRA adapter формата .bin, .ckpt, .pt, .pth или .safetensors.")
-    normalized_display_name = display_name.strip()
-    if not normalized_display_name:
-        raise AppError(400, "Нужно непустое имя LoRA adapter.")
-    return _init_staged_upload(
-        runtime_paths,
-        file_name,
-        file_size,
-        staged_file_name="adapter.bin",
-        extra_meta={"display_name": normalized_display_name},
-    )
+    return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="adapter.bin")
 
 
 def complete_classifier_weights_upload(
@@ -124,7 +114,7 @@ def complete_lora_adapter_upload(
     if int(meta["next_part"]) != int(meta["total_parts"]):
         raise AppError(400, "Файл LoRA adapter ещё не загружен полностью.")
     file_name = str(meta["file_name"])
-    display_name = str(meta.get("display_name") or Path(file_name).stem).strip()
+    display_name = Path(file_name).stem.strip() or file_name
     target_dir = dataset_lora_dir(runtime_paths, dataset_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     file_hash = sha256_file(adapter_path)

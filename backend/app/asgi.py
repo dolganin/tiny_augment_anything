@@ -9,6 +9,7 @@ from backend.app.api.diffusion_lora_handlers import (
     get_diffusion_lora_upload_status,
     init_diffusion_lora_upload,
     list_diffusion_lora_adapters,
+    save_diffusion_lora_name,
     upload_diffusion_lora_chunk,
 )
 from backend.app.api.download_handlers import download_dataset
@@ -90,6 +91,7 @@ def build_router() -> Router:
     router.add_http("GET", "/api/sessions/{session_id}/diffusion/lora/{upload_id}", get_diffusion_lora_upload_status)
     router.add_http("PUT", "/api/sessions/{session_id}/diffusion/lora/{upload_id}/parts", upload_diffusion_lora_chunk)
     router.add_http("POST", "/api/sessions/{session_id}/diffusion/lora/{upload_id}/complete", complete_diffusion_lora_upload)
+    router.add_http("PATCH", "/api/sessions/{session_id}/diffusion/lora", save_diffusion_lora_name)
     router.add_http("DELETE", "/api/sessions/{session_id}/diffusion/lora/{upload_id}", cancel_diffusion_lora_upload)
     router.add_http("POST", "/api/sessions/upload", upload_dataset)
     router.add_http("GET", "/api/sessions/{session_id}", get_session)

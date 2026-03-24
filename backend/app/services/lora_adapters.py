@@ -47,6 +47,17 @@ def resolve_lora_adapter_path(runtime_root: Path, raw_path: object) -> Path | No
     return candidate
 
 
+def update_lora_adapter_display_name(runtime_root: Path, raw_path: object, display_name: object) -> str:
+    candidate = resolve_lora_adapter_path(runtime_root, raw_path)
+    if candidate is None:
+        raise AppError(400, "Нужно указать путь к LoRA adapter.")
+    if not isinstance(display_name, str) or not display_name.strip():
+        raise AppError(400, "Нужно непустое имя LoRA adapter.")
+    normalized_name = display_name.strip()
+    candidate.with_suffix(f"{candidate.suffix}.json").write_text(normalized_name, encoding="utf-8")
+    return normalized_name
+
+
 def _original_name(file_name: str) -> str:
     parts = file_name.split("_", 1)
     if len(parts) == 2 and len(parts[0]) == 64:

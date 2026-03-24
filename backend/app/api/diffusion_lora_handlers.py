@@ -6,7 +6,7 @@ from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.repositories.workflow_session import get_session_context
 from backend.app.services.bootstrap import RuntimeState
-from backend.app.services.lora_adapters import list_lora_adapters
+from backend.app.services.lora_adapters import list_lora_adapters, update_lora_adapter_display_name
 from backend.app.services.sessions import parse_session_id
 from backend.app.services.staged_uploads import (
     append_chunk,
@@ -52,23 +52,19 @@ async def init_diffusion_lora_upload(request: Request, params: dict[str, str], s
         raise AppError(400, "Некорректное тело запроса.")
     file_name = payload.get("fileName")
     file_size = payload.get("fileSize")
-    display_name = payload.get("displayName")
     if not isinstance(file_name, str) or not file_name:
         raise AppError(400, "Нужно поле fileName.")
     if not isinstance(file_size, int) or file_size <= 0:
         raise AppError(400, "Нужно положительное поле fileSize.")
-    if not isinstance(display_name, str) or not display_name.strip():
-        raise AppError(400, "Нужно непустое поле displayName.")
     log_event(
         logger,
         20,
         "api.diffusion-lora.init.requested",
         session_id=session_id,
         file_name=file_name,
-        display_name=display_name,
         file_size=file_size,
     )
-    upload = init_lora_adapter_upload(runtime_state.runtime_paths, file_name, file_size, display_name)
+    upload = init_lora_adapter_upload(runtime_state.runtime_paths, file_name, file_size)
     return json_response(200, {"uploadId": str(upload.upload_id), "chunkSize": upload.chunk_size, "totalParts": upload.total_parts})
 
 
@@ -128,6 +124,18 @@ async def cancel_diffusion_lora_upload(request: Request, params: dict[str, str],
     upload_id = _parse_upload_id(params["upload_id"])
     discard_chunk_upload(runtime_state.runtime_paths, upload_id)
     return json_response(200, {"status": "success"})
+
+
+async def save_diffusion_lora_name(request: Request, params: dict[str, str], state: object):
+    runtime_state = _require_state(state)
+    _ = parse_session_id(params["session_id"])
+    payload = request.json()
+    if not isinstance(payload, dict):
+        raise AppError(400, "Некорректное тело запроса.")
+    adapter_path = payload.get("adapterPath")
+    display_name = payload.get("displayName")
+    saved_name = update_lora_adapter_display_name(runtime_state.settings.runtime_dir, adapter_path, display_name)
+    return json_response(200, {"status": "success", "displayName": saved_name})
 
 
 def _require_state(state: object) -> RuntimeState:
