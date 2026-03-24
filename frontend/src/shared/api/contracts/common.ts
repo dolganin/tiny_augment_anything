@@ -60,6 +60,7 @@ export const uploadStatusResponseSchema = z.object({
 })
 
 export const diffusionLoraAdapterSchema = z.object({
+  displayName: z.string(),
   fileName: z.string(),
   adapterPath: z.string(),
   sizeBytes: z.number().int().nonnegative(),
@@ -71,6 +72,7 @@ export const diffusionLoraAdaptersResponseSchema = z.object({
 })
 
 export const diffusionLoraUploadResponseSchema = z.object({
+  displayName: z.string(),
   fileName: z.string(),
   adapterPath: z.string(),
 })

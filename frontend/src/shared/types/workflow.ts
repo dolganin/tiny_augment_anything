@@ -99,6 +99,7 @@ export type ModificationSourceAsset = {
 }
 
 export type DiffusionLoraAdapter = {
+  displayName: string
   fileName: string
   adapterPath: string
   sizeBytes: number
