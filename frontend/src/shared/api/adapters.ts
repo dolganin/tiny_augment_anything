@@ -16,7 +16,7 @@ import {
   GenerationAsset,
   GlobalJob,
   ModificationSourceAsset,
-  TrainedClassifierModel,
+  UploadedClassifierWeights,
   WorkflowMetrics,
   WorkflowStage,
 } from '@/shared/types/workflow'
@@ -106,20 +106,14 @@ export const adaptClassifierSummary = (response: {
     }>
     error?: string | null
   }
-  models: Array<{
-    id: string
-    taskId: string
-    datasetVersionId: string
-    status: string
-    modelKey?: string | null
-    classNames: string[]
-    hparams: Record<string, number>
-    pretrainedWeightsPath?: string | null
-    metrics?: MetricsResponse | null
-    createdAt?: string | null
-    finishedAt?: string | null
+  uploadedWeights: Array<{
+    displayName: string
+    fileName: string
+    weightsPath: string
+    sizeBytes: number
+    updatedAt: string
   }>
-}): { split: ClassifierSplitSummary; models: TrainedClassifierModel[] } => ({
+}): { split: ClassifierSplitSummary; uploadedWeights: UploadedClassifierWeights[] } => ({
   split: {
     classCount: response.split.classCount,
     trainCount: response.split.trainCount,
@@ -127,18 +121,12 @@ export const adaptClassifierSummary = (response: {
     perClass: response.split.perClass,
     error: response.split.error ?? null,
   },
-  models: response.models.map((model) => ({
-    id: model.id,
-    taskId: model.taskId,
-    datasetVersionId: model.datasetVersionId,
-    status: model.status,
-    modelKey: model.modelKey ?? null,
-    classNames: model.classNames,
-    hparams: model.hparams,
-    pretrainedWeightsPath: model.pretrainedWeightsPath ?? null,
-    metrics: model.metrics ? adaptMetrics(model.metrics) : null,
-    createdAt: model.createdAt ?? null,
-    finishedAt: model.finishedAt ?? null,
+  uploadedWeights: response.uploadedWeights.map((item) => ({
+    displayName: item.displayName,
+    fileName: item.fileName,
+    weightsPath: item.weightsPath,
+    sizeBytes: item.sizeBytes,
+    updatedAt: item.updatedAt,
   })),
 })
 

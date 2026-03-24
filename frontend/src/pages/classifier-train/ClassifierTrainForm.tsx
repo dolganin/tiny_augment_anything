@@ -2,7 +2,7 @@ import { ChangeEvent, RefObject } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/shared/ui/buttons/Button'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
-import { type TrainedClassifierModel } from '@/shared/types/workflow'
+import { type UploadedClassifierWeights } from '@/shared/types/workflow'
 import { CLASSIFIER_MODELS } from '@/pages/classifier-train/classifier-train.constants'
 import { type ClassifierFormValues } from '@/pages/classifier-train/classifier-train.types'
 import {
@@ -26,7 +26,7 @@ type ClassifierTrainFormProps = {
       }>
       error: string | null
     }
-    models: TrainedClassifierModel[]
+    uploadedWeights: UploadedClassifierWeights[]
   } | null
   classifierSummaryLoading: boolean
   form: UseFormReturn<ClassifierFormValues>
@@ -35,12 +35,13 @@ type ClassifierTrainFormProps = {
   isUploadingWeights: boolean
   onAbortUpload: () => void
   onClearWeights: () => void
-  onModelApply: (model: TrainedClassifierModel) => void
+  onWeightsApply: (weights: UploadedClassifierWeights) => void
   onSubmit: React.FormEventHandler<HTMLFormElement>
   onWeightsChange: (event: ChangeEvent<HTMLInputElement>) => void
   onWeightsDialogOpen: () => void
   submitPending: boolean
   uploadProgress: number
+  selectedWeightsPath: string | null
   weightsInputRef: RefObject<HTMLInputElement | null>
   weightsStatusLabel: string
   weightsUploadSession: PersistedClassifierWeightsUploadSession | null
@@ -55,12 +56,13 @@ export function ClassifierTrainForm({
   isUploadingWeights,
   onAbortUpload,
   onClearWeights,
-  onModelApply,
+  onWeightsApply,
   onSubmit,
   onWeightsChange,
   onWeightsDialogOpen,
   submitPending,
   uploadProgress,
+  selectedWeightsPath,
   weightsInputRef,
   weightsStatusLabel,
   weightsUploadSession,
@@ -163,7 +165,11 @@ export function ClassifierTrainForm({
         isLoading={classifierSummaryLoading}
         split={classifierSummary?.split ?? null}
       />
-      <ClassifierModelHistory models={classifierSummary?.models ?? []} onModelApply={onModelApply} />
+      <ClassifierModelHistory
+        onWeightsApply={onWeightsApply}
+        selectedWeightsPath={selectedWeightsPath}
+        weights={classifierSummary?.uploadedWeights ?? []}
+      />
 
       <div className="classifier-train-layout__actions classifier-train-layout__full">
         <Button disabled={isSubmitDisabled || Boolean(classifierSummary?.split.error)} type="submit">

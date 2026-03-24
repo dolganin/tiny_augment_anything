@@ -90,11 +90,16 @@ def resolve_pretrained_weights_path(
     if not isinstance(raw_path, str):
         raise AppError(400, "pretrainedWeightsPath должен быть строкой.")
     candidate = (runtime_state.settings.runtime_dir / Path(raw_path)).resolve()
+    datasets_root = runtime_state.runtime_paths.datasets.resolve()
     allowed_roots = [
         (runtime_state.runtime_paths.temp / "classifier-weights" / str(session_id)).resolve(),
         (runtime_state.runtime_paths.temp / "runs" / "classifier").resolve(),
     ]
-    if not any(is_within(candidate, root) for root in allowed_roots):
+    is_dataset_weights = False
+    if is_within(candidate, datasets_root):
+        relative_to_datasets = candidate.relative_to(datasets_root)
+        is_dataset_weights = len(relative_to_datasets.parts) >= 2 and relative_to_datasets.parts[1] == "classifier-weights"
+    if not any(is_within(candidate, root) for root in allowed_roots) and not is_dataset_weights:
         raise AppError(400, "pretrainedWeightsPath не принадлежит разрешённому classifier storage.")
     if not candidate.exists():
         raise AppError(400, "Файл предобученных весов не найден.")

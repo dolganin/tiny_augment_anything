@@ -9,6 +9,7 @@ from backend.app.runtime.logging import get_logger, log_event
 from backend.app.runtime.multipart import parse_multipart
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
+from backend.app.repositories.workflow_session import get_session_context
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.queue import enqueue_core_task
 from backend.app.services.sessions import parse_session_id
@@ -251,10 +252,14 @@ async def complete_classifier_weights(request: Request, params: dict[str, str], 
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
     upload_id = _parse_upload_id(params["upload_id"])
+    async with runtime_state.database.connection() as connection:
+        context = await get_session_context(connection, session_id)
+    if context is None or context["dataset_id"] is None:
+        raise AppError(404, "Для сессии не найден активный датасет.")
     result = complete_classifier_weights_upload(
         runtime_state.runtime_paths,
         runtime_state.settings.runtime_dir,
-        session_id,
+        context["dataset_id"],
         upload_id,
     )
     return json_response(

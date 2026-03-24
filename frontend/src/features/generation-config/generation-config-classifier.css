@@ -90,11 +90,26 @@
   background: #fbfdff;
 }
 
+.classifier-model-card--selected {
+  border-color: rgba(47, 158, 111, 0.45);
+  background: linear-gradient(180deg, rgba(47, 158, 111, 0.12) 0%, rgba(47, 158, 111, 0.05) 100%);
+  box-shadow: 0 0 0 1px rgba(47, 158, 111, 0.1);
+}
+
 .classifier-model-card__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.classifier-model-card__badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(47, 158, 111, 0.16);
+  color: #1f7a54;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .classifier-model-card__line {

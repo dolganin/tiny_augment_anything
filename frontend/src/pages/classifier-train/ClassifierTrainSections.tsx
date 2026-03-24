@@ -1,6 +1,6 @@
 import { Button } from '@/shared/ui/buttons/Button'
 import { Spinner } from '@/shared/ui/feedback/Spinner'
-import { type TrainedClassifierModel } from '@/shared/types/workflow'
+import { type UploadedClassifierWeights } from '@/shared/types/workflow'
 
 type SplitSummary = {
   classCount: number
@@ -62,49 +62,60 @@ export function ClassifierSplitSummaryCard({ isLoading, split }: ClassifierSplit
 }
 
 type ClassifierModelHistoryProps = {
-  models: TrainedClassifierModel[]
-  onModelApply: (model: TrainedClassifierModel) => void
+  selectedWeightsPath: string | null
+  weights: UploadedClassifierWeights[]
+  onWeightsApply: (weights: UploadedClassifierWeights) => void
 }
 
-export function ClassifierModelHistory({ models, onModelApply }: ClassifierModelHistoryProps) {
+export function ClassifierModelHistory({ selectedWeightsPath, weights, onWeightsApply }: ClassifierModelHistoryProps) {
+  const latestWeights = weights[0] ?? null
+  const isSelected = latestWeights?.weightsPath === selectedWeightsPath
+
   return (
     <section className="info-card classifier-train-layout__full classifier-model-history">
       <div className="classifier-summary-card__head">
-        <h3 className="classifier-summary-card__title">Сохранённые модели датасета</h3>
+        <h3 className="classifier-summary-card__title">Модель валидации датасета</h3>
       </div>
-      {models.length === 0 ? (
-        <p className="info-card__text">Для этого датасета ещё не сохранено ни одной конфигурации классификатора.</p>
+      {!latestWeights ? (
+        <p className="info-card__text">Для текущего датасета ещё не загружено ни одних classifier-весов.</p>
       ) : (
         <div className="classifier-model-history__list">
-          {models.map((model) => (
-            <article className="classifier-model-card" key={model.id}>
-              <div className="classifier-model-card__meta">
-                <strong>{model.modelKey ?? 'Classifier run'}</strong>
-                <span>{model.status}</span>
-              </div>
-              <p className="classifier-model-card__line">
-                Классы: {model.classNames.length > 0 ? model.classNames.join(', ') : 'не сохранены'}
-              </p>
-              <p className="classifier-model-card__line">
-                Веса: {(model.pretrainedWeightsPath ?? 'нет').split('/').pop()}
-              </p>
-              <p className="classifier-model-card__line">
-                Batch train/val: {Number(model.hparams.train_batch_size ?? 32)} / {Number(model.hparams.val_batch_size ?? 64)}
-              </p>
-              <div className="classifier-model-card__actions">
-                <Button
-                  disabled={!model.pretrainedWeightsPath}
-                  onClick={() => onModelApply(model)}
-                  type="button"
-                  variant="ghost"
-                >
-                  Использовать
-                </Button>
-              </div>
-            </article>
-          ))}
+          <article
+            className={`classifier-model-card${isSelected ? ' classifier-model-card--selected' : ''}`}
+            key={latestWeights.weightsPath}
+          >
+            <div className="classifier-model-card__meta">
+              <strong>{latestWeights.displayName}</strong>
+              {isSelected ? <span className="classifier-model-card__badge">Выбрано</span> : null}
+            </div>
+            <p className="classifier-model-card__line">
+              Файл: {latestWeights.fileName}
+            </p>
+            <p className="classifier-model-card__line">
+              Размер: {formatFileSize(latestWeights.sizeBytes)}
+            </p>
+            <p className="classifier-model-card__line">
+              Загружено: {new Date(latestWeights.updatedAt).toLocaleString('ru-RU')}
+            </p>
+            <div className="classifier-model-card__actions">
+              <Button
+                onClick={() => onWeightsApply(latestWeights)}
+                type="button"
+                variant="ghost"
+              >
+                {isSelected ? 'Используется' : 'Использовать'}
+              </Button>
+            </div>
+          </article>
         </div>
       )}
     </section>
   )
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`
+  }
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
 }

@@ -6,7 +6,13 @@ from uuid import UUID, uuid4
 
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.filesystem import RuntimePaths, dataset_lora_dir, make_relative_path, staged_upload_dir
+from backend.app.services.filesystem import (
+    RuntimePaths,
+    dataset_classifier_weights_dir,
+    dataset_lora_dir,
+    make_relative_path,
+    staged_upload_dir,
+)
 from backend.app.services.upload_models import (
     ChunkUploadInit,
     ChunkUploadStatus,
@@ -56,7 +62,7 @@ def init_lora_adapter_upload(
 def complete_classifier_weights_upload(
     runtime_paths: RuntimePaths,
     runtime_root: Path,
-    session_id: UUID,
+    dataset_id: UUID,
     upload_id: UUID,
 ) -> CompletedClassifierWeightsUpload:
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
@@ -70,7 +76,7 @@ def complete_classifier_weights_upload(
     if int(meta["next_part"]) != int(meta["total_parts"]):
         raise AppError(400, "Файл весов ещё не загружен полностью.")
     file_name = str(meta["file_name"])
-    target_dir = runtime_paths.temp / "classifier-weights" / str(session_id)
+    target_dir = dataset_classifier_weights_dir(runtime_paths, dataset_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     file_hash = sha256_file(weights_path)
     target_path = target_dir / f"{file_hash}_{Path(file_name).name}"
@@ -90,7 +96,7 @@ def complete_classifier_weights_upload(
         20,
         "upload.classifier-weights.complete",
         upload_id=upload_id,
-        session_id=session_id,
+        dataset_id=dataset_id,
         file_name=file_name,
         weights_path=relative_path,
     )

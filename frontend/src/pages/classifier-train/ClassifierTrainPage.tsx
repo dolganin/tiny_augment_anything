@@ -7,6 +7,7 @@ import { type PersistedClassifierWeightsUploadSession } from '@/shared/lib/class
 import { getErrorMessage } from '@/shared/lib/get-error-message'
 import { Modal } from '@/shared/ui/feedback/Modal'
 import { PageFrame } from '@/shared/ui/layouts/PageFrame'
+import { type UploadedClassifierWeights } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 import { ClassifierTrainForm } from '@/pages/classifier-train/ClassifierTrainForm'
 import { type ClassifierFormValues } from '@/pages/classifier-train/classifier-train.types'
@@ -69,40 +70,23 @@ export function ClassifierTrainPage() {
     sessionId,
   })
 
-  const applySavedModel = async (model: {
-    modelKey: string | null
-    hparams: Record<string, number>
-    pretrainedWeightsPath: string | null
-  }) => {
+  const applyUploadedWeights = async (weights: UploadedClassifierWeights) => {
     if (!sessionId) {
       setErrorMessage('Сессия потеряна. Сначала восстанови проект.')
-      return
-    }
-    form.reset({
-      modelKey: model.modelKey === 'EVA02-small_finetune' ? 'EVA02-small_finetune' : 'EdgeNeXt_finetune',
-      trainBatchSize: Number(model.hparams.train_batch_size ?? 32),
-      valBatchSize: Number(model.hparams.val_batch_size ?? 64),
-      learningRate: Number(model.hparams.learning_rate ?? 0.0003),
-      weightDecay: Number(model.hparams.weight_decay ?? 0.000001),
-      epochs: Number(model.hparams.epochs ?? 10),
-    })
-    const reusableWeightsPath = model.pretrainedWeightsPath
-    if (!reusableWeightsPath) {
-      await clearWeightsSelection()
       return
     }
     const nextSession: PersistedClassifierWeightsUploadSession = {
       id: `classifier-weights:${sessionId}`,
       phase: 'uploaded',
       file: null,
-      fileName: reusableWeightsPath.split('/').pop() ?? 'weights',
+      fileName: weights.fileName,
       fileSize: 0,
       fileLastModified: 0,
       uploadId: null,
       chunkSize: null,
       totalParts: null,
       nextPart: 0,
-      weightsPath: reusableWeightsPath,
+      weightsPath: weights.weightsPath,
       updatedAt: Date.now(),
     }
     await saveUploadedWeightsSession(nextSession)
@@ -198,10 +182,11 @@ export function ClassifierTrainPage() {
             isUploadingWeights={isUploadingWeights}
             onAbortUpload={() => void abortUpload()}
             onClearWeights={() => void clearWeightsSelection()}
-            onModelApply={(model) => void applySavedModel(model)}
+            onWeightsApply={(weights) => void applyUploadedWeights(weights)}
             onSubmit={submitForm}
             onWeightsChange={handleWeightsChange}
             onWeightsDialogOpen={openWeightsDialog}
+            selectedWeightsPath={weightsUploadSession?.weightsPath ?? null}
             submitPending={classifierMutation.isPending}
             uploadProgress={uploadProgress}
             weightsInputRef={fileInputRef}

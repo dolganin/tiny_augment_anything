@@ -9,6 +9,7 @@ from backend.app.runtime.errors import AppError
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
 from backend.app.services.classifier_runtime import analyze_training_layout
+from backend.app.services.classifier_weights import list_classifier_weights
 from backend.app.services.queue import enqueue_core_task
 from backend.app.services.sessions import parse_session_id
 
@@ -60,28 +61,27 @@ async def classifier_summary(request: Request, params: dict[str, str], state: ob
             context["dataset_id"],
             context["current_dataset_version_id"],
         )
-        runs = await list_classifier_runs(connection, session_id)
 
     split_payload = _build_split_payload(assets, runtime_state.settings.classifier_val_ratio)
+    uploaded_weights = list_classifier_weights(
+        runtime_state.runtime_paths,
+        runtime_state.settings.runtime_dir,
+        context["dataset_id"],
+        session_id,
+    )
     return json_response(
         200,
         {
             "split": split_payload,
-            "models": [
+            "uploadedWeights": [
                 {
-                    "id": str(run["id"]),
-                    "taskId": str(run["task_id"]),
-                    "datasetVersionId": str(run["dataset_version_id"]),
-                    "status": run["status"],
-                    "modelKey": run["model_key"],
-                    "classNames": run["class_names"] if isinstance(run["class_names"], list) else [],
-                    "hparams": run["hparams"] if isinstance(run["hparams"], dict) else {},
-                    "pretrainedWeightsPath": run["pretrained_weights_path"],
-                    "metrics": run["metrics"] if isinstance(run["metrics"], dict) else None,
-                    "createdAt": run["created_at"].isoformat() if run["created_at"] is not None else None,
-                    "finishedAt": run["finished_at"].isoformat() if run["finished_at"] is not None else None,
+                    "displayName": item.display_name,
+                    "fileName": item.file_name,
+                    "weightsPath": item.weights_path,
+                    "sizeBytes": item.size_bytes,
+                    "updatedAt": item.updated_at,
                 }
-                for run in runs
+                for item in uploaded_weights
             ],
         },
     )

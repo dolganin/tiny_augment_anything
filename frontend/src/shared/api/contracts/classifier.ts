@@ -40,19 +40,13 @@ export const classifierSummaryResponseSchema = z.object({
     perClass: z.array(classifierSplitClassSchema),
     error: z.string().nullable().optional(),
   }),
-  models: z.array(
+  uploadedWeights: z.array(
     z.object({
-      id: z.string(),
-      taskId: z.string(),
-      datasetVersionId: z.string(),
-      status: z.string(),
-      modelKey: z.string().nullable().optional(),
-      classNames: z.array(z.string()).default([]),
-      hparams: z.record(z.number()).default({}),
-      pretrainedWeightsPath: z.string().nullable().optional(),
-      metrics: metricsResponseSchema.nullable().optional(),
-      createdAt: z.string().nullable().optional(),
-      finishedAt: z.string().nullable().optional(),
+      displayName: z.string(),
+      fileName: z.string(),
+      weightsPath: z.string(),
+      sizeBytes: z.number().int().nonnegative(),
+      updatedAt: z.string(),
     }),
   ),
 })

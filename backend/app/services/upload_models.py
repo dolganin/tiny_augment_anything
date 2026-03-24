@@ -45,6 +45,15 @@ class CompletedClassifierWeightsUpload:
 
 
 @dataclass(frozen=True, slots=True)
+class ClassifierWeightsInfo:
+    display_name: str
+    file_name: str
+    weights_path: str
+    size_bytes: int
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class CompletedLoraAdapterUpload:
     display_name: str
     file_name: str

@@ -65,6 +65,10 @@ def dataset_lora_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
     return dataset_root_dir(paths, dataset_id) / "lora"
 
 
+def dataset_classifier_weights_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
+    return dataset_root_dir(paths, dataset_id) / "classifier-weights"
+
+
 def dataset_manifest_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
     return paths.manifests / str(dataset_id)
 
