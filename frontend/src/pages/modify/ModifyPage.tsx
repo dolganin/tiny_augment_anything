@@ -36,8 +36,6 @@ export function ModifyPage() {
   const generationJobId = useSessionStore((state) => state.generationJobId)
   const generationConfig = useSessionStore((state) => state.generationConfig)
   const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
-  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
-  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(generationConfig)
@@ -286,8 +284,6 @@ export function ModifyPage() {
       }
       setSession({
         workflowStage: 'modify',
-        fineTuneEnabled,
-        fineTuneResolved,
         approvedItems: [],
         rejectedItemIds: [],
         generationResults: [],

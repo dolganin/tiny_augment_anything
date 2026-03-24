@@ -66,9 +66,6 @@ export const sessionSnapshotResponseSchema = z.object({
   selectedClasses: z.array(z.string()).default([]),
   selectedClassTargets: z.record(z.number().int().positive()).default({}),
   currentMode: z.enum(['generate', 'modify']).nullable().optional(),
-  fineTuneEnabled: z.boolean().default(false),
-  fineTuneResolved: z.boolean().default(false),
-  fineTuneJobId: z.string().nullable().optional(),
   generationJobId: z.string().nullable().optional(),
   classifierJobId: z.string().nullable().optional(),
   downloadPath: z.string().nullable().optional(),
@@ -76,7 +73,6 @@ export const sessionSnapshotResponseSchema = z.object({
     .enum([
       'upload',
       'dataset-stats',
-      'fine-tune',
       'mode-select',
       'generate',
       'modify',
@@ -108,8 +104,6 @@ export const datasetCatalogItemSchema = z.object({
   sessionId: z.string(),
   workflowStage: sessionSnapshotResponseSchema.shape.workflowStage,
   currentMode: z.enum(['generate', 'modify']).nullable().optional(),
-  fineTuneEnabled: z.boolean(),
-  fineTuneResolved: z.boolean(),
   versionIndex: z.number().int().positive(),
   assetCount: z.number().int().nonnegative(),
   updatedAt: z.string(),
@@ -275,7 +269,6 @@ export const downloadResponseSchema = z.object({
 export const workflowSocketEventSchema = z.object({
   type: z.enum([
     'session.updated',
-    'fine_tune.progress',
     'generation.progress',
     'modification.progress',
     'classifier.progress',

@@ -18,9 +18,6 @@ type SessionState = {
   selectedClasses: string[]
   selectedClassTargets: ClassTargets
   currentMode: WorkflowMode
-  fineTuneEnabled: boolean
-  fineTuneResolved: boolean
-  fineTuneJobId: string | null
   generationConfig: Record<string, string>
   generationJobId: string | null
   generationResults: GenerationAsset[]
@@ -48,9 +45,6 @@ const initialState: SessionSnapshot = {
   selectedClasses: [],
   selectedClassTargets: {},
   currentMode: null,
-  fineTuneEnabled: false,
-  fineTuneResolved: false,
-  fineTuneJobId: null,
   generationConfig: {},
   generationJobId: null,
   generationResults: [],
@@ -84,9 +78,6 @@ export const useSessionStore = create<SessionState>()(
         selectedClasses: state.selectedClasses,
         selectedClassTargets: state.selectedClassTargets,
         currentMode: state.currentMode,
-        fineTuneEnabled: state.fineTuneEnabled,
-        fineTuneResolved: state.fineTuneResolved,
-        fineTuneJobId: state.fineTuneJobId,
         generationConfig: state.generationConfig,
         generationJobId: state.generationJobId,
         generationResults: state.generationResults,

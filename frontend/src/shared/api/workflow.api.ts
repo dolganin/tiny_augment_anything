@@ -124,10 +124,6 @@ export const workflowApi = {
     const response = await http.post(endpoints.syncWorkflowState(sessionId), payload)
     return syncStateResponseSchema.parse(response.data)
   },
-  async startFineTune(sessionId: string) {
-    const response = await http.post(endpoints.startFineTune(sessionId))
-    return taskStartedResponseSchema.parse(response.data)
-  },
   async getGenerationConfig(sessionId: string) {
     const response = await http.get(endpoints.generationDefaults(sessionId))
     return generationConfigResponseSchema.parse(response.data)

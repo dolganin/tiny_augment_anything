@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSyncWorkflowStateMutation } from '@/shared/api/workflow.hooks'
@@ -11,7 +10,6 @@ import '@/features/generation-config/generation-config.css'
 
 export function ModeSelectPage() {
   const navigate = useNavigate()
-  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
   const setSession = useSessionStore((state) => state.setSession)
   const sessionId = useSessionStore((state) => state.sessionId)
   const syncWorkflowStateMutation = useSyncWorkflowStateMutation(sessionId ?? '')
@@ -42,12 +40,12 @@ export function ModeSelectPage() {
   return (
     <PageFrame title="Выбор режима">
       <div className="mode-grid">
-        <article className={clsx('mode-card', !fineTuneEnabled && 'mode-card--disabled')}>
+        <article className="mode-card">
           <h3 className="mode-card__title">Генерировать</h3>
           <p className="mode-card__text">
             Создание новых изображений по текстовому промпту и редактируемому набору параметров.
           </p>
-          <Button disabled={!fineTuneEnabled || syncWorkflowStateMutation.isPending} onClick={() => selectMode('generate')}>
+          <Button disabled={syncWorkflowStateMutation.isPending} onClick={() => selectMode('generate')}>
             Открыть генерацию
           </Button>
         </article>
@@ -55,7 +53,7 @@ export function ModeSelectPage() {
         <article className="mode-card">
           <h3 className="mode-card__title">Модифицировать</h3>
           <p className="mode-card__text">
-            Работа с существующими изображениями выбранных классов без обязательного fine-tune.
+            Работа с существующими изображениями выбранных классов с ленивой инициализацией диффузии.
           </p>
           <Button onClick={() => selectMode('modify')} variant="secondary" disabled={syncWorkflowStateMutation.isPending}>
             Открыть модификацию

@@ -10,8 +10,6 @@ import { ReviewWorkspace } from '@/features/generation-review/ReviewWorkspace'
 export function ReviewPage() {
   const navigate = useNavigate()
   const sessionId = useSessionStore((state) => state.sessionId)
-  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
-  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const setSession = useSessionStore((state) => state.setSession)
   const finalizeReviewMutation = useFinalizeReviewMutation(sessionId ?? '')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -27,8 +25,6 @@ export function ReviewPage() {
       }
       setSession({
         workflowStage: 'modify',
-        fineTuneEnabled,
-        fineTuneResolved,
         approvedItems: [],
         rejectedItemIds: [],
         generationResults: [],

@@ -1,7 +1,6 @@
 export type WorkflowStage =
   | 'upload'
   | 'dataset-stats'
-  | 'fine-tune'
   | 'mode-select'
   | 'generate'
   | 'modify'
@@ -12,7 +11,6 @@ export type WorkflowStage =
 export const workflowStages: WorkflowStage[] = [
   'upload',
   'dataset-stats',
-  'fine-tune',
   'modify',
   'review',
   'classifier-train',
@@ -24,7 +22,6 @@ export type WorkflowMode = 'generate' | 'modify' | null
 export const workflowStageLabels: Record<WorkflowStage, string> = {
   upload: 'Загрузка',
   'dataset-stats': 'Статистика',
-  'fine-tune': 'Инициализация',
   'mode-select': 'Режим',
   generate: 'Генерация',
   modify: 'Модификация',
@@ -36,7 +33,6 @@ export const workflowStageLabels: Record<WorkflowStage, string> = {
 export const workflowStagePaths: Record<WorkflowStage, string> = {
   upload: '/upload',
   'dataset-stats': '/dataset/stats',
-  'fine-tune': '/diffusion/fine-tune',
   'mode-select': '/mode',
   generate: '/generate',
   modify: '/modify',
@@ -124,8 +120,6 @@ export type DatasetCatalogItem = {
   sessionId: string
   workflowStage: WorkflowStage
   currentMode: WorkflowMode
-  fineTuneEnabled: boolean
-  fineTuneResolved: boolean
   versionIndex: number
   assetCount: number
   updatedAt: string

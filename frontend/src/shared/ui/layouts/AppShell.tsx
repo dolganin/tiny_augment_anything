@@ -14,8 +14,6 @@ export function AppShell({ children }: PropsWithChildren) {
   const workflowStage = useSessionStore((state) => state.workflowStage)
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
-  const fineTuneEnabled = useSessionStore((state) => state.fineTuneEnabled)
-  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const jobsPanelOpen = useWorkspaceStore((state) => state.jobsDrawerOpen)
   const toggleJobsPanel = useWorkspaceStore((state) => state.toggleJobsDrawer)
   const jobsQuery = useJobsQuery()
@@ -25,18 +23,6 @@ export function AppShell({ children }: PropsWithChildren) {
   const activeJobsCount = jobs.filter((item) => item.status === 'pending' || item.status === 'running').length
   const currentStageIndex = workflowStages.indexOf(workflowStage)
   const showWorkflowSidebar = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
-  const modelStatus = useMemo(() => {
-    if (fineTuneEnabled && fineTuneResolved) {
-      return 'Модель: загружена'
-    }
-    if (fineTuneResolved) {
-      return 'Модель: ленивый запуск'
-    }
-    if (fineTuneEnabled) {
-      return 'Модель: прогревается'
-    }
-    return 'Модель: не загружена'
-  }, [fineTuneEnabled, fineTuneResolved])
 
   const handleCancelJob = async (jobId: string) => {
     await cancelJobMutation.mutateAsync(jobId)
@@ -106,13 +92,12 @@ export function AppShell({ children }: PropsWithChildren) {
             <div className="shell__dataset">
               <span className="shell__session-label">Активный датасет</span>
               <strong className="shell__dataset-name">{datasetName ?? datasetId}</strong>
-              <span className="shell__session-value">{fineTuneEnabled ? 'Профиль: подготовленный' : 'Профиль: базовый'}</span>
-              <span className="shell__session-value">{modelStatus}</span>
+              <span className="shell__session-value">Диффузия: ленивый запуск внутри задачи</span>
             </div>
 
             <nav className="shell__nav">
               {workflowStages.map((stage) => {
-                const isSkipped = isStageSkipped(stage, workflowStage, fineTuneEnabled, fineTuneResolved)
+                const isSkipped = false
                 const isCompleted = !isSkipped && currentStageIndex > workflowStages.indexOf(stage)
                 return (
                   <NavLink
@@ -147,19 +132,6 @@ export function AppShell({ children }: PropsWithChildren) {
       <div className="shell__content">{children}</div>
     </div>
   )
-}
-
-function isStageSkipped(
-  stage: WorkflowStage,
-  currentStage: WorkflowStage,
-  fineTuneEnabled: boolean,
-  fineTuneResolved: boolean,
-) {
-  const currentStageIndex = workflowStages.indexOf(currentStage)
-  if (stage === 'fine-tune' && fineTuneResolved && !fineTuneEnabled && currentStageIndex >= workflowStages.indexOf('fine-tune')) {
-    return true
-  }
-  return false
 }
 
 function resolveStageState(stage: WorkflowStage, currentStage: WorkflowStage, isCompleted: boolean, isSkipped: boolean) {

@@ -140,12 +140,6 @@ export function useSelectedClassesMutation(sessionId: string) {
   })
 }
 
-export function useStartFineTuneMutation(sessionId: string) {
-  return useMutation({
-    mutationFn: () => workflowApi.startFineTune(sessionId),
-  })
-}
-
 export function useSyncWorkflowStateMutation(sessionId: string) {
   return useMutation({
     mutationFn: (payload: unknown) => workflowApi.syncWorkflowState(sessionId, payload),

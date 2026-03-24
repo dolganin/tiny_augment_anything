@@ -77,8 +77,8 @@ export function DatasetStatsPage() {
         selectedClasses.map((className) => [className, selectedClassTargets[className] ?? 1]),
       )
       await selectedClassesMutation.mutateAsync({ classNames: selectedClasses, classTargets })
-      setSession({ workflowStage: 'fine-tune' })
-      navigate('/diffusion/fine-tune')
+      setSession({ workflowStage: 'modify' })
+      navigate('/modify')
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
     }
@@ -152,7 +152,7 @@ export function DatasetStatsPage() {
             disabled={selectedClasses.length === 0 || selectedClassesMutation.isPending}
             onClick={handleContinue}
           >
-            Перейти к инициализации
+            Перейти к модификации
           </Button>
         </div>
       </PageFrame>

@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { ClassifierTrainPage } from '@/pages/classifier-train/ClassifierTrainPage'
 import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
-import { FineTunePage } from '@/pages/fine-tune/FineTunePage'
 import { HomePage } from '@/pages/home/HomePage'
 import { MetricsPage } from '@/pages/metrics/MetricsPage'
 import { ModifyPage } from '@/pages/modify/ModifyPage'
@@ -14,14 +13,13 @@ import { useSessionStore } from '@/store/session/session.store'
 export function AppRouter() {
   const datasetId = useSessionStore((state) => state.datasetId)
   const selectedClasses = useSessionStore((state) => state.selectedClasses)
-  const fineTuneResolved = useSessionStore((state) => state.fineTuneResolved)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
   const metrics = useSessionStore((state) => state.metrics)
   const workflowStage = useSessionStore((state) => state.workflowStage)
 
   const hasDataset = Boolean(datasetId)
   const hasSelectedClasses = selectedClasses.length > 0
-  const canModify = hasSelectedClasses && fineTuneResolved
+  const canModify = hasSelectedClasses
   const canReview = canModify
   const canTrainClassifier =
     Boolean(classifierJobId) ||
@@ -43,13 +41,7 @@ export function AppRouter() {
         <Route path="/dataset/stats" element={<DatasetStatsPage />} />
       </Route>
 
-      <Route
-        element={<ProtectedRoute canAccess={hasSelectedClasses} redirectTo="/dataset/stats" />}
-      >
-        <Route path="/diffusion/fine-tune" element={<FineTunePage />} />
-      </Route>
-
-      <Route element={<ProtectedRoute canAccess={canModify} redirectTo="/diffusion/fine-tune" />}>
+      <Route element={<ProtectedRoute canAccess={canModify} redirectTo="/dataset/stats" />}>
         <Route path="/modify" element={<ModifyPage />} />
       </Route>
 
