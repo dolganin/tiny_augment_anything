@@ -39,6 +39,22 @@ export const modificationStartPayloadSchema = z.object({
   areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
 })
 
+export const batchModificationSourceSchema = z.object({
+  assetId: z.string().min(1),
+  areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
+  customPrompt: z.string().min(1).nullable().optional(),
+})
+
+export const batchModificationStartPayloadSchema = z.object({
+  commonPrompt: z.string().min(1),
+  negativePrompt: z.string().optional(),
+  config: z.record(z.string()),
+  sources: z.array(batchModificationSourceSchema).min(1),
+  classTargets: z.record(z.number().int().positive()),
+  batchMode: z.enum(['common_mask', 'custom_masks']),
+  areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
+})
+
 export const generationResultsResponseSchema = z.object({
   remainingCount: z.number().int().nonnegative(),
   targetCount: z.number().int().positive(),

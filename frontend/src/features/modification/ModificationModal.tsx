@@ -17,6 +17,7 @@ type ConfigField = {
 }
 
 type ModificationModalProps = {
+  applyMaskToAll: boolean
   applyPromptToAll: boolean
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
@@ -24,6 +25,7 @@ type ModificationModalProps = {
   form: UseFormReturn<ModifyFormValues>
   mode: ModificationMode
   negativePromptValue: string
+  onApplyMaskToAllChange: (value: boolean) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
@@ -38,10 +40,13 @@ type ModificationModalProps = {
   onSourceMove: (direction: -1 | 1) => void
   onSubmit: (event?: FormEvent<HTMLFormElement>) => void
   onNegativePromptChange: (value: string) => void
+  onToggleSourceSelection: (assetId: string) => void
   open: boolean
   priorityFields: ConfigField[]
   reviewPendingCount: number
   samPromptValue: string
+  selectedSourceCount: number
+  selectedSourceIds: Record<string, boolean>
   secondaryFields: ConfigField[]
   source: ModificationSourceAsset | null
   sourceIndex: number
@@ -51,12 +56,14 @@ type ModificationModalProps = {
 }
 
 export function ModificationModal({
+  applyMaskToAll,
   applyPromptToAll,
   areaConfirmed,
   areaPoints,
   form,
   mode,
   negativePromptValue,
+  onApplyMaskToAllChange,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
@@ -72,10 +79,13 @@ export function ModificationModal({
   onSourceMove,
   onSubmit,
   onNegativePromptChange,
+  onToggleSourceSelection,
   open,
   priorityFields,
   reviewPendingCount,
   samPromptValue,
+  selectedSourceCount,
+  selectedSourceIds,
   secondaryFields,
   source,
   sourceIndex,
@@ -114,12 +124,14 @@ export function ModificationModal({
 
         <form className="modification-modal__content" onSubmit={onSubmit}>
           <ModificationModalCanvas
+            applyMaskToAll={applyMaskToAll}
             applyPromptToAll={applyPromptToAll}
             areaConfirmed={areaConfirmed}
             areaPoints={areaPoints}
             form={form}
             mode={mode}
             negativePromptValue={negativePromptValue}
+            onApplyMaskToAllChange={onApplyMaskToAllChange}
             onApplyPromptToAllChange={onApplyPromptToAllChange}
             onAreaConfirm={onAreaConfirm}
             onAreaPointsChange={onAreaPointsChange}
@@ -130,17 +142,23 @@ export function ModificationModal({
             onSourceMove={onSourceMove}
             onNegativePromptChange={onNegativePromptChange}
             samPromptValue={samPromptValue}
+            selectedSourceIds={selectedSourceIds}
+            selectedSourceCount={selectedSourceCount}
             source={source}
             sourceIndex={sourceIndex}
             sourceItems={sourceItems}
+            onToggleSourceSelection={onToggleSourceSelection}
           />
 
           <ModificationModalParams
+            applyMaskToAll={applyMaskToAll}
             fieldValues={fieldValues}
             mode={mode}
             onFieldValueChange={onFieldValueChange}
+            onMaskModeChange={onApplyMaskToAllChange}
             onModeChange={onModeChange}
             priorityFields={priorityFields}
+            selectedSourceCount={selectedSourceCount}
             secondaryFields={secondaryFields}
             totalTargetCount={totalTargetCount}
           />
@@ -148,6 +166,7 @@ export function ModificationModal({
           <footer className="modification-modal__footer">
             <div className="modification-modal__footer-meta">
               <span>Источник {sourceIndex + 1} из {sourceItems.length}</span>
+              <span>Выбрано источников: {selectedSourceCount}</span>
               <span>Результатов в review: {reviewPendingCount}</span>
             </div>
             <div className="modification-modal__footer-actions">

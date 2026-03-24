@@ -7,8 +7,17 @@ export type ModifyFormValues = {
 
 export type AreaPoint = [number, number]
 
+export type SourceSelectionState = {
+  assetId: string
+  selected: boolean
+  prompt: string | null
+  areaPoints: AreaPoint[]
+  areaConfirmed: boolean
+}
+
 export type ModifyPageViewModel = {
   applyPromptToAll: boolean
+  applyMaskToAll: boolean
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
   errorMessage: string | null
@@ -22,6 +31,7 @@ export type ModifyPageViewModel = {
   priorityFields: Array<{ key: string; label: string; type: string; value: string; options?: string[] }>
   reviewPendingCount: number
   samPromptValue: string
+  selectedSourceCount: number
   secondaryFields: Array<{ key: string; label: string; type: string; value: string; options?: string[] }>
   source: ModificationSourceAsset | null
   sourceIndex: number

@@ -7,12 +7,14 @@ import { type ModificationSourceAsset } from '@/shared/types/workflow'
 import { UseFormReturn } from 'react-hook-form'
 
 type ModificationModalCanvasProps = {
+  applyMaskToAll: boolean
   applyPromptToAll: boolean
   areaConfirmed: boolean
   areaPoints: AreaPoint[]
   form: UseFormReturn<ModifyFormValues>
   negativePromptValue: string
   mode: ModificationMode
+  onApplyMaskToAllChange: (value: boolean) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
@@ -21,20 +23,25 @@ type ModificationModalCanvasProps = {
   onPromptChange: (value: string) => void
   onSamPromptChange: (value: string) => void
   onSourceMove: (direction: -1 | 1) => void
+  onToggleSourceSelection: (assetId: string) => void
   onNegativePromptChange: (value: string) => void
   samPromptValue: string
+  selectedSourceCount: number
+  selectedSourceIds: Record<string, boolean>
   source: ModificationSourceAsset
   sourceIndex: number
   sourceItems: ModificationSourceAsset[]
 }
 
 export function ModificationModalCanvas({
+  applyMaskToAll,
   applyPromptToAll,
   areaConfirmed,
   areaPoints,
   form,
   mode,
   negativePromptValue,
+  onApplyMaskToAllChange,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
@@ -43,8 +50,11 @@ export function ModificationModalCanvas({
   onPromptChange,
   onSamPromptChange,
   onSourceMove,
+  onToggleSourceSelection,
   onNegativePromptChange,
   samPromptValue,
+  selectedSourceCount,
+  selectedSourceIds,
   source,
   sourceIndex,
   sourceItems,
@@ -95,6 +105,38 @@ export function ModificationModalCanvas({
         onSamPromptChange={onSamPromptChange}
         samPromptValue={samPromptValue}
       />
+
+      <section className="modification-modal__panel">
+        <div className="modification-modal__section-head modification-modal__section-head--spread">
+          <h3 className="modification-modal__section-title">Batch-источники</h3>
+          <span className="modification-modal__selection-summary">{selectedSourceCount} выбрано</span>
+        </div>
+        <label className="modification-prompts__checkbox">
+          <input
+            checked={applyMaskToAll}
+            onChange={(event) => onApplyMaskToAllChange(event.target.checked)}
+            type="checkbox"
+          />
+          <span>Одна маска для всех источников</span>
+        </label>
+        <div className="modification-modal__source-grid">
+          {sourceItems.map((item) => {
+            const selected = selectedSourceIds[item.assetId] !== false
+            const isCurrent = item.assetId === source.assetId
+            return (
+              <button
+                className={`modification-modal__source-chip${selected ? ' modification-modal__source-chip--selected' : ''}${isCurrent ? ' modification-modal__source-chip--current' : ''}`}
+                key={item.assetId}
+                onClick={() => onToggleSourceSelection(item.assetId)}
+                type="button"
+              >
+                <span>{item.className}</span>
+                <strong>{selected ? 'в batch' : 'пропуск'}</strong>
+              </button>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
