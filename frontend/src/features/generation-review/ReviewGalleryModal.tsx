@@ -7,6 +7,7 @@ import '@/features/generation-review/review-gallery-modal.css'
 
 type ReviewGalleryModalProps = {
   approvedCount: number
+  classRemainingItems: Array<{ className: string; remaining: number }>
   currentLightboxIndex: number
   disableRejectAll: boolean
   disableSave: boolean
@@ -28,6 +29,7 @@ type ReviewGalleryModalProps = {
 
 export function ReviewGalleryModal({
   approvedCount,
+  classRemainingItems,
   currentLightboxIndex,
   disableRejectAll,
   disableSave,
@@ -58,6 +60,15 @@ export function ReviewGalleryModal({
           <div>
             <p className="review-gallery-modal__eyebrow">Отбор синтетических результатов</p>
             <h2 className="review-gallery-modal__title">Галерея текущей партии</h2>
+            {classRemainingItems.length > 0 ? (
+              <div className="review-gallery-modal__class-remaining">
+                {classRemainingItems.map((item) => (
+                  <span key={item.className}>
+                    {item.className}: осталось {item.remaining}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="review-gallery-modal__header-meta">
             <span>Подтверждено {approvedCount}</span>

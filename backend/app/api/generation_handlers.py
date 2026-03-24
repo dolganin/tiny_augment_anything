@@ -260,6 +260,26 @@ async def batch_modification_sources(request: Request, params: dict[str, str], s
     )
 
 
+async def latest_augmentation_run(request: Request, params: dict[str, str], state: object):
+    runtime_state = require_runtime_state(state)
+    session_id = parse_session_id(params["session_id"])
+    async with runtime_state.database.connection() as connection:
+        run = await get_latest_augmentation_run(connection, session_id)
+    if run is None:
+        return json_response(200, {"runId": None, "status": None, "isBatch": False, "batchMode": None, "generatedCount": 0, "targetCount": 0})
+    return json_response(
+        200,
+        {
+            "runId": str(run["id"]),
+            "status": run["status"],
+            "isBatch": bool(run["is_batch"]),
+            "batchMode": run["batch_mode"],
+            "generatedCount": int(run["generated_count"]),
+            "targetCount": int(run["target_count"]),
+        },
+    )
+
+
 def _normalize_area_points(area_points: object) -> list[list[float]] | None:
     if area_points is None:
         return None

@@ -44,6 +44,7 @@ export const endpoints = {
   getModificationSource: (sessionId: string) => `/sessions/${sessionId}/modification/source`,
   startModification: (sessionId: string) => `/sessions/${sessionId}/modification`,
   startBatchModification: (sessionId: string) => `/sessions/${sessionId}/modification/batch`,
+  latestAugmentationRun: (sessionId: string) => `/sessions/${sessionId}/augmentation-runs/latest`,
   batchModificationSources: (sessionId: string, runId: string) => `/sessions/${sessionId}/augmentation-runs/${runId}/sources`,
   generationResults: (sessionId: string) => `/sessions/${sessionId}/results`,
   approveAsset: (sessionId: string, assetId: string) => `/sessions/${sessionId}/results/${assetId}/approve`,

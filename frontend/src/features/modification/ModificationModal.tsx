@@ -3,7 +3,7 @@ import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModalCanvas } from '@/features/modification/ModificationModalCanvas'
 import { ModificationMode } from '@/features/modification/ModificationModeToggle'
 import { ModificationModalParams } from '@/features/modification/ModificationModalParams'
-import { type AreaPoint, type ModifyFormValues } from '@/pages/modify/modify.types'
+import { type AreaPoint, type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
 import { type ModificationSourceAsset } from '@/shared/types/workflow'
 import { UseFormReturn } from 'react-hook-form'
 import '@/features/modification/modification-modal.css'
@@ -23,13 +23,16 @@ type ModificationModalProps = {
   areaPoints: AreaPoint[]
   fieldValues: Record<string, string>
   form: UseFormReturn<ModifyFormValues>
+  launchMode: ModificationLaunchMode
   mode: ModificationMode
   negativePromptValue: string
+  onApplyTemplate: (template: PromptTemplate) => void
   onApplyMaskToAllChange: (value: boolean) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onAreaConfirm: () => void
   onAreaPointsChange: (value: AreaPoint[]) => void
   onClose: () => void
+  onDeleteTemplate: (templateId: string) => void
   onFieldValueChange: (key: string, value: string) => void
   onModeChange: (mode: ModificationMode) => void
   onOpenReview: () => void
@@ -37,6 +40,8 @@ type ModificationModalProps = {
   onPolygonUndo: () => void
   onPromptChange: (value: string) => void
   onSamPromptChange: (value: string) => void
+  onSaveTemplate: (scope: PromptTemplate['scope']) => void
+  onSavePolygonTemplate: () => void
   onSourceMove: (direction: -1 | 1) => void
   onSubmit: (event?: FormEvent<HTMLFormElement>) => void
   onNegativePromptChange: (value: string) => void
@@ -45,6 +50,7 @@ type ModificationModalProps = {
   priorityFields: ConfigField[]
   reviewPendingCount: number
   samPromptValue: string
+  selectionTemplates: PromptTemplate[]
   selectedSourceCount: number
   selectedSourceIds: Record<string, boolean>
   secondaryFields: ConfigField[]
@@ -52,6 +58,8 @@ type ModificationModalProps = {
   sourceIndex: number
   sourceItems: ModificationSourceAsset[]
   startPending: boolean
+  submitLabel?: string
+  textTemplates: PromptTemplate[]
   totalTargetCount: number
 }
 
@@ -63,19 +71,24 @@ export function ModificationModal({
   form,
   mode,
   negativePromptValue,
+  onApplyTemplate,
   onApplyMaskToAllChange,
   onApplyPromptToAllChange,
   onAreaConfirm,
   onAreaPointsChange,
   onClose,
+  onDeleteTemplate,
   onFieldValueChange,
   fieldValues,
   onModeChange,
   onOpenReview,
+  launchMode,
   onPolygonClear,
   onPolygonUndo,
   onPromptChange,
   onSamPromptChange,
+  onSaveTemplate,
+  onSavePolygonTemplate,
   onSourceMove,
   onSubmit,
   onNegativePromptChange,
@@ -84,6 +97,7 @@ export function ModificationModal({
   priorityFields,
   reviewPendingCount,
   samPromptValue,
+  selectionTemplates,
   selectedSourceCount,
   selectedSourceIds,
   secondaryFields,
@@ -91,6 +105,8 @@ export function ModificationModal({
   sourceIndex,
   sourceItems,
   startPending,
+  submitLabel = 'Запустить модификацию',
+  textTemplates,
   totalTargetCount,
 }: ModificationModalProps) {
   if (!open || !source) {
@@ -103,9 +119,14 @@ export function ModificationModal({
       <section aria-modal="true" className="modification-modal" role="dialog">
         <header className="modification-modal__header">
           <div className="modification-modal__header-main">
-            <h2 className="modification-modal__title">Модификация</h2>
+            <h2 className="modification-modal__title">
+              {launchMode === 'batch' ? 'Пакетная модификация' : 'Модификация изображения'}
+            </h2>
             <div className="modification-modal__header-divider" />
             <div className="modification-modal__polygon-actions modification-modal__polygon-actions--header">
+              <Button onClick={onSavePolygonTemplate} type="button" variant="ghost">
+                Сохранить шаблон полигона
+              </Button>
               <Button disabled={mode === 'full' || areaPoints.length < 3 || areaConfirmed} onClick={onAreaConfirm} type="button" variant="secondary">
                 Применить область
               </Button>
@@ -129,30 +150,37 @@ export function ModificationModal({
             areaConfirmed={areaConfirmed}
             areaPoints={areaPoints}
             form={form}
+            launchMode={launchMode}
             mode={mode}
             negativePromptValue={negativePromptValue}
+            onApplyTemplate={onApplyTemplate}
             onApplyMaskToAllChange={onApplyMaskToAllChange}
             onApplyPromptToAllChange={onApplyPromptToAllChange}
             onAreaConfirm={onAreaConfirm}
             onAreaPointsChange={onAreaPointsChange}
+            onDeleteTemplate={onDeleteTemplate}
             onPolygonClear={onPolygonClear}
             onPolygonUndo={onPolygonUndo}
             onPromptChange={onPromptChange}
             onSamPromptChange={onSamPromptChange}
+            onSaveTemplate={onSaveTemplate}
             onSourceMove={onSourceMove}
             onNegativePromptChange={onNegativePromptChange}
             samPromptValue={samPromptValue}
+            selectionTemplates={selectionTemplates}
             selectedSourceIds={selectedSourceIds}
             selectedSourceCount={selectedSourceCount}
             source={source}
             sourceIndex={sourceIndex}
             sourceItems={sourceItems}
+            textTemplates={textTemplates}
             onToggleSourceSelection={onToggleSourceSelection}
           />
 
           <ModificationModalParams
             applyMaskToAll={applyMaskToAll}
             fieldValues={fieldValues}
+            launchMode={launchMode}
             mode={mode}
             onFieldValueChange={onFieldValueChange}
             onMaskModeChange={onApplyMaskToAllChange}
@@ -179,7 +207,7 @@ export function ModificationModal({
                 Закрыть
               </Button>
               <Button disabled={startPending} type="submit">
-                Запустить модификацию
+                {submitLabel}
               </Button>
             </div>
           </footer>

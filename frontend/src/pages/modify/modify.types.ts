@@ -7,6 +7,39 @@ export type ModifyFormValues = {
 
 export type AreaPoint = [number, number]
 
+export type ModificationLaunchMode = 'single' | 'batch'
+
+export type PromptTemplateScope = 'text' | 'selection'
+
+export type TextPromptTemplate = {
+  id: string
+  name: string
+  prompt: string
+  negativePrompt?: string
+}
+
+export type SelectionPromptTemplate = {
+  id: string
+  name: string
+  text: string
+}
+
+export type PolygonTemplate = {
+  id: string
+  name: string
+  points: AreaPoint[]
+}
+
+export type PromptTemplate =
+  | (TextPromptTemplate & { scope: 'text'; text: string; negativeText?: string })
+  | (SelectionPromptTemplate & { scope: 'selection' })
+
+export type DatasetModificationTemplates = {
+  textTemplates: TextPromptTemplate[]
+  selectionTemplates: SelectionPromptTemplate[]
+  polygonTemplates: PolygonTemplate[]
+}
+
 export type SourceSelectionState = {
   assetId: string
   selected: boolean

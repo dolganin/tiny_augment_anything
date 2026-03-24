@@ -44,6 +44,7 @@ from backend.app.api.workflow_handlers import (
     batch_modification_sources,
     generation_config,
     generation_results,
+    latest_augmentation_run,
     metrics,
     modification_source,
     cancel_running_task,
@@ -119,6 +120,7 @@ def build_router() -> Router:
     router.add_http("GET", "/api/sessions/{session_id}/modification/source", modification_source)
     router.add_http("POST", "/api/sessions/{session_id}/modification", start_modification)
     router.add_http("POST", "/api/sessions/{session_id}/modification/batch", start_batch_modification)
+    router.add_http("GET", "/api/sessions/{session_id}/augmentation-runs/latest", latest_augmentation_run)
     router.add_http("GET", "/api/sessions/{session_id}/augmentation-runs/{run_id}/sources", batch_modification_sources)
     router.add_http("GET", "/api/sessions/{session_id}/results", generation_results)
     router.add_http("POST", "/api/sessions/{session_id}/results/{asset_id}/approve", approve_asset)

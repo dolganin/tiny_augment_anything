@@ -55,6 +55,31 @@ export const batchModificationStartPayloadSchema = z.object({
   areaPoints: z.array(modificationAreaPointSchema).min(3).optional(),
 })
 
+export const batchModificationRunSummarySchema = z.object({
+  runId: z.string().nullable(),
+  status: z.string().nullable(),
+  isBatch: z.boolean(),
+  batchMode: z.enum(['common_mask', 'custom_masks']).nullable(),
+  generatedCount: z.number().int().nonnegative(),
+  targetCount: z.number().int().nonnegative(),
+})
+
+export const batchModificationSourcesResponseSchema = z.object({
+  runId: z.string(),
+  isBatch: z.boolean(),
+  batchMode: z.enum(['common_mask', 'custom_masks']).nullable(),
+  items: z.array(
+    z.object({
+      id: z.string(),
+      sourceAssetId: z.string(),
+      status: z.enum(['pending', 'processing', 'completed', 'failed']),
+      generatedCount: z.number().int().nonnegative(),
+      errorMessage: z.string().nullable(),
+      position: z.number().int().nonnegative(),
+    }),
+  ),
+})
+
 export const generationResultsResponseSchema = z.object({
   remainingCount: z.number().int().nonnegative(),
   targetCount: z.number().int().positive(),

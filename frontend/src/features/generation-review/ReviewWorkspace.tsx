@@ -23,6 +23,7 @@ type ReviewWorkspaceProps = {
 export function ReviewWorkspace({ open, onClose, onSaveToDataset, onStartClassifier }: ReviewWorkspaceProps) {
   const sessionId = useSessionStore((state) => state.sessionId)
   const approvedItems = useSessionStore((state) => state.approvedItems)
+  const selectedClassTargets = useSessionStore((state) => state.selectedClassTargets)
   const setSession = useSessionStore((state) => state.setSession)
   const resultsQuery = useGenerationResultsQuery(open ? sessionId : null)
   const approveMutation = useApproveAssetMutation(sessionId ?? '')
@@ -36,6 +37,19 @@ export function ReviewWorkspace({ open, onClose, onSaveToDataset, onStartClassif
     }
     return adaptGenerationResults(resultsQuery.data)
   }, [resultsQuery.data])
+
+  const classRemainingItems = useMemo(() => {
+    const approvedByClass = approvedItems.reduce<Record<string, number>>((acc, item) => {
+      acc[item.className] = (acc[item.className] ?? 0) + 1
+      return acc
+    }, {})
+    return Object.entries(selectedClassTargets)
+      .map(([className, target]) => ({
+        className,
+        remaining: Math.max(target - (approvedByClass[className] ?? 0), 0),
+      }))
+      .sort((left, right) => left.className.localeCompare(right.className))
+  }, [approvedItems, selectedClassTargets])
 
   useEffect(() => {
     if (resultsQuery.error) {
@@ -194,6 +208,7 @@ export function ReviewWorkspace({ open, onClose, onSaveToDataset, onStartClassif
     <>
       <ReviewGalleryModal
         approvedCount={approvedItems.length}
+        classRemainingItems={classRemainingItems}
         currentLightboxIndex={currentLightboxIndex}
         disableRejectAll={!queue?.items.length || approveMutation.isPending || rejectMutation.isPending}
         disableSave={approvedItems.length === 0 || approveMutation.isPending || rejectMutation.isPending}

@@ -41,6 +41,7 @@ type ModifyWorkbenchProps = {
 export function ModifyWorkbench({
   areaConfirmed,
   areaPoints,
+  fieldValues,
   form,
   negativePromptValue,
   onAreaConfirm,

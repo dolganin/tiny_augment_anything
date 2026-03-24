@@ -8,6 +8,7 @@ import {
   WorkflowMode,
   WorkflowStage,
 } from '@/shared/types/workflow'
+import { DatasetModificationTemplates, PromptTemplate } from '@/pages/modify/modify.types'
 
 type SessionState = {
   hydrated: boolean
@@ -19,6 +20,8 @@ type SessionState = {
   selectedClassTargets: ClassTargets
   currentMode: WorkflowMode
   generationConfig: Record<string, string>
+  promptTemplates: PromptTemplate[]
+  modificationTemplatesByDataset: Record<string, DatasetModificationTemplates>
   generationJobId: string | null
   generationResults: GenerationAsset[]
   approvedItems: GenerationAsset[]
@@ -46,6 +49,8 @@ const initialState: SessionSnapshot = {
   selectedClassTargets: {},
   currentMode: null,
   generationConfig: {},
+  promptTemplates: [],
+  modificationTemplatesByDataset: {},
   generationJobId: null,
   generationResults: [],
   approvedItems: [],
@@ -79,6 +84,8 @@ export const useSessionStore = create<SessionState>()(
         selectedClassTargets: state.selectedClassTargets,
         currentMode: state.currentMode,
         generationConfig: state.generationConfig,
+        promptTemplates: state.promptTemplates,
+        modificationTemplatesByDataset: state.modificationTemplatesByDataset,
         generationJobId: state.generationJobId,
         generationResults: state.generationResults,
         approvedItems: state.approvedItems,

@@ -84,6 +84,36 @@ export function useModificationSourceQuery(sessionId: string | null) {
   })
 }
 
+export function useLatestAugmentationRunQuery(sessionId: string | null) {
+  return useQuery({
+    queryKey: sessionId ? ['workflow', 'augmentation-run', 'latest', sessionId] : ['workflow', 'augmentation-run', 'latest', 'empty'],
+    queryFn: () => workflowApi.getLatestAugmentationRun(sessionId!),
+    enabled: Boolean(sessionId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === 'pending' || status === 'running' ? 2000 : 5000
+    },
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useBatchModificationSourcesQuery(sessionId: string | null, runId: string | null) {
+  return useQuery({
+    queryKey:
+      sessionId && runId
+        ? ['workflow', 'batch-modification-sources', sessionId, runId]
+        : ['workflow', 'batch-modification-sources', 'empty'],
+    queryFn: () => workflowApi.getBatchModificationSources(sessionId!, runId!),
+    enabled: Boolean(sessionId && runId),
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? []
+      const hasActive = items.some((item) => item.status === 'pending' || item.status === 'processing')
+      return hasActive ? 2000 : 5000
+    },
+    refetchOnWindowFocus: false,
+  })
+}
+
 export function useGenerationResultsQuery(sessionId: string | null) {
   return useQuery({
     queryKey: sessionId ? workflowKeys.generationResults(sessionId) : ['workflow', 'generation-results', 'empty'],

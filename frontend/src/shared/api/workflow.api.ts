@@ -9,6 +9,8 @@ import {
   finalizeReviewPayloadSchema,
   finalizeReviewResponseSchema,
   batchModificationStartPayloadSchema,
+  batchModificationRunSummarySchema,
+  batchModificationSourcesResponseSchema,
   generationConfigResponseSchema,
   generationResultsResponseSchema,
   jobsResponseSchema,
@@ -149,6 +151,14 @@ export const workflowApi = {
     const parsedPayload = batchModificationStartPayloadSchema.parse(payload)
     const response = await http.post(endpoints.startBatchModification(sessionId), parsedPayload)
     return taskStartedResponseSchema.parse(response.data)
+  },
+  async getLatestAugmentationRun(sessionId: string) {
+    const response = await http.get(endpoints.latestAugmentationRun(sessionId))
+    return batchModificationRunSummarySchema.parse(response.data)
+  },
+  async getBatchModificationSources(sessionId: string, runId: string) {
+    const response = await http.get(endpoints.batchModificationSources(sessionId, runId))
+    return batchModificationSourcesResponseSchema.parse(response.data)
   },
   async getGenerationResults(sessionId: string) {
     const response = await http.get(endpoints.generationResults(sessionId))

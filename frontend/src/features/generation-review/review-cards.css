@@ -1,0 +1,37 @@
+.review-card,
+.metrics-grid,
+.download-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 26px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+}
+
+.review-card__image {
+  width: 100%;
+  max-height: min(58vh, 680px);
+  object-fit: contain;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #f6fbff 0%, #edf4fb 100%);
+}
+
+.review-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--color-text-muted);
+}
+
+.review-card__empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 760px) {
+  .review-card__image {
+    max-height: 40vh;
+  }
+}

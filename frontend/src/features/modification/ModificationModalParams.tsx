@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/shared/ui/buttons/Button'
 import { GenerationConfigFields } from '@/features/generation-config/GenerationConfigFields'
 import { ModificationMode, ModificationModeToggle } from '@/features/modification/ModificationModeToggle'
+import { ModificationLaunchMode } from '@/pages/modify/modify.types'
 
 type ConfigField = {
   key: string
@@ -14,6 +15,7 @@ type ConfigField = {
 type ModificationModalParamsProps = {
   applyMaskToAll: boolean
   fieldValues: Record<string, string>
+  launchMode: ModificationLaunchMode
   mode: ModificationMode
   onFieldValueChange: (key: string, value: string) => void
   onMaskModeChange: (value: boolean) => void
@@ -27,6 +29,7 @@ type ModificationModalParamsProps = {
 export function ModificationModalParams({
   applyMaskToAll,
   fieldValues,
+  launchMode,
   mode,
   onFieldValueChange,
   onMaskModeChange,
@@ -50,14 +53,16 @@ export function ModificationModalParams({
           <strong className="modification-modal__summary-value">{selectedSourceCount}</strong>
         </div>
         <ModificationModeToggle mode={mode} onChange={onModeChange} />
-        <label className="modification-prompts__checkbox">
-          <input
-            checked={applyMaskToAll}
-            onChange={(event) => onMaskModeChange(event.target.checked)}
-            type="checkbox"
-          />
-          <span>Общая маска для всего batch</span>
-        </label>
+        {launchMode === 'batch' ? (
+          <label className="modification-prompts__checkbox">
+            <input
+              checked={applyMaskToAll}
+              onChange={(event) => onMaskModeChange(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Общая маска для всего batch</span>
+          </label>
+        ) : null}
       </section>
 
       {priorityFields.length > 0 ? (

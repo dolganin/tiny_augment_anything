@@ -7,10 +7,16 @@ import { DiffusionLoraPanel } from '@/features/diffusion-lora/DiffusionLoraPanel
 import { ReviewWorkspace } from '@/features/generation-review/ReviewWorkspace'
 import { Button } from '@/shared/ui/buttons/Button'
 import { ModificationModal } from '@/features/modification/ModificationModal'
+import { BatchProgressPanel } from '@/pages/modify/BatchProgressPanel'
+import { BatchSourceSelector } from '@/pages/modify/BatchSourceSelector'
+import { BatchTemplatePlanner } from '@/pages/modify/BatchTemplatePlanner'
+import { DatasetTemplatePanel } from '@/pages/modify/DatasetTemplatePanel'
 import { type ModifyFormValues } from '@/pages/modify/modify.types'
 import { useModifyPage } from '@/pages/modify/useModifyPage'
 import { useSessionStore } from '@/store/session/session.store'
 import '@/features/generation-config/generation-config.css'
+import '@/features/modification/modification-modal.css'
+import { useMemo } from 'react'
 
 export function ModifyPage() {
   const sessionId = useSessionStore((state) => state.sessionId)
@@ -22,16 +28,34 @@ export function ModifyPage() {
   const {
     applyMaskToAll,
     applyPromptToAll,
+    applyDatasetSelectionTemplate,
+    applyDatasetTextTemplate,
+    applyPromptTemplate,
+    applyPolygonTemplate,
     areaConfirmed,
     areaPoints,
+    canMigrateLocalTemplates,
     closeReview,
+    clearSourceSelection,
     configQuery,
+    createDatasetPolygonTemplate,
+    createDatasetSelectionTemplate,
+    createDatasetTextTemplate,
+    datasetPolygonTemplates,
+    datasetSelectionTemplates,
+    datasetTextTemplates,
+    deleteDatasetPolygonTemplate,
+    deleteDatasetSelectionTemplate,
+    deleteDatasetTextTemplate,
     errorMessage,
     fieldValues,
+    focusSource,
     isModificationActive,
     isModificationModalOpen,
     isReviewOpen,
+    launchMode,
     logs,
+    migrateDatasetTemplates,
     modificationMode,
     moveSource,
     moveToClassifier,
@@ -39,28 +63,43 @@ export function ModifyPage() {
     priorityFields,
     reviewPendingCount,
     saveReviewToDataset,
+    savePromptTemplate,
+    selectAllSources,
     samPromptValue,
+    selectionPromptTemplates,
     selectedSourceCount,
     selectedSourceIds,
     secondaryFields,
+    deletePromptTemplate,
     setApplyMaskToAll,
     setApplyPromptToAll,
     setAreaConfirmed,
     setErrorMessage,
     setIsModificationModalOpen,
+    setLaunchMode,
     setModificationMode,
     setSession,
     source,
     sourceIndex,
     sourceItems,
     sourceQuery,
+    startBatchFromPlanner,
     submitForm,
     totalTargetCount,
+    textPromptTemplates,
     toggleSourceSelection,
     updateAreaPoints,
     updateFieldValue,
     updatePromptValue,
   } = useModifyPage({ form })
+
+  const sourceLabelById = useMemo(
+    () =>
+      Object.fromEntries(
+        sourceItems.map((item, index) => [item.assetId, `${item.className} #${index + 1}`]),
+      ),
+    [sourceItems],
+  )
 
   return (
     <>
@@ -68,19 +107,43 @@ export function ModifyPage() {
         title="Модификация"
       >
         <section className="info-card">
+          <div className="modify-launch-toggle" role="tablist" aria-label="Режим запуска модификации">
+            <button
+              aria-selected={launchMode === 'single'}
+              className={`modify-launch-toggle__option${launchMode === 'single' ? ' modify-launch-toggle__option--active' : ''}`}
+              onClick={() => setLaunchMode('single')}
+              role="tab"
+              type="button"
+            >
+              <strong>Картиночная</strong>
+              <span>Одна текущая картинка</span>
+            </button>
+            <button
+              aria-selected={launchMode === 'batch'}
+              className={`modify-launch-toggle__option${launchMode === 'batch' ? ' modify-launch-toggle__option--active' : ''}`}
+              onClick={() => setLaunchMode('batch')}
+              role="tab"
+              type="button"
+            >
+              <strong>Батчевая</strong>
+              <span>Несколько источников за запуск</span>
+            </button>
+          </div>
           <p className="info-card__text">
-            Редактор модификации теперь открывается как отдельное модальное окно без прокрутки по странице.
+            {launchMode === 'batch'
+              ? 'Пакетный режим позволяет выбрать несколько approved-источников и применить к ним общий или индивидуальный контур.'
+              : 'Картиночный режим запускает модификацию только для текущего изображения, без мультивыбора источников.'}
           </p>
           <p className="info-card__text">
             После запуска задачи окно можно закрыть и следить за логами, не теряя текущий workflow.
           </p>
           <div className="modify-panel__actions">
             <Button
-              disabled={configQuery.isLoading || sourceQuery.isLoading || !source}
+              disabled={configQuery.isLoading || sourceQuery.isLoading || !source || (launchMode === 'batch' && selectedSourceCount === 0)}
               onClick={() => setIsModificationModalOpen(true)}
               type="button"
             >
-              Открыть редактор модификации
+              {launchMode === 'batch' ? 'Открыть batch-редактор' : 'Открыть редактор изображения'}
             </Button>
             {reviewPendingCount > 0 ? (
               <Button onClick={() => setSession({ workflowStage: 'review' })} type="button" variant="secondary">
@@ -96,6 +159,48 @@ export function ModifyPage() {
           selectedAdapterPath={fieldValues.lora_path ?? ''}
           sessionId={sessionId}
         />
+
+        {launchMode === 'batch' ? (
+          <BatchSourceSelector
+            currentSourceId={source?.assetId ?? null}
+            onClearSelection={clearSourceSelection}
+            onFocusSource={focusSource}
+            onOpenEditor={() => setIsModificationModalOpen(true)}
+            onSelectAll={selectAllSources}
+            onToggleSourceSelection={toggleSourceSelection}
+            selectedSourceCount={selectedSourceCount}
+            selectedSourceIds={selectedSourceIds}
+            sourceItems={sourceItems}
+          />
+        ) : null}
+
+        <DatasetTemplatePanel
+          canMigrateLocalTemplates={canMigrateLocalTemplates}
+          isMigratingTemplates={false}
+          onApplyPolygonTemplate={applyPolygonTemplate}
+          onApplySelectionTemplate={applyDatasetSelectionTemplate}
+          onApplyTextTemplate={applyDatasetTextTemplate}
+          onCreatePolygonTemplate={createDatasetPolygonTemplate}
+          onCreateSelectionTemplate={createDatasetSelectionTemplate}
+          onCreateTextTemplate={createDatasetTextTemplate}
+          onDeletePolygonTemplate={deleteDatasetPolygonTemplate}
+          onDeleteSelectionTemplate={deleteDatasetSelectionTemplate}
+          onDeleteTextTemplate={deleteDatasetTextTemplate}
+          onMigrateLocalTemplates={() => void migrateDatasetTemplates()}
+          polygonTemplates={datasetPolygonTemplates}
+          selectionTemplates={datasetSelectionTemplates}
+          textTemplates={datasetTextTemplates}
+        />
+
+        {launchMode === 'batch' ? (
+          <BatchTemplatePlanner
+            onApprovePlan={(params) => void startBatchFromPlanner(params)}
+            polygonTemplates={datasetPolygonTemplates}
+            selectedSourceIds={selectedSourceIds}
+            sourceItems={sourceItems}
+            textTemplates={datasetTextTemplates}
+          />
+        ) : null}
 
         {(configQuery.isLoading || sourceQuery.isLoading) && (
           <div className="upload-stage__loading">
@@ -117,6 +222,10 @@ export function ModifyPage() {
           logs={logs}
           title="Поток логов модификации"
         />
+
+        {launchMode === 'batch' ? (
+          <BatchProgressPanel sessionId={sessionId} sourceLabelById={sourceLabelById} />
+        ) : null}
       </PageFrame>
 
       <Modal
@@ -135,13 +244,16 @@ export function ModifyPage() {
         areaPoints={areaPoints}
         fieldValues={fieldValues}
         form={form}
+        launchMode={launchMode}
         mode={modificationMode}
         negativePromptValue={negativePromptValue}
+        onApplyTemplate={applyPromptTemplate}
         onApplyMaskToAllChange={setApplyMaskToAll}
         onApplyPromptToAllChange={setApplyPromptToAll}
         onAreaConfirm={setAreaConfirmed}
         onAreaPointsChange={updateAreaPoints}
         onClose={() => setIsModificationModalOpen(false)}
+        onDeleteTemplate={deletePromptTemplate}
         onFieldValueChange={updateFieldValue}
         onModeChange={setModificationMode}
         onOpenReview={() => setSession({ workflowStage: 'review' })}
@@ -149,6 +261,13 @@ export function ModifyPage() {
         onPolygonUndo={() => updateAreaPoints(areaPoints.slice(0, -1))}
         onPromptChange={updatePromptValue}
         onSamPromptChange={(value) => updateFieldValue('sam_prompt', value)}
+        onSaveTemplate={savePromptTemplate}
+        onSavePolygonTemplate={() => {
+          const name = window.prompt('Название шаблона полигона')
+          if (name?.trim()) {
+            createDatasetPolygonTemplate(name)
+          }
+        }}
         onSourceMove={moveSource}
         onSubmit={submitForm}
         onNegativePromptChange={(value) => updateFieldValue('negative_prompt', value)}
@@ -157,6 +276,7 @@ export function ModifyPage() {
         priorityFields={priorityFields}
         reviewPendingCount={reviewPendingCount}
         samPromptValue={samPromptValue}
+        selectionTemplates={selectionPromptTemplates}
         selectedSourceCount={selectedSourceCount}
         selectedSourceIds={selectedSourceIds}
         secondaryFields={secondaryFields}
@@ -164,6 +284,8 @@ export function ModifyPage() {
         sourceIndex={sourceIndex}
         sourceItems={sourceItems}
         startPending={isModificationActive}
+        submitLabel={launchMode === 'batch' ? 'Запустить batch-модификацию' : 'Запустить модификацию'}
+        textTemplates={textPromptTemplates}
         totalTargetCount={totalTargetCount}
       />
 

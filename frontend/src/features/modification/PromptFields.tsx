@@ -1,26 +1,41 @@
+import { Button } from '@/shared/ui/buttons/Button'
 import { UseFormReturn } from 'react-hook-form'
-import { type ModifyFormValues } from '@/pages/modify/modify.types'
+import { type ModificationLaunchMode, type ModifyFormValues, type PromptTemplate } from '@/pages/modify/modify.types'
 
 type PromptFieldsProps = {
   applyPromptToAll: boolean
+  onApplyTemplate: (template: PromptTemplate) => void
   form: UseFormReturn<ModifyFormValues>
+  launchMode: ModificationLaunchMode
   negativePromptValue: string
+  onDeleteTemplate: (templateId: string) => void
   onApplyPromptToAllChange: (value: boolean) => void
   onNegativePromptChange: (value: string) => void
   onPromptChange: (value: string) => void
   onSamPromptChange: (value: string) => void
+  onSaveTemplate: (scope: PromptTemplate['scope']) => void
   samPromptValue: string
+  selectionTemplates: PromptTemplate[]
+  sourceClassName: string
+  textTemplates: PromptTemplate[]
 }
 
 export function PromptFields({
   applyPromptToAll,
+  onApplyTemplate,
   form,
+  launchMode,
   negativePromptValue,
+  onDeleteTemplate,
   onApplyPromptToAllChange,
   onNegativePromptChange,
   onPromptChange,
   onSamPromptChange,
+  onSaveTemplate,
   samPromptValue,
+  selectionTemplates,
+  sourceClassName,
+  textTemplates,
 }: PromptFieldsProps) {
   const promptRegister = form.register('prompt', {
     required: true,
@@ -32,18 +47,46 @@ export function PromptFields({
       <label className="generation-form__group modification-prompts__field modification-prompts__field--main">
         <span className="generation-form__label modification-prompts__label-row">
           <span>Промпт модификации</span>
-          <span className="modification-prompts__checkbox">
-            <input
-              checked={applyPromptToAll}
-              onChange={(event) => onApplyPromptToAllChange(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Применить ко всем</span>
+          <span className="modification-prompts__field-actions">
+            <Button onClick={() => onSaveTemplate('text')} type="button" variant="ghost">
+              Сохранить шаблон
+            </Button>
+            {launchMode === 'batch' ? (
+            <span className="modification-prompts__checkbox">
+              <input
+                checked={applyPromptToAll}
+                onChange={(event) => onApplyPromptToAllChange(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Применить ко всем</span>
+            </span>
+            ) : null}
           </span>
         </span>
+        {textTemplates.length > 0 ? (
+          <div className="modification-prompts__template-list">
+            {textTemplates.map((template) => (
+              <div className="modification-prompts__template-chip" key={template.id}>
+                <button onClick={() => onApplyTemplate(template)} type="button">
+                  {template.name}
+                </button>
+                {template.id.startsWith('user:') ? (
+                  <button
+                    aria-label={`Удалить шаблон ${template.name}`}
+                    className="modification-prompts__template-delete"
+                    onClick={() => onDeleteTemplate(template.id)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         <textarea
           className="generation-form__textarea modification-prompts__input"
-          placeholder="Опиши, какую вариацию нужно получить на основе этого изображения."
+          placeholder={`Опиши, какую вариацию нужно получить для ${sourceClassName}. Поддерживается placeholder {className} в шаблонах.`}
           {...promptRegister}
         />
       </label>
@@ -59,7 +102,33 @@ export function PromptFields({
       </label>
 
       <label className="generation-form__group modification-prompts__field">
-        <span className="generation-form__label">SAM prompt</span>
+        <span className="generation-form__label modification-prompts__label-row">
+          <span>SAM prompt</span>
+          <Button onClick={() => onSaveTemplate('selection')} type="button" variant="ghost">
+            Сохранить шаблон
+          </Button>
+        </span>
+        {selectionTemplates.length > 0 ? (
+          <div className="modification-prompts__template-list">
+            {selectionTemplates.map((template) => (
+              <div className="modification-prompts__template-chip" key={template.id}>
+                <button onClick={() => onApplyTemplate(template)} type="button">
+                  {template.name}
+                </button>
+                {template.id.startsWith('user:') ? (
+                  <button
+                    aria-label={`Удалить шаблон ${template.name}`}
+                    className="modification-prompts__template-delete"
+                    onClick={() => onDeleteTemplate(template.id)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         <textarea
           className="generation-form__textarea modification-prompts__input"
           onChange={(event) => onSamPromptChange(event.target.value)}
