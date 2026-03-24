@@ -50,6 +50,8 @@ export function BatchSourceSelector({
 
   const allFilteredSelected =
     filteredItems.length > 0 && filteredItems.every((item) => selectedSourceIds[item.assetId] !== false)
+  const allSourcesSelected =
+    sourceItems.length > 0 && sourceItems.every((item) => selectedSourceIds[item.assetId] !== false)
 
   const handleToggleAllFiltered = () => {
     if (allFilteredSelected) {
@@ -105,7 +107,7 @@ export function BatchSourceSelector({
         </label>
         <div className="batch-source-selector__actions">
           <Button onClick={onSelectAll} type="button" variant="ghost">
-            Выбрать всё
+            {allSourcesSelected ? 'Снять всё' : 'Выбрать всё'}
           </Button>
           <Button onClick={onClearSelection} type="button" variant="ghost">
             Сбросить

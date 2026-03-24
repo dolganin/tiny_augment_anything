@@ -409,7 +409,8 @@ export function useModifyPage({ form }: UseModifyPageParams) {
   }
 
   const selectAllSources = () => {
-    setSelectedSourceIds(Object.fromEntries(sourceItems.map((item) => [item.assetId, true])))
+    const areAllSelected = sourceItems.length > 0 && sourceItems.every((item) => selectedSourceIds[item.assetId] !== false)
+    setSelectedSourceIds(Object.fromEntries(sourceItems.map((item) => [item.assetId, !areAllSelected])))
   }
 
   const clearSourceSelection = () => {
