@@ -24,6 +24,7 @@ export const endpoints = {
   cancelClassifierWeightsUpload: (sessionId: string, uploadId: string) =>
     `/sessions/${sessionId}/classifier/weights/${uploadId}`,
   diffusionLoraAdapters: (sessionId: string) => `/sessions/${sessionId}/diffusion/lora`,
+  saveDiffusionLoraName: (sessionId: string) => `/sessions/${sessionId}/diffusion/lora`,
   initDiffusionLoraUpload: (sessionId: string) => `/sessions/${sessionId}/diffusion/lora/init`,
   diffusionLoraUploadStatus: (sessionId: string, uploadId: string) =>
     `/sessions/${sessionId}/diffusion/lora/${uploadId}`,

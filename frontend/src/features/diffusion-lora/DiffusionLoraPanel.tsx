@@ -22,8 +22,13 @@ export function DiffusionLoraPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const adaptersQuery = useDiffusionLoraAdaptersQuery(sessionId)
   const [isUploading, setIsUploading] = useState(false)
+  const [isSavingName, setIsSavingName] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [draftName, setDraftName] = useState('')
+  const [pendingRename, setPendingRename] = useState<{
+    adapterPath: string
+    defaultName: string
+    value: string
+  } | null>(null)
   const selectedAdapter = useMemo(
     () => (adaptersQuery.data?.items ?? []).find((item) => item.adapterPath === selectedAdapterPath) ?? null,
     [adaptersQuery.data?.items, selectedAdapterPath],
@@ -34,11 +39,11 @@ export function DiffusionLoraPanel({
       onError('Сессия потеряна. Сначала восстанови проект, потом загрузи LoRA adapter.')
       return
     }
-    const normalizedName = draftName.trim() || file.name.replace(/\.[^.]+$/, '')
     try {
       setIsUploading(true)
       setUploadProgress(0)
-      const initialized = await workflowApi.initDiffusionLoraUpload(sessionId, file.name, file.size, normalizedName)
+      setPendingRename(null)
+      const initialized = await workflowApi.initDiffusionLoraUpload(sessionId, file.name, file.size)
       for (let partNumber = 0; partNumber < initialized.totalParts; partNumber += 1) {
         const start = partNumber * initialized.chunkSize
         const end = Math.min(file.size, start + initialized.chunkSize)
@@ -60,7 +65,11 @@ export function DiffusionLoraPanel({
       const result = await workflowApi.completeDiffusionLoraUpload(sessionId, initialized.uploadId)
       await queryClient.invalidateQueries({ queryKey: ['workflow', 'diffusion-lora-adapters', sessionId] })
       onSelectAdapter(result.adapterPath)
-      setDraftName('')
+      setPendingRename({
+        adapterPath: result.adapterPath,
+        defaultName: result.displayName,
+        value: result.displayName,
+      })
       setUploadProgress(100)
     } catch (error) {
       onError(getErrorMessage(error))
@@ -77,10 +86,23 @@ export function DiffusionLoraPanel({
     if (!file) {
       return
     }
-    if (!draftName.trim()) {
-      setDraftName(file.name.replace(/\.[^.]+$/, ''))
-    }
     void uploadLora(file)
+  }
+
+  const saveName = async () => {
+    if (!sessionId || !pendingRename) {
+      return
+    }
+    try {
+      setIsSavingName(true)
+      await workflowApi.saveDiffusionLoraName(sessionId, pendingRename.adapterPath, pendingRename.value)
+      await queryClient.invalidateQueries({ queryKey: ['workflow', 'diffusion-lora-adapters', sessionId] })
+      setPendingRename(null)
+    } catch (error) {
+      onError(getErrorMessage(error))
+    } finally {
+      setIsSavingName(false)
+    }
   }
 
   return (
@@ -90,15 +112,34 @@ export function DiffusionLoraPanel({
           <span className="generation-form__label">Имя LoRA</span>
           <input
             className="generation-form__input"
-            disabled={!sessionId || isUploading}
-            onChange={(event) => setDraftName(event.target.value)}
-            placeholder="Например, lesion-soft-v2"
+            disabled={!pendingRename || isUploading || isSavingName}
+            onChange={(event) =>
+              setPendingRename((current) => (current ? { ...current, value: event.target.value } : current))
+            }
+            placeholder="Имя станет доступно после загрузки"
             type="text"
-            value={draftName}
+            value={pendingRename?.value ?? ''}
           />
         </label>
+        {pendingRename ? (
+          <>
+            <Button disabled={isSavingName || !pendingRename.value.trim()} onClick={() => void saveName()} type="button">
+              Сохранить
+            </Button>
+            <Button
+              disabled={isSavingName}
+              onClick={() =>
+                setPendingRename((current) => (current ? { ...current, value: current.defaultName } : current))
+              }
+              type="button"
+              variant="secondary"
+            >
+              Сбросить
+            </Button>
+          </>
+        ) : null}
         <Button
-          disabled={!sessionId || isUploading}
+          disabled={!sessionId || isUploading || isSavingName}
           onClick={() => fileInputRef.current?.click()}
           type="button"
           variant="secondary"
@@ -109,7 +150,7 @@ export function DiffusionLoraPanel({
           <span className="generation-form__label">LoRA adapter</span>
           <select
             className="generation-form__input"
-            disabled={!sessionId || adaptersQuery.isLoading || isUploading}
+            disabled={!sessionId || adaptersQuery.isLoading || isUploading || isSavingName}
             onChange={(event) => onSelectAdapter(event.target.value)}
             value={selectedAdapterPath}
           >
@@ -132,6 +173,9 @@ export function DiffusionLoraPanel({
       />
 
       {isUploading ? <p className="info-card__text">Загрузка LoRA adapter: {uploadProgress}%</p> : null}
+      {!isUploading && pendingRename ? (
+        <p className="info-card__text">Загрузка завершена. Теперь задай имя адаптера и нажми «Сохранить».</p>
+      ) : null}
       {!isUploading && selectedAdapter ? (
         <p className="info-card__text">
           Выбран адаптер: {selectedAdapter.displayName} ({selectedAdapter.fileName})

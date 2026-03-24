@@ -234,16 +234,14 @@ export const workflowApi = {
     const response = await http.get(endpoints.diffusionLoraAdapters(sessionId))
     return diffusionLoraAdaptersResponseSchema.parse(response.data)
   },
-  async initDiffusionLoraUpload(
-    sessionId: string,
-    fileName: string,
-    fileSize: number,
-    displayName: string,
-    signal?: AbortSignal,
-  ) {
+  async saveDiffusionLoraName(sessionId: string, adapterPath: string, displayName: string) {
+    const response = await http.patch(endpoints.saveDiffusionLoraName(sessionId), { adapterPath, displayName })
+    return statusResponseSchema.parse(response.data)
+  },
+  async initDiffusionLoraUpload(sessionId: string, fileName: string, fileSize: number, signal?: AbortSignal) {
     const response = await http.post(
       endpoints.initDiffusionLoraUpload(sessionId),
-      { fileName, fileSize, displayName },
+      { fileName, fileSize },
       { timeout: 30_000, signal },
     )
     return uploadInitResponseSchema.parse(response.data)
