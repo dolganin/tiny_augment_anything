@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.filesystem import RuntimePaths, make_relative_path, staged_upload_dir
+from backend.app.services.filesystem import RuntimePaths, dataset_lora_dir, make_relative_path, staged_upload_dir
 from backend.app.services.upload_models import (
     ChunkUploadInit,
     ChunkUploadStatus,
@@ -42,11 +42,25 @@ def init_classifier_weights_upload(runtime_paths: RuntimePaths, file_name: str, 
     return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="weights.bin")
 
 
-def init_lora_adapter_upload(runtime_paths: RuntimePaths, file_name: str, file_size: int) -> ChunkUploadInit:
+def init_lora_adapter_upload(
+    runtime_paths: RuntimePaths,
+    file_name: str,
+    file_size: int,
+    display_name: str,
+) -> ChunkUploadInit:
     suffix = Path(file_name).suffix.lower()
     if suffix not in LORA_ADAPTER_EXTENSIONS:
         raise AppError(400, "Нужен LoRA adapter формата .bin, .ckpt, .pt, .pth или .safetensors.")
-    return _init_staged_upload(runtime_paths, file_name, file_size, staged_file_name="adapter.bin")
+    normalized_display_name = display_name.strip()
+    if not normalized_display_name:
+        raise AppError(400, "Нужно непустое имя LoRA adapter.")
+    return _init_staged_upload(
+        runtime_paths,
+        file_name,
+        file_size,
+        staged_file_name="adapter.bin",
+        extra_meta={"display_name": normalized_display_name},
+    )
 
 
 def complete_classifier_weights_upload(
@@ -96,7 +110,7 @@ def complete_classifier_weights_upload(
 def complete_lora_adapter_upload(
     runtime_paths: RuntimePaths,
     runtime_root: Path,
-    session_id: UUID,
+    dataset_id: UUID,
     upload_id: UUID,
 ) -> CompletedLoraAdapterUpload:
     upload_dir = staged_upload_dir(runtime_paths, upload_id)
@@ -110,7 +124,8 @@ def complete_lora_adapter_upload(
     if int(meta["next_part"]) != int(meta["total_parts"]):
         raise AppError(400, "Файл LoRA adapter ещё не загружен полностью.")
     file_name = str(meta["file_name"])
-    target_dir = runtime_paths.temp / "diffusion-lora" / str(session_id)
+    display_name = str(meta.get("display_name") or Path(file_name).stem).strip()
+    target_dir = dataset_lora_dir(runtime_paths, dataset_id)
     target_dir.mkdir(parents=True, exist_ok=True)
     file_hash = sha256_file(adapter_path)
     target_path = target_dir / f"{file_hash}_{Path(file_name).name}"
@@ -124,17 +139,19 @@ def complete_lora_adapter_upload(
         upload_dir.rmdir()
     except OSError:
         pass
+    target_path.with_suffix(f"{target_path.suffix}.json").write_text(display_name, encoding="utf-8")
     relative_path = make_relative_path(runtime_root, target_path)
     log_event(
         logger,
         20,
         "upload.lora-adapter.complete",
         upload_id=upload_id,
-        session_id=session_id,
+        dataset_id=dataset_id,
         file_name=file_name,
+        display_name=display_name,
         adapter_path=relative_path,
     )
-    return CompletedLoraAdapterUpload(file_name=file_name, adapter_path=relative_path)
+    return CompletedLoraAdapterUpload(display_name=display_name, file_name=file_name, adapter_path=relative_path)
 
 
 def append_chunk(runtime_paths: RuntimePaths, upload_id: UUID, part_number: int, total_parts: int, payload: bytes) -> float:
@@ -205,6 +222,7 @@ def _init_staged_upload(
     file_name: str,
     file_size: int,
     *,
+    extra_meta: dict[str, int | str] | None = None,
     staged_file_name: str,
 ) -> ChunkUploadInit:
     if file_size <= 0:
@@ -215,18 +233,18 @@ def _init_staged_upload(
     archive_path = upload_dir / staged_file_name
     archive_path.write_bytes(b"")
     total_parts = max(1, (file_size + DEFAULT_CHUNK_SIZE - 1) // DEFAULT_CHUNK_SIZE)
-    write_upload_meta(
-        upload_dir / "meta.json",
-        {
-            "file_name": Path(file_name).name,
-            "file_size": file_size,
-            "chunk_size": DEFAULT_CHUNK_SIZE,
-            "total_parts": total_parts,
-            "next_part": 0,
-            "uploaded_bytes": 0,
-            "target_name": staged_file_name,
-        },
-    )
+    payload: dict[str, int | str] = {
+        "file_name": Path(file_name).name,
+        "file_size": file_size,
+        "chunk_size": DEFAULT_CHUNK_SIZE,
+        "total_parts": total_parts,
+        "next_part": 0,
+        "uploaded_bytes": 0,
+        "target_name": staged_file_name,
+    }
+    if extra_meta:
+        payload.update(extra_meta)
+    write_upload_meta(upload_dir / "meta.json", payload)
     log_event(
         logger,
         20,

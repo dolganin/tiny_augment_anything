@@ -5,23 +5,25 @@ from pathlib import Path
 from uuid import UUID
 
 from backend.app.runtime.errors import AppError
-from backend.app.services.filesystem import RuntimePaths, make_relative_path
+from backend.app.services.filesystem import RuntimePaths, dataset_lora_dir, make_relative_path
 from backend.app.services.upload_models import LoraAdapterInfo
 
 
-def list_lora_adapters(runtime_paths: RuntimePaths, runtime_root: Path, session_id: UUID) -> list[LoraAdapterInfo]:
-    target_dir = runtime_paths.temp / "diffusion-lora" / str(session_id)
+def list_lora_adapters(runtime_paths: RuntimePaths, runtime_root: Path, dataset_id: UUID) -> list[LoraAdapterInfo]:
+    target_dir = dataset_lora_dir(runtime_paths, dataset_id)
     if not target_dir.exists():
         return []
 
     items: list[LoraAdapterInfo] = []
     for candidate in sorted(target_dir.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True):
-        if not candidate.is_file():
+        if not candidate.is_file() or candidate.suffix == ".json":
             continue
         stat = candidate.stat()
+        display_name = _read_display_name(candidate)
         items.append(
             LoraAdapterInfo(
-                file_name=_display_name(candidate.name),
+                display_name=display_name,
+                file_name=_original_name(candidate.name),
                 adapter_path=make_relative_path(runtime_root, candidate),
                 size_bytes=stat.st_size,
                 updated_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
@@ -45,8 +47,17 @@ def resolve_lora_adapter_path(runtime_root: Path, raw_path: object) -> Path | No
     return candidate
 
 
-def _display_name(file_name: str) -> str:
+def _original_name(file_name: str) -> str:
     parts = file_name.split("_", 1)
     if len(parts) == 2 and len(parts[0]) == 64:
         return parts[1]
     return file_name
+
+
+def _read_display_name(candidate: Path) -> str:
+    meta_path = candidate.with_suffix(f"{candidate.suffix}.json")
+    try:
+        payload = meta_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return _original_name(candidate.name)
+    return payload or _original_name(candidate.name)

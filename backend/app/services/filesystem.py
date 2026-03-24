@@ -61,6 +61,10 @@ def dataset_exports_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
     return dataset_root_dir(paths, dataset_id) / "exports"
 
 
+def dataset_lora_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
+    return dataset_root_dir(paths, dataset_id) / "lora"
+
+
 def dataset_manifest_dir(paths: RuntimePaths, dataset_id: UUID) -> Path:
     return paths.manifests / str(dataset_id)
 

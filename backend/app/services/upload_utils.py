@@ -50,10 +50,11 @@ def remove_duplicate_classifier_weights(target_dir: Path, canonical_path: Path, 
 
 def remove_duplicate_files_by_hash(target_dir: Path, canonical_path: Path, expected_hash: str) -> None:
     for candidate in target_dir.iterdir():
-        if candidate == canonical_path or not candidate.is_file():
+        if candidate == canonical_path or not candidate.is_file() or candidate.suffix == ".json":
             continue
         try:
             if sha256_file(candidate) == expected_hash:
                 candidate.unlink(missing_ok=True)
+                candidate.with_suffix(f"{candidate.suffix}.json").unlink(missing_ok=True)
         except OSError:
             continue

@@ -4,6 +4,7 @@ from backend.app.runtime.errors import AppError
 from backend.app.runtime.logging import get_logger, log_event
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
+from backend.app.repositories.workflow_session import get_session_context
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.lora_adapters import list_lora_adapters
 from backend.app.services.sessions import parse_session_id
@@ -24,12 +25,14 @@ logger = get_logger(__name__)
 async def list_diffusion_lora_adapters(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
-    items = list_lora_adapters(runtime_state.runtime_paths, runtime_state.settings.runtime_dir, session_id)
+    dataset_id = await _require_dataset_id(runtime_state, session_id)
+    items = list_lora_adapters(runtime_state.runtime_paths, runtime_state.settings.runtime_dir, dataset_id)
     return json_response(
         200,
         {
             "items": [
                 {
+                    "displayName": item.display_name,
                     "fileName": item.file_name,
                     "adapterPath": item.adapter_path,
                     "sizeBytes": item.size_bytes,
@@ -49,19 +52,23 @@ async def init_diffusion_lora_upload(request: Request, params: dict[str, str], s
         raise AppError(400, "Некорректное тело запроса.")
     file_name = payload.get("fileName")
     file_size = payload.get("fileSize")
+    display_name = payload.get("displayName")
     if not isinstance(file_name, str) or not file_name:
         raise AppError(400, "Нужно поле fileName.")
     if not isinstance(file_size, int) or file_size <= 0:
         raise AppError(400, "Нужно положительное поле fileSize.")
+    if not isinstance(display_name, str) or not display_name.strip():
+        raise AppError(400, "Нужно непустое поле displayName.")
     log_event(
         logger,
         20,
         "api.diffusion-lora.init.requested",
         session_id=session_id,
         file_name=file_name,
+        display_name=display_name,
         file_size=file_size,
     )
-    upload = init_lora_adapter_upload(runtime_state.runtime_paths, file_name, file_size)
+    upload = init_lora_adapter_upload(runtime_state.runtime_paths, file_name, file_size, display_name)
     return json_response(200, {"uploadId": str(upload.upload_id), "chunkSize": upload.chunk_size, "totalParts": upload.total_parts})
 
 
@@ -97,14 +104,22 @@ async def upload_diffusion_lora_chunk(request: Request, params: dict[str, str], 
 async def complete_diffusion_lora_upload(request: Request, params: dict[str, str], state: object):
     runtime_state = _require_state(state)
     session_id = parse_session_id(params["session_id"])
+    dataset_id = await _require_dataset_id(runtime_state, session_id)
     upload_id = _parse_upload_id(params["upload_id"])
     result = complete_lora_adapter_upload(
         runtime_state.runtime_paths,
         runtime_state.settings.runtime_dir,
-        session_id,
+        dataset_id,
         upload_id,
     )
-    return json_response(200, {"fileName": result.file_name, "adapterPath": result.adapter_path})
+    return json_response(
+        200,
+        {
+            "displayName": result.display_name,
+            "fileName": result.file_name,
+            "adapterPath": result.adapter_path,
+        },
+    )
 
 
 async def cancel_diffusion_lora_upload(request: Request, params: dict[str, str], state: object):
@@ -119,3 +134,11 @@ def _require_state(state: object) -> RuntimeState:
     if not isinstance(state, RuntimeState):
         raise RuntimeError("Application state is not initialized")
     return state
+
+
+async def _require_dataset_id(runtime_state: RuntimeState, session_id):
+    async with runtime_state.database.connection() as connection:
+        context = await get_session_context(connection, session_id)
+    if context is None or context["dataset_id"] is None:
+        raise AppError(404, "Для сессии не найден активный датасет.")
+    return context["dataset_id"]
