@@ -154,6 +154,30 @@ CREATE TABLE IF NOT EXISTS classifier_runs (
     finished_at timestamptz NULL
 );
 
+CREATE TABLE IF NOT EXISTS modification_templates (
+    id uuid PRIMARY KEY,
+    dataset_id uuid NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    template_type text NOT NULL CHECK (template_type IN ('text', 'selection', 'polygon')),
+    name text NOT NULL,
+    prompt_text text NULL,
+    negative_prompt_text text NULL,
+    polygon_points jsonb NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    CONSTRAINT valid_text_template CHECK (
+        template_type != 'text' OR prompt_text IS NOT NULL
+    ),
+    CONSTRAINT valid_selection_template CHECK (
+        template_type != 'selection' OR prompt_text IS NOT NULL
+    ),
+    CONSTRAINT valid_polygon_template CHECK (
+        template_type != 'polygon' OR polygon_points IS NOT NULL
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_modification_templates_dataset ON modification_templates(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_modification_templates_type ON modification_templates(dataset_id, template_type);
+
 ALTER TABLE sessions
 ADD COLUMN IF NOT EXISTS selected_class_targets jsonb NOT NULL DEFAULT '{}'::jsonb;
 
