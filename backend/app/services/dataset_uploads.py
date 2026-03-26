@@ -250,6 +250,10 @@ async def extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, 
                 data = source_file.read()
             target_path.write_bytes(data)
             relative_path = make_relative_path(runtime_root, target_path)
+
+            original_filename = Path(entry.member_name).name.lower()
+            is_generated = "gen" in original_filename
+
             assets.append(
                 {
                     "id": asset_id,
@@ -258,6 +262,7 @@ async def extract_assets(connection, runtime_paths: RuntimePaths, runtime_root, 
                     "storage_path": relative_path,
                     "preview_path": relative_path,
                     "checksum": sha256(data).hexdigest(),
+                    "is_generated": is_generated,
                 }
             )
     return assets

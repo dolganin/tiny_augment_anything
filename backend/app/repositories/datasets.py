@@ -58,6 +58,7 @@ async def create_initial_version(
 async def create_assets(connection, assets: list[dict[str, Any]], version_id: UUID) -> None:
     now = datetime.now(timezone.utc)
     for asset in assets:
+        origin_type = AssetOrigin.GENERATED.value if asset.get("is_generated", False) else AssetOrigin.ORIGINAL.value
         await connection.execute(
             """
             INSERT INTO dataset_assets (
@@ -79,7 +80,7 @@ async def create_assets(connection, assets: list[dict[str, Any]], version_id: UU
                 asset["id"],
                 asset["dataset_id"],
                 asset["class_name"],
-                AssetOrigin.ORIGINAL.value,
+                origin_type,
                 asset["storage_path"],
                 asset["preview_path"],
                 asset["checksum"],
