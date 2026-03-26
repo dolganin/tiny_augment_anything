@@ -18,8 +18,11 @@ export function ClassifierTrainPage() {
   const navigate = useNavigate()
   const sessionId = useSessionStore((state) => state.sessionId)
   const classifierJobId = useSessionStore((state) => state.classifierJobId)
+  const metrics = useSessionStore((state) => state.metrics)
+  const workflowStage = useSessionStore((state) => state.workflowStage)
   const setSession = useSessionStore((state) => state.setSession)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showWarning, setShowWarning] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const classifierMutation = useStartClassifierTrainingMutation(sessionId ?? '')
   const classifierSummaryQuery = useClassifierSummaryQuery(sessionId)
@@ -37,6 +40,17 @@ export function ClassifierTrainPage() {
   useEffect(() => {
     setSession({ workflowStage: 'classifier-train' })
   }, [setSession])
+
+  useEffect(() => {
+    const hasClassifierContext =
+      Boolean(classifierJobId) ||
+      Boolean(metrics) ||
+      workflowStage === 'classifier-train' ||
+      workflowStage === 'metrics'
+    if (!hasClassifierContext) {
+      setShowWarning(true)
+    }
+  }, [classifierJobId, metrics, workflowStage])
 
   useEffect(() => {
     if (classifierJobId) {
@@ -204,6 +218,24 @@ export function ClassifierTrainPage() {
         tone="error"
       >
         <p className="upload-stage__error">{errorMessage}</p>
+      </Modal>
+
+      <Modal
+        onClose={() => navigate('/dataset/stats')}
+        open={showWarning}
+        title="Предупреждение"
+      >
+        <div className="modal__text-content">
+          <p>Нет активного контекста обучения классификатора. Вы уверены, что хотите продолжить?</p>
+        </div>
+        <div className="modal__actions">
+          <button className="button button--secondary" onClick={() => navigate('/dataset/stats')} type="button">
+            Вернуться
+          </button>
+          <button className="button button--primary" onClick={() => setShowWarning(false)} type="button">
+            Продолжить
+          </button>
+        </div>
       </Modal>
     </>
   )

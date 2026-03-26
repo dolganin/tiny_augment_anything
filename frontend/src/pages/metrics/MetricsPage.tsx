@@ -22,6 +22,7 @@ export function MetricsPage() {
   const setSession = useSessionStore((state) => state.setSession)
   const sessionId = useSessionStore((state) => state.sessionId)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showWarning, setShowWarning] = useState(false)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const taskSnapshotRef = useRef<string | null>(null)
   const metricVersionsQuery = useMetricVersionsQuery(sessionId)
@@ -31,6 +32,17 @@ export function MetricsPage() {
   useEffect(() => {
     setSession({ workflowStage: 'metrics' })
   }, [setSession])
+
+  useEffect(() => {
+    const hasMetricsContext =
+      Boolean(classifierJobId) ||
+      Boolean(metrics) ||
+      workflowStage === 'classifier-train' ||
+      workflowStage === 'metrics'
+    if (!hasMetricsContext) {
+      setShowWarning(true)
+    }
+  }, [classifierJobId, metrics, workflowStage])
 
   useEffect(() => {
     taskSnapshotRef.current = null
@@ -289,6 +301,24 @@ export function MetricsPage() {
         tone="error"
       >
         <p className="upload-stage__error">{errorMessage}</p>
+      </Modal>
+
+      <Modal
+        onClose={() => navigate('/classifier/train')}
+        open={showWarning}
+        title="Предупреждение"
+      >
+        <div className="modal__text-content">
+          <p>Нет активного контекста метрик. Вы уверены, что хотите продолжить?</p>
+        </div>
+        <div className="modal__actions">
+          <button className="button button--secondary" onClick={() => navigate('/classifier/train')} type="button">
+            Вернуться
+          </button>
+          <button className="button button--primary" onClick={() => setShowWarning(false)} type="button">
+            Продолжить
+          </button>
+        </div>
       </Modal>
     </>
   )

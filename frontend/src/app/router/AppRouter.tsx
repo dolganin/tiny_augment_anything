@@ -20,13 +20,8 @@ export function AppRouter() {
   const hasSelectedClasses = selectedClasses.length > 0
   const canModify = hasSelectedClasses
   const canReview = canModify
-  const canTrainClassifier =
-    Boolean(classifierJobId) ||
-    Boolean(metrics) ||
-    workflowStage === 'review' ||
-    workflowStage === 'classifier-train' ||
-    workflowStage === 'metrics'
-  const canShowMetrics = Boolean(classifierJobId) || Boolean(metrics) || workflowStage === 'metrics'
+  const canTrainClassifier = hasSelectedClasses
+  const canShowMetrics = hasSelectedClasses
 
   return (
     <Routes>
