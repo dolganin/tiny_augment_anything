@@ -148,6 +148,19 @@ def prepare_training_layout(
     return {"trainCount": train_count, "valCount": val_count, "classCount": len(class_names)}
 
 
+def _is_synthetic_asset(asset: dict) -> bool:
+    if asset["origin_type"] != AssetOrigin.ORIGINAL.value:
+        return True
+
+    storage_path = str(asset.get("storage_path", "")).lower()
+    preview_path = str(asset.get("preview_path", "")).lower()
+
+    storage_filename = Path(storage_path).name if storage_path else ""
+    preview_filename = Path(preview_path).name if preview_path else ""
+
+    return "gen" in storage_filename or "gen" in preview_filename
+
+
 def analyze_training_layout(
     assets: list[dict],
     *,
@@ -158,10 +171,10 @@ def analyze_training_layout(
 
     for asset in assets:
         class_name = str(asset["class_name"])
-        if asset["origin_type"] == AssetOrigin.ORIGINAL.value:
-            originals_by_class[class_name].append(asset)
-        else:
+        if _is_synthetic_asset(asset):
             synthetic_by_class[class_name].append(asset)
+        else:
+            originals_by_class[class_name].append(asset)
 
     class_names = sorted(set(originals_by_class) | set(synthetic_by_class))
     original_counts = [len(originals_by_class[class_name]) for class_name in class_names if originals_by_class[class_name]]
