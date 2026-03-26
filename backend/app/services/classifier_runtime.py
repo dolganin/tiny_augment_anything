@@ -152,11 +152,11 @@ def _is_synthetic_asset(asset: dict) -> bool:
     if asset["origin_type"] != AssetOrigin.ORIGINAL.value:
         return True
 
-    storage_path = str(asset.get("storage_path", "")).lower()
-    preview_path = str(asset.get("preview_path", "")).lower()
+    storage_path = str(asset.get("storage_path", ""))
+    preview_path = str(asset.get("preview_path", ""))
 
-    storage_filename = Path(storage_path).name if storage_path else ""
-    preview_filename = Path(preview_path).name if preview_path else ""
+    storage_filename = Path(storage_path).name.lower() if storage_path else ""
+    preview_filename = Path(preview_path).name.lower() if preview_path else ""
 
     return "gen" in storage_filename or "gen" in preview_filename
 
@@ -171,7 +171,8 @@ def analyze_training_layout(
 
     for asset in assets:
         class_name = str(asset["class_name"])
-        if _is_synthetic_asset(asset):
+        is_synthetic = _is_synthetic_asset(asset)
+        if is_synthetic:
             synthetic_by_class[class_name].append(asset)
         else:
             originals_by_class[class_name].append(asset)
