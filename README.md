@@ -1,84 +1,119 @@
-# CV-Pipeline
+# tiny_augment_anything
 
-Fine-tuning and pre-training models on ISIC-like datasets.
+Full-stack приложение для работы с датасетами изображений: импорт архива, выбор классов, генерация и модификация изображений, review результатов и обучение классификатора.
 
-## Quick Start
+## Что умеет
 
-1. Clone the repository and install dependencies
+- импортировать zip-архивы с датасетами;
+- хранить версии датасета и превью ассетов;
+- запускать single и batch модификацию изображений;
+- запускать генерацию через ML worker;
+- проводить review результатов и сохранять одобренные изображения обратно в датасет;
+- обучать классификатор на текущем датасете и показывать метрики по версиям.
+
+## Архитектура
+
+Проект состоит из четырёх основных сервисов:
+
+- `frontend` - React + Vite интерфейс;
+- `backend` - ASGI API, работа с сессиями, каталогом, задачами и review;
+- `worker` - core worker для импорта датасетов, orchestration и фоновых задач;
+- `ml-worker` - GPU worker для генерации и обучения классификатора.
+
+Инфраструктурные зависимости:
+
+- `postgres` - состояние проекта, версии датасетов, задачи, сессии;
+- `redis` - очереди задач и события.
+
+## Основной workflow
+
+Пользовательский сценарий в UI выглядит так:
+
+1. Загрузка нового архива или открытие существующего датасета.
+2. Просмотр статистики датасета и выбор классов.
+3. Переход в `/modify` для генерации или модификации изображений.
+4. Переход в `/review` для отбора результатов.
+5. Либо сохранение результатов в датасет, либо запуск обучения классификатора.
+6. Переход в `/classifier/train`, затем в `/metrics`.
+
+Актуальные frontend routes:
+
+- `/datasets`
+- `/dataset/stats`
+- `/modify`
+- `/review`
+- `/classifier/train`
+- `/metrics`
+
+## API и runtime
+
+Backend поднимает:
+
+- HTTP API для датасетов, upload, шаблонов, задач, review, classifier и metrics;
+- WebSocket stream `/ws/sessions/{session_id}/stream` для событий по сессии;
+- health endpoint `/api/health`.
+
+Core upload flow для датасета chunked:
+
+1. `POST /api/uploads/init`
+2. `PUT /api/uploads/{upload_id}/parts`
+3. `POST /api/uploads/{upload_id}/complete`
+
+Старый multipart upload endpoint удалён; актуален только chunked upload.
+
+## Быстрый старт через Docker Compose
+
+Подготовка локального конфига:
 
 ```bash
-git clone <repository-url>
-cd <repository-name>
-
-uv sync
+cp config/app.yaml.example config/app.yaml
+cp .env.example .env
+mkdir -p storage/tiny-augment
 ```
 
-Create the following directory structure in the project root (similarly for finetune):
+Запуск:
 
-
-```
-data/
-├── pretrain/
-│   ├── train/
-│   ├── val/
-│   └── weights.csv          (optional — only if using weighted sampler)
-└── fine_tune/
-    ├── train/
-    ├── val/
-    └── weights.csv          (optional — only if using weighted sampler)
-```
-
-- Images should be placed in `train/` and `val/` subfolders using ImageFolder layout  
-  (subfolders = class names or numeric labels)
-- `weights.csv` is required only when `dataloader.sampler_type: weighted`  
-  Format: one column with class indices and their sampling weights (no header)
-
-Example `weights.csv`:
-```
-0,1.0
-1,5.2
-2,0.8
-```
-
-**Note:** ImageFolder works under the hood, it means you can change dataset storage strcture, but the dataset is expected to follow a standard layout:
-
-    train_root/
-        class_0/
-        class_1/
-        ...
-    val_root/
-        class_0/
-        class_1/
-        ...
-
-In our example `train_root=data/pretrain/train` and `val_root=data/pretrain/val`.
-
-
-## Configuration & Training
-
-All parameters are controlled via Hydra configuration files.
-
-See the `configs/` directory for available options.
-
-When everything is ready:
 ```bash
-uv run do-pretrain
-```
-or
-```bash
-uv run do-finetune
+docker compose up --build
 ```
 
-**Note:** Always execute this command from the project root. The configuration uses
-relative paths to locate datasets and other resources, which are resolved
-relative to the current working directory. Running the script from elsewhere
-can lead to FileNotFoundError or incorrect data loading due to the fixed
-project directory layout.
+После старта сервисы доступны по адресам:
 
-## Runtime Storage
+- frontend: `http://localhost:5444`
+- backend API: `http://localhost:8000`
+- healthcheck: `http://localhost:8000/api/health`
 
-Application runtime data lives under `storage/`, which is intentionally ignored by git.
-Expected layout for the local Docker setup:
+## Конфигурация
+
+Основной runtime config хранится в локальном файле `config/app.yaml`, который не должен коммититься. Шаблон лежит в [config/app.yaml.example](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/config/app.yaml.example).
+
+Ключевые настройки:
+
+- `app.host`, `app.port`, `app.log_level`
+- `storage.runtime_dir`
+- `postgres.dsn`
+- `redis.dsn`
+- `executor.script_path`
+- `executor.segment_script_path`
+- `classifier.pipeline_root`
+- `classifier.uv_bin`
+
+Часть параметров может быть переопределена через env vars:
+
+- `APP_CONFIG_PATH`
+- `APP_RUNTIME_DIR`
+- `POSTGRES_DSN`
+- `REDIS_DSN`
+- `EXECUTOR_*`
+- `CLASSIFIER_*`
+
+Для `docker-compose.yml` используется [`.env.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.env.example).
+
+## Runtime storage
+
+Локальные runtime-данные живут под `storage/` и игнорируются git.
+
+Ожидаемая структура:
 
 ```text
 storage/
@@ -89,17 +124,55 @@ storage/
     └── uploads/
 ```
 
-`storage/` can become large during dataset imports, generation runs, and temporary uploads. Treat it as ephemeral local state unless you explicitly need to preserve it.
+`storage/` может быстро разрастаться из-за:
 
-## Manual Scripts
+- загруженных архивов;
+- временных run directories;
+- результатов генерации;
+- промежуточных файлов обучения.
 
-The [`scripts_for_gen/`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/scripts_for_gen) directory contains standalone utilities for manual data preparation and LoRA experiments. Backend services do not invoke these scripts automatically.
+Это локальное состояние. Перед ручной очисткой стоит убедиться, что в каталоге нет нужных данных.
 
-- `segment_evf_sam2_json.py`: segmentation via EVF-SAM2 for JSON-described datasets.
-- `segment_sam2_json.py`: segmentation via SAM2 for polygon, box, or point prompts.
-- `train.py`: LoRA training for the Z-Image pipeline.
+## Локальная разработка
 
-Examples:
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Backend runtime dependencies
+
+Минимальный runtime-набор для backend описан в [backend/requirements.runtime.txt](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/backend/requirements.runtime.txt).
+
+### ML runtime dependencies
+
+ML-часть использует зависимости из:
+
+- [pyproject.toml](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/pyproject.toml)
+- [backend/requirements.ml.txt](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/backend/requirements.ml.txt)
+
+Из-за активного merge по зависимостям lockfile стоит обновлять только после разрешения `pyproject.toml` и регенерации `uv.lock`.
+
+## Структура репозитория
+
+```text
+backend/        API, workers, repositories, services
+frontend/       React приложение
+config/         локальные и example-конфиги
+docs/           планы, архитектурные заметки и refactor docs
+scripts_for_gen/ standalone скрипты для генерации и сегментации
+src/            training pipeline и ML код классификатора
+storage/        локальные runtime-данные, не в git
+```
+
+## Manual scripts
+
+Каталог [`scripts_for_gen/`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/scripts_for_gen) содержит standalone утилиты для ручной подготовки данных и экспериментов. Backend не вызывает их напрямую как часть обычного user flow.
+
+Примеры:
 
 ```bash
 python scripts_for_gen/segment_evf_sam2_json.py --input-json data/input.json --output-json data/output.json
@@ -107,8 +180,13 @@ python scripts_for_gen/segment_sam2_json.py --input-json data/input.json --outpu
 python scripts_for_gen/train.py --config scripts_for_gen/train.yaml
 ```
 
-## Local Config
+## Tooling
 
-- Copy [`config/app.yaml.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/config/app.yaml.example) to `config/app.yaml` for local overrides.
-- Copy [`.env.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.env.example) to `.env` when running `docker-compose.yml`.
+В корне репозитория лежат стандартные project-level файлы:
 
+- [`.gitignore`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.gitignore)
+- [`.editorconfig`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.editorconfig)
+- [`.pre-commit-config.yaml`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.pre-commit-config.yaml)
+- [`.env.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.env.example)
+
+Это нормальное место для них: git, editorconfig, pre-commit и docker tooling ожидают такие файлы именно в корне проекта.
