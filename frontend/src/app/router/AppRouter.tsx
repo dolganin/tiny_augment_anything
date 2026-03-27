@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { ClassifierTrainPage } from '@/pages/classifier-train/ClassifierTrainPage'
 import { DatasetStatsPage } from '@/pages/dataset-stats/DatasetStatsPage'
 import { HomePage } from '@/pages/home/HomePage'
@@ -28,7 +28,6 @@ export function AppRouter() {
       <Route element={<ProtectedRoute canAccess={true} redirectTo="/datasets" />}>
         <Route index element={<HomePage />} />
         <Route path="/datasets" element={<HomePage />} />
-        <Route path="/upload" element={<Navigate replace to="/datasets" />} />
       </Route>
 
       <Route element={<ProtectedRoute canAccess={hasDataset} redirectTo="/datasets" />}>

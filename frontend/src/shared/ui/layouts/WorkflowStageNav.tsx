@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { datasetWorkflowStages, workflowStageLabels, workflowStagePaths, type WorkflowStage } from '@/shared/types/workflow'
 import { useSessionStore } from '@/store/session/session.store'
 
-const hiddenPaths = new Set(['/', '/datasets', '/upload'])
+const hiddenPaths = new Set(['/', '/datasets'])
 
 export function WorkflowStageNav() {
   const location = useLocation()

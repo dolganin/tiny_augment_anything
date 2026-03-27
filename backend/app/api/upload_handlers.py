@@ -6,10 +6,8 @@ from backend.app.domain.enums import TaskType
 from backend.app.repositories.tasks import create_task
 from backend.app.runtime.errors import AppError
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.runtime.multipart import parse_multipart
 from backend.app.runtime.request import Request
 from backend.app.runtime.response import json_response
-from backend.app.repositories.workflow_session import get_session_context
 from backend.app.services.bootstrap import RuntimeState
 from backend.app.services.queue import enqueue_core_task
 from backend.app.services.sessions import parse_session_id
@@ -26,48 +24,6 @@ from backend.app.services.uploads import (
 
 
 logger = get_logger(__name__)
-
-
-async def upload_dataset(request: Request, params: dict[str, str], state: object):
-    runtime_state = _require_state(state)
-    content_type = request.headers.get("content-type", "")
-    files = parse_multipart(request.body, content_type)
-    upload_file = next((item for item in files if item.field_name == "file"), files[0])
-    async with runtime_state.database.connection() as connection:
-        result = await prepare_dataset_upload(
-            connection=connection,
-            runtime_paths=runtime_state.runtime_paths,
-            runtime_root=runtime_state.settings.runtime_dir,
-            file_name=upload_file.file_name,
-            file_bytes=upload_file.data,
-        )
-        task = await create_task(
-            connection,
-            session_id=result.session_id,
-            task_type=TaskType.IMPORT,
-            payload={
-                "datasetId": str(result.dataset_id),
-                "versionId": str(result.version_id),
-                "archivePath": result.archive_path,
-            },
-            dataset_version_id=None,
-        )
-    await enqueue_core_task(
-        runtime_state.redis,
-        runtime_state.settings,
-        {"taskId": task["jobId"], "sessionId": str(result.session_id), "taskType": TaskType.IMPORT.value},
-    )
-    return json_response(
-        200,
-        {
-            "sessionId": str(result.session_id),
-            "datasetId": str(result.dataset_id),
-            "datasetName": result.dataset_name,
-            "jobId": task["jobId"],
-            "status": task["status"],
-            "error": None,
-        },
-    )
 
 
 async def init_dataset_upload(request: Request, params: dict[str, str], state: object):

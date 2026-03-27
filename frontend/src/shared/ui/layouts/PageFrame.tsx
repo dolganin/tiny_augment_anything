@@ -14,7 +14,7 @@ export function PageFrame({ title, description, aside, children }: PageFrameProp
   const location = useLocation()
   const datasetId = useSessionStore((state) => state.datasetId)
   const datasetName = useSessionStore((state) => state.datasetName)
-  const showDatasetBanner = Boolean(datasetId) && !['/', '/datasets', '/upload'].includes(location.pathname)
+  const showDatasetBanner = Boolean(datasetId) && !['/', '/datasets'].includes(location.pathname)
 
   return (
     <AppShell>

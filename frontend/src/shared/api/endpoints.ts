@@ -12,7 +12,6 @@ export const endpoints = {
     `/uploads/${uploadId}/parts?partNumber=${partNumber}&totalParts=${totalParts}`,
   completeUpload: (uploadId: string) => `/uploads/${uploadId}/complete`,
   cancelUpload: (uploadId: string) => `/uploads/${uploadId}`,
-  uploadDataset: '/sessions/upload',
   restoreSession: (sessionId: string) => `/sessions/${sessionId}`,
   initClassifierWeightsUpload: (sessionId: string) => `/sessions/${sessionId}/classifier/weights/init`,
   classifierWeightsUploadStatus: (sessionId: string, uploadId: string) =>

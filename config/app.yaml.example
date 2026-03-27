@@ -1,0 +1,29 @@
+app:
+  host: 0.0.0.0
+  port: 8000
+  log_level: INFO
+
+storage:
+  runtime_dir: /big_data/augment_anything
+
+postgres:
+  dsn: ${POSTGRES_DSN:-postgresql://user:password@localhost:5432/dbname}
+
+redis:
+  dsn: ${REDIS_DSN:-redis://localhost:6379/0}
+  core_queue_name: tiny_augment:tasks:core
+  ml_queue_name: tiny_augment:tasks:ml
+  events_prefix: tiny_augment:events
+
+executor:
+  mode: zimage_json
+  python_bin: python
+  default_device: cuda:0
+  script_path: ../scripts_for_gen/generate_zimage_json.py
+  segment_script_path: ../scripts_for_gen/segment_sam2_json.py
+  segment_model_id: facebook/sam2.1-hiera-small
+
+classifier:
+  pipeline_root: ..
+  uv_bin: uv
+  val_ratio: 0.2

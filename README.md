@@ -75,4 +75,40 @@ relative to the current working directory. Running the script from elsewhere
 can lead to FileNotFoundError or incorrect data loading due to the fixed
 project directory layout.
 
+## Runtime Storage
+
+Application runtime data lives under `storage/`, which is intentionally ignored by git.
+Expected layout for the local Docker setup:
+
+```text
+storage/
+└── tiny-augment/
+    ├── datasets/
+    ├── sessions/
+    ├── temp/
+    └── uploads/
+```
+
+`storage/` can become large during dataset imports, generation runs, and temporary uploads. Treat it as ephemeral local state unless you explicitly need to preserve it.
+
+## Manual Scripts
+
+The [`scripts_for_gen/`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/scripts_for_gen) directory contains standalone utilities for manual data preparation and LoRA experiments. Backend services do not invoke these scripts automatically.
+
+- `segment_evf_sam2_json.py`: segmentation via EVF-SAM2 for JSON-described datasets.
+- `segment_sam2_json.py`: segmentation via SAM2 for polygon, box, or point prompts.
+- `train.py`: LoRA training for the Z-Image pipeline.
+
+Examples:
+
+```bash
+python scripts_for_gen/segment_evf_sam2_json.py --input-json data/input.json --output-json data/output.json
+python scripts_for_gen/segment_sam2_json.py --input-json data/input.json --output-json data/output.json
+python scripts_for_gen/train.py --config scripts_for_gen/train.yaml
+```
+
+## Local Config
+
+- Copy [`config/app.yaml.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/config/app.yaml.example) to `config/app.yaml` for local overrides.
+- Copy [`.env.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.env.example) to `.env` when running `docker-compose.yml`.
 
