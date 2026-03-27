@@ -11,7 +11,7 @@
 Клонирование репозитория:
 
 ```bash
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/dolganin/tiny_augment_anything.git)
 cd tiny_augment_anything
 ```
 
