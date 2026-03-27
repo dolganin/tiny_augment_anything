@@ -85,6 +85,4 @@ python scripts_for_gen/train.py --config scripts_for_gen/train.yaml
 
 ## Пример результата
 
-Ниже пример пары изображений и промптов, с которыми работает пайплайн при генерации и последующем review качества:
-
 ![Пример результата генерации](docs/readme-assets/result-example.jpg)
