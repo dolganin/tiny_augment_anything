@@ -16,7 +16,7 @@ async def build_dataset_catalog(connection) -> list[dict]:
     result: list[dict] = []
     for item in items:
         recent_tasks = await list_recent_tasks_for_session(connection, item["session_id"], 3)
-        preview_paths = await list_dataset_preview_paths(connection, item["dataset_id"], 3)
+        preview_paths = item.get("preview_paths") or await list_dataset_preview_paths(connection, item["dataset_id"], 3)
         result.append(
             {
                 "datasetId": str(item["dataset_id"]),

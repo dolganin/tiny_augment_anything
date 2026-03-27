@@ -75,8 +75,10 @@ class Trainer:
     def _save_checkpoint(self) -> None:
         """
         Saves a PyTorch checkpoint of the model, optimizer, scheduler, and
-        best validation loss, and logs it as an MLflow artifact.
+        best validation loss. Only metrics are logged to MLflow to save space.
         """
+        for old_checkpoint in self.ckpt_dir.glob("best_epoch_*.pth"):
+            old_checkpoint.unlink()
 
         checkpoint = {
             "epoch": self.current_epoch + 1,
@@ -89,13 +91,12 @@ class Trainer:
         path = self.ckpt_dir / f"best_epoch_{self.current_epoch}.pth"
 
         torch.save(checkpoint, path)
-        mlflow.log_artifact(local_path=str(path), artifact_path="model_checkpoints")
+
         metrics_path = self.ckpt_dir / "best_metrics.json"
         metrics_path.write_text(
             json.dumps(self.best_metrics, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        mlflow.log_artifact(local_path=str(metrics_path), artifact_path="model_checkpoints")
 
     def load_checkpoint(self, checkpoint_path: str | Path | None = None) -> None:
         """

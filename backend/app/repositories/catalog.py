@@ -18,7 +18,8 @@ async def list_datasets(connection) -> list[dict[str, Any]]:
                 s.current_mode,
                 s.current_dataset_version_id,
                 COALESCE(v.version_index, 1) AS version_index,
-                COALESCE((v.summary ->> 'assetCount')::int, 0) AS asset_count
+                COALESCE((v.summary ->> 'assetCount')::int, 0) AS asset_count,
+                v.summary -> 'previewPaths' AS preview_paths
             FROM datasets d
             JOIN sessions s ON s.dataset_id = d.id
             LEFT JOIN dataset_versions v ON v.id = s.current_dataset_version_id
@@ -54,7 +55,7 @@ async def list_dataset_preview_paths(connection, dataset_id: UUID, limit: int) -
               AND s.current_dataset_version_id IS NOT NULL
               AND a.approved_in_version_id = s.current_dataset_version_id
               AND a.deleted_at IS NULL
-            ORDER BY random()
+            ORDER BY a.id
             LIMIT %s
             """,
             (dataset_id, limit),

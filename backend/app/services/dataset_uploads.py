@@ -188,6 +188,7 @@ async def import_prepared_dataset(
     manifest_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = manifest_dir / "v1.json"
     class_stats = class_stats_from_assets(assets)
+    preview_paths = [asset["preview_path"] for asset in assets[:3]]
     manifest_path.write_text(
         json.dumps(
             {
@@ -208,7 +209,7 @@ async def import_prepared_dataset(
         version_id=version_id,
         dataset_id=dataset_id,
         manifest_path=make_relative_path(runtime_root, manifest_path),
-        summary={"classes": class_stats, "assetCount": len(assets)},
+        summary={"classes": class_stats, "assetCount": len(assets), "previewPaths": preview_paths},
     )
     await create_assets(connection, assets, version_id)
     await finalize_import_session(connection, session_id, version_id)
