@@ -2,6 +2,84 @@
 
 Full-stack приложение для работы с датасетами изображений: импорт архива, выбор классов, генерация и модификация изображений, review результатов и обучение классификатора.
 
+## Что это
+
+`tiny_augment_anything` - рабочее приложение для сборки и расширения image dataset'ов через полуавтоматический augmentation pipeline.
+
+![Tiny Augment Anything header](docs/readme-assets/header.jpg)
+
+Проект объединяет в одном интерфейсе несколько этапов:
+
+- загрузку и хранение датасетов;
+- выбор рабочих классов;
+- генерацию и модификацию изображений;
+- отбор результатов;
+- дообучение классификатора на обновлённом датасете;
+- просмотр метрик по версиям датасета.
+
+Идея проекта в том, чтобы не разносить dataset management, diffusion workflow, review и classifier training по разным скриптам и временным ноутбукам, а держать весь цикл в одной системе с сохранением состояния, задач и артефактов.
+
+## Установка и запуск
+
+Базовый локальный сценарий рассчитан на запуск через Docker Compose.
+
+Подготовка:
+
+```bash
+cp config/app.yaml.example config/app.yaml
+cp .env.example .env
+mkdir -p storage/tiny-augment
+```
+
+Запуск всех сервисов:
+
+```bash
+docker compose up --build
+```
+
+После запуска:
+
+- frontend будет доступен на `http://localhost:5444`;
+- backend API будет доступен на `http://localhost:8000`;
+- healthcheck backend: `http://localhost:8000/api/health`.
+
+Если нужен локальный runtime config, основой служит `config/app.yaml.example`, а рабочий файл должен лежать в `config/app.yaml`.
+
+## Пайплайн работы
+
+Обычный пользовательский сценарий выглядит так:
+
+1. Создать новый проект через загрузку zip-архива с датасетом или открыть уже существующий.
+2. Посмотреть статистику датасета и выбрать классы, с которыми дальше будет работать pipeline.
+3. Перейти в режим модификации и подготовить single или batch запуск.
+4. Запустить генерацию или модификацию изображений.
+5. Перейти в review и отобрать удачные результаты.
+6. Либо сохранить результаты обратно в датасет, либо сразу передать их в обучение классификатора.
+7. Запустить обучение классификатора и затем смотреть метрики по версиям.
+
+На уровне интерфейса это соответствует маршрутам:
+
+- `/datasets`
+- `/dataset/stats`
+- `/modify`
+- `/review`
+- `/classifier/train`
+- `/metrics`
+
+![Как работает генерация](docs/readme-assets/workflow-generation.jpg)
+
+## Системные требования
+
+Минимальный practical baseline для разработки и локального запуска:
+
+- Docker и Docker Compose;
+- Node.js 20+, если запускать frontend отдельно;
+- Python 3.10+, если запускать части backend или ML-инструменты вне контейнеров;
+- PostgreSQL 16 и Redis 7, если не использовать compose;
+- NVIDIA GPU для `ml-worker`, если нужен полноценный generation/classifier workflow на локальной машине.
+
+Без GPU проект частично поднимется, но ML-сценарии будут либо недоступны, либо сильно ограничены в практической полезности.
+
 ## Что умеет
 
 - импортировать zip-архивы с датасетами;
@@ -11,7 +89,7 @@ Full-stack приложение для работы с датасетами из
 - проводить review результатов и сохранять одобренные изображения обратно в датасет;
 - обучать классификатор на текущем датасете и показывать метрики по версиям.
 
-## Архитектура
+## Как устроен проект
 
 Проект состоит из четырёх основных сервисов:
 
@@ -25,63 +103,7 @@ Full-stack приложение для работы с датасетами из
 - `postgres` - состояние проекта, версии датасетов, задачи, сессии;
 - `redis` - очереди задач и события.
 
-## Основной workflow
-
-Пользовательский сценарий в UI выглядит так:
-
-1. Загрузка нового архива или открытие существующего датасета.
-2. Просмотр статистики датасета и выбор классов.
-3. Переход в `/modify` для генерации или модификации изображений.
-4. Переход в `/review` для отбора результатов.
-5. Либо сохранение результатов в датасет, либо запуск обучения классификатора.
-6. Переход в `/classifier/train`, затем в `/metrics`.
-
-Актуальные frontend routes:
-
-- `/datasets`
-- `/dataset/stats`
-- `/modify`
-- `/review`
-- `/classifier/train`
-- `/metrics`
-
-## API и runtime
-
-Backend поднимает:
-
-- HTTP API для датасетов, upload, шаблонов, задач, review, classifier и metrics;
-- WebSocket stream `/ws/sessions/{session_id}/stream` для событий по сессии;
-- health endpoint `/api/health`.
-
-Core upload flow для датасета chunked:
-
-1. `POST /api/uploads/init`
-2. `PUT /api/uploads/{upload_id}/parts`
-3. `POST /api/uploads/{upload_id}/complete`
-
-Старый multipart upload endpoint удалён; актуален только chunked upload.
-
-## Быстрый старт через Docker Compose
-
-Подготовка локального конфига:
-
-```bash
-cp config/app.yaml.example config/app.yaml
-cp .env.example .env
-mkdir -p storage/tiny-augment
-```
-
-Запуск:
-
-```bash
-docker compose up --build
-```
-
-После старта сервисы доступны по адресам:
-
-- frontend: `http://localhost:5444`
-- backend API: `http://localhost:8000`
-- healthcheck: `http://localhost:8000/api/health`
+![Архитектура проекта](docs/readme-assets/architecture.jpg)
 
 ## Конфигурация
 
@@ -133,29 +155,6 @@ storage/
 
 Это локальное состояние. Перед ручной очисткой стоит убедиться, что в каталоге нет нужных данных.
 
-## Локальная разработка
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Backend runtime dependencies
-
-Минимальный runtime-набор для backend описан в [backend/requirements.runtime.txt](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/backend/requirements.runtime.txt).
-
-### ML runtime dependencies
-
-ML-часть использует зависимости из:
-
-- [pyproject.toml](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/pyproject.toml)
-- [backend/requirements.ml.txt](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/backend/requirements.ml.txt)
-
-Из-за активного merge по зависимостям lockfile стоит обновлять только после разрешения `pyproject.toml` и регенерации `uv.lock`.
-
 ## Структура репозитория
 
 ```text
@@ -180,13 +179,8 @@ python scripts_for_gen/segment_sam2_json.py --input-json data/input.json --outpu
 python scripts_for_gen/train.py --config scripts_for_gen/train.yaml
 ```
 
-## Tooling
+## Пример результата
 
-В корне репозитория лежат стандартные project-level файлы:
+Ниже пример пары изображений и промптов, с которыми работает пайплайн при генерации и последующем review качества:
 
-- [`.gitignore`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.gitignore)
-- [`.editorconfig`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.editorconfig)
-- [`.pre-commit-config.yaml`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.pre-commit-config.yaml)
-- [`.env.example`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/.env.example)
-
-Это нормальное место для них: git, editorconfig, pre-commit и docker tooling ожидают такие файлы именно в корне проекта.
+![Пример результата генерации](docs/readme-assets/result-example.jpg)
