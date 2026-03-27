@@ -49,16 +49,8 @@ docker compose up --build
 6. Либо сохранить отобранные результаты обратно в датасет, либо передать их в этап обучения.
 7. Запустить обучение классификатора и анализировать метрики на следующем этапе.
 
-В интерфейсе эти этапы разложены по страницам:
 
-- `/datasets`
-- `/dataset/stats`
-- `/modify`
-- `/review`
-- `/classifier/train`
-- `/metrics`
-
-![Как работает генерация](docs/readme-assets/workflow-generation.jpg)
+![Архитектура проекта](docs/readme-assets/architecture.jpg)
 
 ## Системные требования
 
@@ -88,31 +80,14 @@ docker compose up --build
 
 Диаграмма ниже показывает, как связаны frontend, backend, workers, storage и classifier pipeline:
 
-![Архитектура проекта](docs/readme-assets/architecture.jpg)
+- `/datasets`
+- `/dataset/stats`
+- `/modify`
+- `/review`
+- `/classifier/train`
+- `/metrics`
 
-## Runtime storage
-
-Локальные runtime-данные живут под `storage/` и игнорируются git.
-
-Ожидаемая структура:
-
-```text
-storage/
-└── tiny-augment/
-    ├── datasets/
-    ├── sessions/
-    ├── temp/
-    └── uploads/
-```
-
-`storage/` может быстро разрастаться из-за:
-
-- загруженных архивов;
-- временных run directories;
-- результатов генерации;
-- промежуточных файлов обучения.
-
-Это локальное состояние. Перед ручной очисткой стоит убедиться, что в каталоге нет нужных данных.
+![Как работает генерация](docs/readme-assets/workflow-generation.jpg)
 
 ## Manual scripts
 
