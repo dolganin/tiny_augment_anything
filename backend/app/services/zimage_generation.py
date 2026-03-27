@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+from backend.app.services.config_utils import as_bool, as_float
 from backend.app.services.diffusion_runtime import WarmedDiffusionRuntime
 
 
@@ -132,22 +133,6 @@ def as_int(value: object, default: int) -> int:
     if isinstance(value, str) and value:
         return int(float(value))
     return default
-
-
-def as_float(value: object, default: float) -> float:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str) and value:
-        return float(value)
-    return default
-
-
-def as_bool(value: object) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return False
 
 
 def _resolve_mask_candidates(warmed, rec: dict[str, Any], base_dir: Path, use_all_masks: bool) -> list[Path]:

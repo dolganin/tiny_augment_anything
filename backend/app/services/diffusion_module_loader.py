@@ -7,6 +7,7 @@ from types import ModuleType
 from typing import cast
 
 from backend.app.config.settings import Settings
+from backend.app.services.config_utils import as_float, as_offload
 from backend.app.services.diffusion_runtime_types import GenerateModule, SegmentModule
 
 
@@ -37,19 +38,3 @@ def load_module(script_path: Path) -> ModuleType:
     spec.loader.exec_module(module)
     _module_cache[resolved_path] = module
     return module
-
-
-def as_float(value: object, default: float) -> float:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str) and value:
-        return float(value)
-    return float(default)
-
-
-def as_offload(value: object) -> str:
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"none", "model", "sequential"}:
-            return normalized
-    return "none"

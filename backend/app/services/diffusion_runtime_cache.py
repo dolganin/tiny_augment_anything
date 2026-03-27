@@ -5,7 +5,8 @@ from pathlib import Path
 
 from backend.app.config.settings import Settings
 from backend.app.runtime.logging import get_logger, log_event
-from backend.app.services.diffusion_module_loader import as_float, as_offload, load_generate_module
+from backend.app.services.config_utils import as_float, as_offload
+from backend.app.services.diffusion_module_loader import load_generate_module
 from backend.app.services.diffusion_runtime_types import DiffusionRuntimeKey, WarmedDiffusionRuntime, wrap_generator
 
 
