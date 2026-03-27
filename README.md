@@ -73,7 +73,7 @@ docker compose up --build
 
 ## Manual scripts
 
-Каталог [`scripts_for_gen/`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/scripts_for_gen) содержит standalone утилиты для ручной подготовки данных и экспериментов. Backend не вызывает их напрямую как часть обычного user flow.
+Каталог [`scripts_for_gen/`](/workspace_0/code/YSDA/ML_spring/tiny_augment_anything/scripts_for_gen) содержит утилиты для ручной подготовки данных и экспериментов, бэкенд их просто вызывает по имени с помощью subprocess.
 
 Примеры:
 
