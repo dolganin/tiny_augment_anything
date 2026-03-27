@@ -63,7 +63,7 @@ docker compose up --build
 - PostgreSQL 16 и Redis 7, если не использовать compose;
 - NVIDIA GPU и CUDA-compatible container runtime, если нужен полноценный `ml-worker`.
 
-Без GPU проект частично поднимется, но ML-сценарии будут либо недоступны, либо сильно ограничены в практической полезности.
+Без GPU **проект бессмысленен**.
 
 ## Как устроен проект
 
