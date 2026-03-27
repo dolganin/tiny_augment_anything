@@ -4,8 +4,8 @@
 
 Зафиксировать текущие расхождения между требованиями из:
 
-- `promts/BACKEND_ARCHITECTURE_PLAN.md`
-- `promts/FRONTEND_ARCHITECTURE_PLAN.md`
+- `docs/BACKEND_ARCHITECTURE_PLAN.md`
+- `docs/FRONTEND_ARCHITECTURE_PLAN.md`
 
 и реальным состоянием репозитория, а также определить безопасный порядок рефакторинга.
 
@@ -289,8 +289,8 @@ Frontend расходится с frontend-планом сильнее:
 
 Задачи:
 
-1. Обновить `promts/FRONTEND_ARCHITECTURE_PLAN.md`.
-2. Обновить `promts/BACKEND_ARCHITECTURE_PLAN.md`.
+1. Обновить `docs/FRONTEND_ARCHITECTURE_PLAN.md`.
+2. Обновить `docs/BACKEND_ARCHITECTURE_PLAN.md`.
 3. Обновить `REPOSITORY_OVERVIEW_FOR_LLM.md`.
 
 Что исправить в документах:
