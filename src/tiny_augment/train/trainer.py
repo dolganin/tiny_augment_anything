@@ -13,6 +13,16 @@ from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_
 
 torch.backends.cudnn.benchmark = True
 
+MetricsKeys = Literal[
+    "mean_loss",
+    "last_loss",
+    "precision_macro",
+    "recall_macro",
+    "f1_macro",
+    "f1_micro",
+    "accuracy",
+]
+
 
 class Trainer:
     """
@@ -22,6 +32,9 @@ class Trainer:
     ----------
     model : torch.nn.Module
         The neural network model to train or fine-tune.
+
+    criterion : torch.nn.Module
+        Loss function (criterion) used to compute the training loss.
 
     optimizer : torch.optim.Optimizer
         Optimizer used for updating model parameters during training.
@@ -39,15 +52,31 @@ class Trainer:
         The device on which to run the model (e.g., 'cuda' or 'cpu').
 
     checkpoint_path : str | Path
-        Path to save or load training checkpoints.
+        Path to save checkpoints.
 
-    compile_mode : Literal["default", "reduce-overhead", "max-autotune"], optional
+    compile_mode : Literal["default", "reduce-overhead", "max-autotune"] | None, default=None
         Mode for torch.compile optimization. If None, compilation is skipped.
+
+    monitor_metric : MetricsKeys, default=f1_macro
+        Metric to monitor for early stopping and best model saving.
+        Must be one of: "mean_loss", "last_loss", "precision_macro",
+        "recall_macro", "f1_macro", "f1_micro", "accuracy".
+
+    monitor_mode : Literal["max", "min"], default=max
+        Whether to maximize or minimize the monitored metric.
+        Use "max" for metrics like accuracy/F1, "min" for loss.
+
+    patience : int, default=10
+        Number of epochs with no improvement after which training will be stopped.
+
+    save_every_n_epochs : int, default=5
+        Save checkpoint every N epochs regardless of performance.
     """
 
     def __init__(
         self,
         model: torch.nn.Module,
+        criterion: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler.LRScheduler,
         train_loader: torch.utils.data.DataLoader,
@@ -56,26 +85,43 @@ class Trainer:
         checkpoint_path: str | Path,
         compile_mode: Literal["default", "reduce-overhead", "max-autotune"]
         | None = None,
+        monitor_metric: MetricsKeys = "f1_macro",
+        monitor_mode: Literal["max", "min"] = "max",
+        patience: int = 10,
+        save_every_n_epochs: int = 5,
     ) -> None:
         self.model = model
+        self.criterion = criterion.to(device)
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.ckpt_dir = Path(checkpoint_path)
+
         self.compile_mode = compile_mode
+        self.monitor_metric = monitor_metric
+        self.monitor_mode = monitor_mode
+        self.patience = patience
+        self.save_every_n_epochs = save_every_n_epochs
 
         self.current_epoch = 0
-        self.best_val_loss = float("inf")
-        self.best_metrics: dict[str, float] = {}
+        self.patience_counter = 0
+        self.best_metric_val = (
+            float("-inf") if self.monitor_mode == "max" else float("inf")
+        )
 
         os.makedirs(self.ckpt_dir, exist_ok=True)
 
-    def _save_checkpoint(self) -> None:
+    def _save_checkpoint(self, name: str) -> None:
         """
         Saves a PyTorch checkpoint of the model, optimizer, scheduler, and
-        best validation loss. Only metrics are logged to MLflow to save space.
+        best validation loss, and logs it as an MLflow artifact.
+
+        Parameters:
+        -----------
+        name : str
+            Name of saved checkpoint.
         """
         for old_checkpoint in self.ckpt_dir.glob("best_epoch_*.pth"):
             old_checkpoint.unlink()
@@ -85,10 +131,12 @@ class Trainer:
             "model_state_dict": self.model.state_dict(),  # type: ignore
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
-            "best_val_loss": self.best_val_loss,
+            "best_metric_val": self.best_metric_val,
+            "monitor_metric": self.monitor_metric,
+            "patience_counter": self.patience_counter,
         }
 
-        path = self.ckpt_dir / f"best_epoch_{self.current_epoch}.pth"
+        path = self.ckpt_dir / f"{name}.pth"
 
         torch.save(checkpoint, path)
 
@@ -102,10 +150,6 @@ class Trainer:
         """
         Load a full training checkpoint including model, optimizer, scheduler,
         current epoch, and best validation loss.
-
-        **Note:** This method must be called **before** starting training.
-        Calling it after training has begun may overwrite current state and
-        lead to incorrect behavior.
 
         Parameters
         ----------
@@ -124,15 +168,13 @@ class Trainer:
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         self.current_epoch = checkpoint["epoch"] + 1
-        self.best_val_loss = checkpoint["best_val_loss"]
+        self.best_metric_val = checkpoint["best_metric_val"]
+        self.monitor_metric = checkpoint["monitor_metric"]
+        self.patience_counter = checkpoint["patience_counter"]
 
     def load_model_weights(self, checkpoint_path: str | Path | None = None) -> None:
         """
         Load only the model weights from a checkpoint.
-
-        **Note:** This method must be called **before** starting training.
-        Calling it after training has begun may not correctly restore the checkpointed weights
-        relative to the current training state.
 
         Parameters
         ----------
@@ -163,7 +205,6 @@ class Trainer:
 
         if self.compile_mode is not None:
             self.model = torch.compile(self.model, mode=self.compile_mode)
-
         for epoch in range(self.current_epoch, max_epochs):
             self.current_epoch = epoch
 
@@ -172,11 +213,30 @@ class Trainer:
 
             self._log_epoch_step(train_metrics, val_metrics)
 
-            if val_metrics["mean_loss"] < self.best_val_loss:
-                self.best_val_loss = val_metrics["mean_loss"]
-                self.best_metrics = {k: float(v) for k, v in val_metrics.items()}
+            current_metric = val_metrics.get(self.monitor_metric)
+            is_best = (
+                current_metric > self.best_metric_val  # type: ignore
+                if self.monitor_mode == "max"
+                else current_metric < self.best_metric_val  # type: ignore
+            )
 
-                self._save_checkpoint()
+            if is_best:
+                self.best_metric_val = current_metric
+                self.patience_counter = 0
+
+                self._save_checkpoint(f"best_epoch_{self.current_epoch + 1}")
+            else:
+                self.patience_counter += 1
+
+            if (self.current_epoch % self.save_every_n_epochs) == 0:
+                self._save_checkpoint(f"epoch_{self.current_epoch + 1}")
+
+            if (self.current_epoch + 1) == max_epochs:
+                self._save_checkpoint(f"last_checkpoint_{max_epochs}")
+
+            if self.patience_counter > self.patience:
+                self._save_checkpoint(f"early_stopping_epoch_{self.current_epoch + 1}")
+                break
 
     def _log_epoch_step(
         self, train_metrics: dict[str, float], val_metrics: dict[str, float]
@@ -196,7 +256,8 @@ class Trainer:
 
         print(
             f"Epoch {self.current_epoch + 1} | "
-            f"Val Loss: {val_metrics['mean_loss']:.4f} | "
+            f"Val mean Loss: {val_metrics['mean_loss']:.4f} | "
+            f"Val last Loss: {val_metrics['last_loss']:.4f} | "
             f"Val F1 Macro: {val_metrics['f1_macro']:.4f}"
         )
 
@@ -242,7 +303,7 @@ class Trainer:
 
                 with torch.autocast(self.device.type, dtype=torch.bfloat16):
                     logits = self.model(imgs)
-                    loss = torch.nn.functional.cross_entropy(logits, target)
+                    loss = self.criterion(logits, target)
 
                 if is_train:
                     loss.backward()
@@ -271,12 +332,13 @@ class Trainer:
         accuracy = accuracy_score(targets, pred_targets)
 
         metrics = {
-            "mean_loss": np.mean(losses),
-            "precision_macro": precision_macro,
-            "recall_macro": recall_macro,
-            "f1_macro": f1_macro,
-            "f1_micro": f1_micro,
-            "accuracy": accuracy,
+            "mean_loss": float(np.mean(losses)),
+            "last_loss": float(losses[-1]),
+            "precision_macro": float(precision_macro),
+            "recall_macro": float(recall_macro),
+            "f1_macro": float(f1_macro),
+            "f1_micro": float(f1_micro),
+            "accuracy": float(accuracy),
         }
 
         for i, f1_val in enumerate(f1_per_class):  # type: ignore
@@ -284,4 +346,10 @@ class Trainer:
             metrics[f"recall_class_{i}"] = float(recall_per_class[i])
             metrics[f"f1_class_{i}"] = float(f1_val)
 
+        if is_train:
+            metrics["current_learning_rate"] = self._get_lr()
+
         return metrics
+
+    def _get_lr(self) -> float:
+        return float(self.optimizer.param_groups[0]["lr"])

@@ -2,12 +2,16 @@ import hydra
 import mlflow
 import os
 
-from mlflow import artifacts
 from omegaconf import DictConfig
 from pathlib import Path
 
 from tiny_augment.train import Trainer
-from tiny_augment.utils import log_config, extract_mlflow_kwargs, get_device
+from tiny_augment.utils import (
+    log_config,
+    extract_mlflow_kwargs,
+    get_device,
+    extract_weights,
+)
 
 
 mlflow.set_tracking_uri(
@@ -19,17 +23,27 @@ mlflow.set_tracking_uri(
 def fine_tune(cfg: DictConfig) -> None:
     train_loader, val_loader = hydra.utils.call(cfg.dataloader)
     model = hydra.utils.call(cfg.model.object)
+
     device = get_device(cfg.model.object.device_type)
 
     optimizer_init = hydra.utils.instantiate(cfg.optimizer)
     optimizer = optimizer_init(model.parameters())
 
-    total_steps = len(train_loader) * cfg.train.epochs
-    scheduler_init = hydra.utils.instantiate(cfg.scheduler, T_max=total_steps)
-    scheduler = scheduler_init(optimizer)
+    schedulers = [
+        hydra.utils.instantiate(s, optimizer=optimizer)
+        for s in cfg.scheduler.schedulers
+    ]
+
+    scheduler = hydra.utils.instantiate(
+        cfg.scheduler, optimizer=optimizer, schedulers=schedulers
+    )
+
+    sample_weights = extract_weights(train_loader)
+    criterion = hydra.utils.call(cfg.criterion, weights=sample_weights)
 
     trainer = Trainer(
         model,
+        criterion,
         optimizer,
         scheduler,
         train_loader,
@@ -39,15 +53,7 @@ def fine_tune(cfg: DictConfig) -> None:
         cfg.model.compile_mode,
     )
 
-    local_checkpoint_path = cfg.model.model_path.get("local_checkpoint_path")
-    if local_checkpoint_path:
-        trainer.load_model_weights(local_checkpoint_path)
-    elif cfg.model.model_path.mlflow_run_id and cfg.model.model_path.artifact_path:
-        model_path = artifacts.download_artifacts(
-            run_id=cfg.model.model_path.mlflow_run_id,
-            artifact_path=cfg.model.model_path.artifact_path,
-        )
-        trainer.load_model_weights(model_path)
+    trainer.load_model_weights(cfg.model.model_path)
 
     logger_kwargs = extract_mlflow_kwargs(cfg.logger)
 

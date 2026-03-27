@@ -1,0 +1,3 @@
+_target_: tiny_augment.criterion.build_criterion
+name:     cross_entropy
+weights:  null

@@ -14,16 +14,22 @@ class ISICClassifier(nn.Module):
     ----------
     backbone : str
         Name of the timm model architecture.
+
     num_classes : int
         Number of output classes.
+
     pretrained : bool, default=True
         Whether to load pretrained weights.
+
     drop_rate : float, default=0.0
         Dropout rate.
+
     drop_path_rate : float, default=0.0
         Stochastic depth rate.
+
     finetune_mode: {"all", "partial", "head"}, default=head
         Strategy for fine-tuning.
+
     trainable_prefixes : list[str] | None, default=None
         Prefixes of parameter names to keep trainable when finetune_mode is "partial".
     """
@@ -99,10 +105,10 @@ class ISICClassifier(nn.Module):
 
         Parameters
         ----------
-
         trainable_prefixes : list[str] | None
             Prefixes of parameter names to keep trainable when finetune_mode is "partial".
         """
+
         if self.finetune_mode == "all":
             return
 

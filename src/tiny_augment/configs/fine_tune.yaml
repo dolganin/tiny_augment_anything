@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - model:        EdgeNeXt_finetune
+  - criterion:    focal_loss
   - dataloader:   fine_tune
   - optimizer:    AdamW
   - scheduler:    CosineAnnealingLR

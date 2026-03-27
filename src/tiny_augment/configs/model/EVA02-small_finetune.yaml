@@ -1,20 +1,20 @@
 object:
-  _target_:           tiny_augment.model.build_model
   backbone:           eva02_small_patch14_336.mim_in22k_ft_in1k
-  num_classes:        2
-  pretrained:         true
-  finetune_mode:      partial
+  pretrained:         false
   trainable_prefixes: 
                       - head
                       - fc_norm
                       - blocks.10
                       - blocks.11
+<<<<<<< HEAD
   device_type:        cuda:0
 
 model_path:
   mlflow_run_id:      null
   artifact_path:      null
   local_checkpoint_path: null
+=======
+>>>>>>> origin/fomin-cv-pipeline
 
+model_path:           null
 pretrain_img_size:    336
-compile_mode:         reduce-overhead

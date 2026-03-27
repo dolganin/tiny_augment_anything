@@ -12,7 +12,7 @@ class WeightedDataset(Dataset):
 
     Parameters
     ----------
-    base_dataset : ISICDataset
+    base_dataset : tiny_augment.dataset.ISICDataset
         The underlying dataset containing images and labels.
 
     weights : list[float]
