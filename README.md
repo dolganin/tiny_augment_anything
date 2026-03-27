@@ -49,8 +49,9 @@ docker compose up --build
 6. Либо сохранить отобранные результаты обратно в датасет, либо передать их в этап обучения.
 7. Запустить обучение классификатора и анализировать метрики на следующем этапе.
 
+В интерфейсе workflow проходит через страницы `/datasets` → `/dataset/stats` → `/modify` → `/review` → `/classifier/train` → `/metrics`.
 
-![Архитектура проекта](docs/readme-assets/architecture.jpg)
+![Как работает генерация](docs/readme-assets/architecture.jpg)
 
 ## Системные требования
 
@@ -66,28 +67,9 @@ docker compose up --build
 
 ## Как устроен проект
 
-Система собрана из нескольких сервисов с чётким разделением ролей:
+Пользователь проходит pipeline через страницы `/datasets` → `/dataset/stats` → `/modify` → `/review` → `/classifier/train` → `/metrics`, а под капотом это поддерживается несколькими сервисами: `frontend` отвечает за интерфейс, `backend` за API и orchestration, `worker` за фоновые CPU-задачи, `ml-worker` за GPU-генерацию и обучение, `postgres` хранит состояние проекта, `redis` держит очереди и события, а `storage` содержит runtime-артефакты. Диаграмма ниже показывает, как эти части связаны между собой.
 
-- `frontend` - React + Vite интерфейс;
-- `backend` - API, сессии, каталог датасетов, шаблоны, review, orchestration;
-- `worker` - импорт архива, подготовка фоновых задач и операции без GPU;
-- `ml-worker` - генерация, модификация и classifier training на GPU;
-- `postgres` - постоянное состояние проекта;
-- `redis` - очереди задач и шина событий;
-- `storage` - runtime-артефакты, previews, временные данные, checkpoints и export.
-
-## Архитектура
-
-Диаграмма ниже показывает, как связаны frontend, backend, workers, storage и classifier pipeline:
-
-- `/datasets`
-- `/dataset/stats`
-- `/modify`
-- `/review`
-- `/classifier/train`
-- `/metrics`
-
-![Как работает генерация](docs/readme-assets/workflow-generation.jpg)
+![Архитектура проекта](docs/readme-assets/workflow-generation.jpg)
 
 ## Manual scripts
 
